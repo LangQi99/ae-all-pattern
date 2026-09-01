@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.25 - 2026-09-01
+
+- Added aggregate-pattern support for ExtendedAE and ExtendedAE Plus assembler matrices, including slot validation and full child-pattern publication.
+- Fixed PackagedExCrafting tables omitting recipes supported by lower table tiers.
+- Fixed tagged Extended Crafting recipes being dropped when an ingredient expanded beyond the old 32-alternative limit.
+- Added a configurable ingredient-tag expansion limit, defaulting to 1024 with a supported range of 1-2147483647, and exposed it in the config screen.
+- Unified aggregate recipe limits across server adapters, JEI, EMI, network uploads, saved libraries, and selection paging.
+
 ## 0.1.24 - 2026-09-01
 
 - Fixed aggregate provider refresh callbacks being lost when expansion ticks hit their time budget.

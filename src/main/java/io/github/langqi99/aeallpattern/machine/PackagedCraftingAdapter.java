@@ -5,6 +5,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.crafting.IPatternDetails;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
+import io.github.langqi99.aeallpattern.aggregate.AggregateInputSlot;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternKind;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternOptions;
@@ -37,7 +39,6 @@ import net.neoforged.neoforge.capabilities.Capabilities;
 /** Optional, dependency-free bridge to PackagedAuto's atomic crafting-machine protocol. */
 final class PackagedCraftingAdapter implements MachineAdapter {
     private static final ResourceLocation ID = id("aeallpattern", "packaged_crafting");
-    private static final int MAX_PATTERNS = 4096;
     private static final Map<ResourceLocation, Spec> MACHINES = machineSpecs();
     private static final Map<ResourceLocation, ResourceLocation> AGGREGATE_CATALYST_ALIASES = Map.ofEntries(
             alias("extendedcrafting", "basic_table", "packagedexcrafting", "basic_crafter"),
@@ -89,13 +90,13 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         List<RecipeHolder<?>> holders = recipes(level, recipeType);
         for (RecipeHolder<?> holder : holders.stream()
                 .sorted(Comparator.comparing(candidate -> candidate.id().toString())).toList()) {
-            if (snapshots.size() >= MAX_PATTERNS) {
+            if (snapshots.size() >= AggregatePatternData.configuredRecipeLimit()) {
                 filtered++;
                 continue;
             }
             try {
                 Recipe<?> recipe = holder.value();
-                if (spec.tier > 0 && invokeInt(recipe, "getTier") != spec.tier) {
+                if (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(recipe, "getTier"))) {
                     continue;
                 }
                 RecipeLayout layout = layout(spec, recipe);
@@ -140,7 +141,8 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         }
         try {
             RecipeHolder<?> holder = level.getRecipeManager().byKey(snapshot.recipeId()).orElse(null);
-            if (holder == null || (spec.tier > 0 && invokeInt(holder.value(), "getTier") != spec.tier)) {
+            if (holder == null
+                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(holder.value(), "getTier")))) {
                 return false;
             }
             RecipeLayout layout = layout(spec, holder.value());
@@ -216,7 +218,8 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         try {
             ResourceLocation recipeId = serverRecipeId(aggregateRecipe.recipeId());
             RecipeHolder<?> holder = level.getRecipeManager().byKey(recipeId).orElse(null);
-            if (holder == null || (spec.tier > 0 && invokeInt(holder.value(), "getTier") != spec.tier)) {
+            if (holder == null
+                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(holder.value(), "getTier")))) {
                 return null;
             }
             RecipeLayout layout = layout(spec, holder.value());
@@ -315,12 +318,10 @@ final class PackagedCraftingAdapter implements MachineAdapter {
             if (variants.length == 0) {
                 continue;
             }
-            if (variants.length > 32) {
-                throw new IllegalArgumentException("ingredient has more than 32 alternatives");
-            }
             List<ItemStack> choices = java.util.Arrays.stream(variants)
                     .map(stack -> stack.copyWithCount(Math.max(1, stack.getCount())))
                     .sorted(Comparator.comparing(PackagedCraftingAdapter::normalize))
+                    .limit(AggregateInputSlot.configuredAlternativeLimit())
                     .toList();
             alternatives.add(choices);
             positions.add(index - offset);
@@ -407,6 +408,10 @@ final class PackagedCraftingAdapter implements MachineAdapter {
 
     private static String normalize(ItemStack stack) {
         return AEItemKey.of(stack) + "*" + stack.getCount();
+    }
+
+    static boolean supportsTier(int machineTier, int recipeTier) {
+        return recipeTier <= machineTier;
     }
 
     private static Map<ResourceLocation, Spec> machineSpecs() {

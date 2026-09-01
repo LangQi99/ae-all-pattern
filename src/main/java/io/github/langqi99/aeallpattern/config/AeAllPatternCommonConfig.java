@@ -7,6 +7,8 @@ public final class AeAllPatternCommonConfig {
     public static final ModConfigSpec.IntValue LINKER_MAX_BINDING_DISTANCE;
     public static final ModConfigSpec.BooleanValue LINKER_ALLOW_CROSS_DIMENSION;
     public static final ModConfigSpec.IntValue SELECTION_DISPLAY_LIMIT;
+    public static final ModConfigSpec.IntValue AGGREGATE_RECIPE_LIMIT;
+    public static final ModConfigSpec.IntValue TAG_EXPANSION_LIMIT;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -20,6 +22,14 @@ public final class AeAllPatternCommonConfig {
         builder.pop();
         builder.push("patternSelection");
         SELECTION_DISPLAY_LIMIT = builder.defineInRange("displayLimit", 1024, 1, 16384);
+        builder.pop();
+        builder.push("aggregatePattern");
+        AGGREGATE_RECIPE_LIMIT = builder
+                .comment("Maximum number of recipes stored in a newly generated aggregate pattern.")
+                .defineInRange("recipeLimit", 16384, 1, Integer.MAX_VALUE);
+        TAG_EXPANSION_LIMIT = builder
+                .comment("Maximum number of item alternatives expanded from one recipe ingredient tag.")
+                .defineInRange("tagExpansionLimit", 1024, 1, Integer.MAX_VALUE);
         builder.pop();
         SPEC = builder.build();
     }

@@ -66,8 +66,6 @@ public final class ClientJeiAggregateScanner {
             "_factory", "_machine", "_chamber");
     /** Below this many shared leading characters a prefix match is treated as coincidence. */
     private static final int MIN_SHARED_PREFIX = 4;
-    private static final int MAX_RECIPES = AggregatePatternData.MAX_RECIPES;
-    private static final int MAX_EXPLICIT_ALTERNATIVES_PER_SLOT = AggregateInputSlot.MAX_ALTERNATIVES;
     /**
      * Building one JEI recipe layout drawable is expensive; with 900-2000 recipes a single-frame
      * scan freezes the client. Scans therefore run across ticks with a tiny budget per tick.
@@ -216,6 +214,7 @@ public final class ClientJeiAggregateScanner {
                 ? RecipeTypes.CRAFTING.getUid()
                 : RecipeTypes.STONECUTTING.getUid();
         Thread worker = new Thread(() -> {
+            int recipeLimit = AggregatePatternData.configuredRecipeLimit();
             List<AggregateRecipe> result = new ArrayList<>();
             Set<String> seen = new HashSet<>();
             int index = 0;
@@ -226,7 +225,7 @@ public final class ClientJeiAggregateScanner {
                     List<RecipeHolder<CraftingRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.CRAFTING);
                     for (RecipeHolder<CraftingRecipe> holder : recipes) {
-                        if (result.size() >= MAX_RECIPES) {
+                        if (result.size() >= recipeLimit) {
                             truncated = true;
                             break;
                         }
@@ -241,7 +240,7 @@ public final class ClientJeiAggregateScanner {
                     List<RecipeHolder<StonecutterRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.STONECUTTING);
                     for (RecipeHolder<StonecutterRecipe> holder : recipes) {
-                        if (result.size() >= MAX_RECIPES) {
+                        if (result.size() >= recipeLimit) {
                             truncated = true;
                             break;
                         }
@@ -262,7 +261,7 @@ public final class ClientJeiAggregateScanner {
             net.minecraft.client.Minecraft.getInstance().execute(() -> {
                 if (wasTruncated) {
                     show("message.aeallpattern.generator.truncated",
-                            String.valueOf(MAX_RECIPES), String.valueOf(frozen.size()));
+                            String.valueOf(recipeLimit), String.valueOf(frozen.size()));
                 }
                 upload(frozen, pos, machineKey, catalystId);
             });
@@ -378,7 +377,7 @@ public final class ClientJeiAggregateScanner {
                 continue;
             }
             unique.putIfAbsent(normalize(generic), generic);
-            if (unique.size() >= AggregateInputSlot.MAX_ALTERNATIVES) {
+            if (unique.size() >= AggregateInputSlot.configuredAlternativeLimit()) {
                 break;
             }
         }
@@ -438,6 +437,7 @@ public final class ClientJeiAggregateScanner {
         private final String machineKey;
         private final ResourceLocation catalystId;
         private final boolean chemicalOnly;
+        private final int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         private final List<AggregateRecipe> destination = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
         private int index;
@@ -470,7 +470,7 @@ public final class ClientJeiAggregateScanner {
         /** Processes recipes until the time budget is spent; true when the scan is complete. */
         boolean step() {
             long deadline = System.nanoTime() + ClientJeiAggregateScanner.SCAN_BUDGET_NANOS;
-            while (index < categoryRecipes.size() && destination.size() < MAX_RECIPES) {
+            while (index < categoryRecipes.size() && destination.size() < recipeLimit) {
                 try {
                     scanOne(categoryRecipes.get(index), index);
                 } catch (RuntimeException error) {
@@ -489,13 +489,13 @@ public final class ClientJeiAggregateScanner {
                         String.valueOf(Math.min(index, categoryRecipes.size())),
                         String.valueOf(categoryRecipes.size()));
             }
-            return index >= categoryRecipes.size() || destination.size() >= MAX_RECIPES;
+            return index >= categoryRecipes.size() || destination.size() >= recipeLimit;
         }
 
         private void finish() {
-            if (destination.size() >= MAX_RECIPES) {
+            if (destination.size() >= recipeLimit) {
                 show("message.aeallpattern.generator.truncated",
-                        String.valueOf(MAX_RECIPES), String.valueOf(destination.size()));
+                        String.valueOf(recipeLimit), String.valueOf(destination.size()));
             }
             upload(destination, pos, machineKey, catalystId);
         }
@@ -514,7 +514,7 @@ public final class ClientJeiAggregateScanner {
             boolean valid = true;
             List<IRecipeSlotView> inputViews = slots.getSlotViews(RecipeIngredientRole.INPUT);
             int alternativesPerSlot = Math.min(
-                    MAX_EXPLICIT_ALTERNATIVES_PER_SLOT,
+                    AggregateInputSlot.configuredAlternativeLimit(),
                     AggregateRecipe.MAX_TOTAL_INPUT_ALTERNATIVES / Math.max(1, inputViews.size()));
             for (IRecipeSlotView slot : inputViews) {
                 Optional<AggregateInputSlot> input = chooseInputSlot(slot, alternativesPerSlot, chemicalOnly);
@@ -767,7 +767,7 @@ public final class ClientJeiAggregateScanner {
                 .filter(stack -> stack.what() != null && stack.amount() > 0)
                 .filter(stack -> !chemicalOnly || isChemical(stack))
                 .sorted(Comparator.comparing(ClientJeiAggregateScanner::normalize))
-                .limit(AggregateInputSlot.MAX_ALTERNATIVES)
+                .limit(AggregateInputSlot.configuredAlternativeLimit())
                 .forEach(stack -> unique.putIfAbsent(normalize(stack), stack));
         if (unique.isEmpty()) {
             return Optional.empty();

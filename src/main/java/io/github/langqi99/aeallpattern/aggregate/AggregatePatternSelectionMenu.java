@@ -39,6 +39,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     private final InteractionHand hand;
     private List<Entry> entries;
     private AggregatePatternSelection selection;
+    private boolean filteredView;
 
     /** Client-side summary of one child pattern inside the aggregate. */
     public record Entry(String patternId, List<GenericStack> inputs, List<GenericStack> outputs) {
@@ -87,8 +88,9 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     }
 
     /** Client-side replacement of the visible entries after a search result arrives. */
-    public void updateEntries(List<Entry> entries) {
+    public void updateEntries(List<Entry> entries, boolean filteredView) {
         this.entries = List.copyOf(entries);
+        this.filteredView = filteredView;
     }
 
     /**
@@ -113,6 +115,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         List<Entry> filtered = AggregatePatternSearch.filter(
                 recipes, searchText, searchOutputs, Integer.MAX_VALUE);
         this.entries = List.copyOf(filtered);
+        this.filteredView = !searchText.isBlank();
         int pageCount = Math.max(1, (filtered.size() + AggregateSearchResultPayload.MAX_ENTRIES_PER_PAGE - 1)
                 / AggregateSearchResultPayload.MAX_ENTRIES_PER_PAGE);
         for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
@@ -147,9 +150,13 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     public boolean clickMenuButton(@NotNull Player player, int id) {
         AggregatePatternSelection updated;
         if (id == SELECT_ALL) {
-            updated = AggregatePatternSelection.ALL_ENABLED;
+            updated = filteredView
+                    ? selection.withEnabled(entries.stream().map(Entry::patternId).toList(), true)
+                    : AggregatePatternSelection.ALL_ENABLED;
         } else if (id == DESELECT_ALL) {
-            updated = AggregatePatternSelection.NONE_ENABLED;
+            updated = filteredView
+                    ? selection.withEnabled(entries.stream().map(Entry::patternId).toList(), false)
+                    : AggregatePatternSelection.NONE_ENABLED;
         } else if (id >= 0 && id < entries.size()) {
             updated = selection.toggled(entries.get(id).patternId());
         } else {

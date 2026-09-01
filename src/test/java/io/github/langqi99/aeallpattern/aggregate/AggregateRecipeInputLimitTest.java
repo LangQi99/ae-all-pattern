@@ -6,10 +6,11 @@ import org.junit.jupiter.api.Test;
 
 class AggregateRecipeInputLimitTest {
     @Test
-    void matchesAe2ProcessingPatternCapacity() {
+    void supportsConfiguredTagExpansionCapacity() {
         assertEquals(81, AggregateRecipe.MAX_INPUTS);
         assertEquals(27, AggregateRecipe.MAX_OUTPUTS);
-        assertEquals(32, AggregateInputSlot.MAX_ALTERNATIVES);
-        assertEquals(81 * 32, AggregateRecipe.MAX_TOTAL_INPUT_ALTERNATIVES);
+        assertEquals(Integer.MAX_VALUE, AggregateInputSlot.MAX_ALTERNATIVES);
+        assertEquals(Integer.MAX_VALUE, AggregateRecipe.MAX_TOTAL_INPUT_ALTERNATIVES);
+        assertEquals(1024, io.github.langqi99.aeallpattern.config.AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.getDefault());
     }
 }

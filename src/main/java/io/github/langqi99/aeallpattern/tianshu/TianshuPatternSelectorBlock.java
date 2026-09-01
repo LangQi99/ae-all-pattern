@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
 public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
     public static final MapCodec<TianshuPatternSelectorBlock> CODEC =
             simpleCodec(TianshuPatternSelectorBlock::new);
-    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final BooleanProperty ACTIVE = BlockStateProperties.LIT;
 
     public TianshuPatternSelectorBlock(BlockBehaviour.Properties properties) {
@@ -61,7 +61,7 @@ public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
 
     @Override
     public @NotNull BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        return defaultBlockState().setValue(FACING, context.getNearestLookingDirection().getOpposite());
     }
 
     @Override

@@ -11,6 +11,7 @@ import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRou
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.FastCraftingPlanner;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.FastPlanningWatchdog;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.TianshuFastCraftingControl;
+import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.TianshuFastPlanningPolicy;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -79,7 +80,7 @@ public abstract class TianshuCraftingCalculationMixin implements TianshuFastCraf
             long amount,
             CallbackInfoReturnable<CraftingPlan> cir) {
         CraftingRoutePolicy policy = aeallpattern$routePolicy;
-        if (policy == null) {
+        if (policy == null || !TianshuFastPlanningPolicy.supportsOutput(output)) {
             return;
         }
         if (simulation && amount == requestedAmount && aeallpattern$cachedSimulationPlan != null) {
@@ -123,4 +124,5 @@ public abstract class TianshuCraftingCalculationMixin implements TianshuFastCraf
             FastPlanningWatchdog.stop();
         }
     }
+
 }

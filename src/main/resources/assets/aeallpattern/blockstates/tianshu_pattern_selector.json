@@ -4,9 +4,13 @@
     "facing=east,lit=false": { "model": "aeallpattern:block/tianshu_pattern_selector", "y": 90 },
     "facing=south,lit=false": { "model": "aeallpattern:block/tianshu_pattern_selector", "y": 180 },
     "facing=west,lit=false": { "model": "aeallpattern:block/tianshu_pattern_selector", "y": 270 },
+    "facing=down,lit=false": { "model": "aeallpattern:block/tianshu_pattern_selector", "x": 90 },
+    "facing=up,lit=false": { "model": "aeallpattern:block/tianshu_pattern_selector", "x": 270 },
     "facing=north,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active" },
     "facing=east,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "y": 90 },
     "facing=south,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "y": 180 },
-    "facing=west,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "y": 270 }
+    "facing=west,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "y": 270 },
+    "facing=down,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "x": 90 },
+    "facing=up,lit=true": { "model": "aeallpattern:block/tianshu_pattern_selector_active", "x": 270 }
   }
 }

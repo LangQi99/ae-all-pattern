@@ -159,6 +159,18 @@ public final class CoreGameTests {
         });
     }
 
+    @GameTest(template = "empty")
+    public static void tianshuRouterSupportsVerticalFacing(GameTestHelper helper) {
+        var base = ModBlocks.TIANSHU_PATTERN_SELECTOR.get().defaultBlockState();
+        helper.assertTrue(base.setValue(TianshuPatternSelectorBlock.FACING, Direction.UP)
+                        .getValue(TianshuPatternSelectorBlock.FACING) == Direction.UP,
+                "Tianshu router rejected upward facing");
+        helper.assertTrue(base.setValue(TianshuPatternSelectorBlock.FACING, Direction.DOWN)
+                        .getValue(TianshuPatternSelectorBlock.FACING) == Direction.DOWN,
+                "Tianshu router rejected downward facing");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void byproductOrdersRequireQualificationAndPublishWarning(GameTestHelper helper) {
         BlockPos routerPos = new BlockPos(1, 1, 1);
@@ -773,6 +785,42 @@ public final class CoreGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateProcessingTagPushUsesPatternAmount(GameTestHelper helper) {
+        GenericStack oakPlanks = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.OAK_PLANKS, 3)));
+        AggregateInputSlot plankSlot = new AggregateInputSlot(
+                List.of(oakPlanks), Optional.of(ItemTags.PLANKS.location()));
+        AggregateRecipe recipe = new AggregateRecipe(
+                "processing-plank-push-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "processing_plank_push_test"),
+                AggregatePatternKind.PROCESSING,
+                List.of(oakPlanks),
+                List.of(plankSlot),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.CHEST)))),
+                1);
+        AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                helper.getLevel().getServer(),
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "processing_plank_push_test"),
+                "block.aeallpattern.processing_plank_push_test", List.of(recipe));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+
+        IPatternDetails details = AggregatePatternExpander.expand(aggregate, helper.getLevel()).getFirst();
+        IPatternDetails.IInput input = details.getInputs()[0];
+        helper.assertValueEqual(input.getMultiplier(), 3L, "tagged input amount was not retained as multiplier");
+        helper.assertValueEqual(input.getPossibleInputs()[0].amount(), 1L,
+                "tagged input candidate was not normalized to one unit");
+
+        KeyCounter holders = new KeyCounter();
+        holders.add(AEItemKey.of(Items.OAK_PLANKS), 3);
+        List<GenericStack> pushed = new ArrayList<>();
+        details.pushInputsToExternalInventory(new KeyCounter[] { holders },
+                (key, amount) -> pushed.add(new GenericStack(key, amount)));
+        helper.assertValueEqual(pushed.size(), 1, "tagged input was not pushed to the external inventory");
+        helper.assertValueEqual(pushed.getFirst().amount(), 3L, "tagged input push amount was incorrect");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void aggregateProcessingCatalystsCanBeRemoved(GameTestHelper helper) {
         GenericStack press = Objects.requireNonNull(GenericStack.fromItemStack(AEItems.CALCULATION_PROCESSOR_PRESS.stack()));
         GenericStack iron = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT)));
@@ -858,7 +906,13 @@ public final class CoreGameTests {
             if (converted != null) {
                 helper.assertValueEqual(converted.what().getType().getId().toString(), "appmek:chemical",
                         "Mekanism chemical was not converted to AppMek's AE key type");
+                helper.assertFalse(io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.TianshuFastPlanningPolicy
+                                .supportsOutput(converted.what()),
+                        "Tianshu fast planner claimed a chemical output instead of leaving it to AE2");
             }
+            helper.assertTrue(io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.TianshuFastPlanningPolicy
+                            .supportsOutput(AEItemKey.of(Items.IRON_INGOT)),
+                    "Tianshu fast planner rejected an ordinary item output");
             if (converted != null) {
                 helper.assertValueEqual(converted.amount(), 1_000L,
                         "Mekanism chemical amount changed during JEI conversion");

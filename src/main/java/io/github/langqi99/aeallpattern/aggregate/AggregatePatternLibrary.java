@@ -46,7 +46,7 @@ public final class AggregatePatternLibrary extends SavedData {
             ResourceLocation catalystId,
             String machineTranslationKey,
             List<AggregateRecipe> recipes) {
-        if (recipes.isEmpty() || recipes.size() > AggregatePatternData.MAX_RECIPES) {
+        if (recipes.isEmpty() || recipes.size() > AggregatePatternData.configuredRecipeLimit()) {
             throw new IllegalArgumentException("invalid aggregate library recipe count: " + recipes.size());
         }
         String hash = contentHash(recipes);
@@ -55,7 +55,7 @@ public final class AggregatePatternLibrary extends SavedData {
                 .findFirst()
                 .orElse(null);
         UUID id = entry == null ? UUID.randomUUID() : entry.libraryId();
-        int pageCount = (recipes.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+        int pageCount = Math.ceilDiv(recipes.size(), PAGE_SIZE);
         var storage = server.overworld().getDataStorage();
         for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
             int from = pageIndex * PAGE_SIZE;
@@ -157,8 +157,7 @@ public final class AggregatePatternLibrary extends SavedData {
             int recipeCount,
             int pageCount) {
         public Entry {
-            if (recipeCount < 1 || recipeCount > AggregatePatternData.MAX_RECIPES
-                    || pageCount < 1 || pageCount > (AggregatePatternData.MAX_RECIPES + PAGE_SIZE - 1) / PAGE_SIZE) {
+            if (recipeCount < 1 || pageCount != Math.ceilDiv(recipeCount, PAGE_SIZE)) {
                 throw new IllegalArgumentException("invalid aggregate library metadata");
             }
         }

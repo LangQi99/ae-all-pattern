@@ -50,19 +50,31 @@ class AggregatePatternSelectionTest {
     }
 
     @Test
+    void bulkChangeOnlyTouchesSuppliedPatterns() {
+        var selectedSearchResults = AggregatePatternSelection.NONE_ENABLED
+                .withEnabled(List.of("iron", "gold"), true);
+        assertTrue(selectedSearchResults.isEnabled("iron"));
+        assertTrue(selectedSearchResults.isEnabled("gold"));
+        assertFalse(selectedSearchResults.isEnabled("copper"));
+
+        var deselectedSearchResults = AggregatePatternSelection.ALL_ENABLED
+                .withEnabled(List.of("iron", "gold"), false);
+        assertFalse(deselectedSearchResults.isEnabled("iron"));
+        assertFalse(deselectedSearchResults.isEnabled("gold"));
+        assertTrue(deselectedSearchResults.isEnabled("copper"));
+    }
+
+    @Test
     void duplicateIdsAreDeduplicated() {
         var selection = new AggregatePatternSelection(false, List.of("a", "a", "b"));
         assertEquals(List.of("a", "b"), selection.ids());
     }
 
     @Test
-    void rejectsInvalidIdsAndOversizedLists() {
+    void rejectsInvalidIds() {
         assertThrows(IllegalArgumentException.class, () -> new AggregatePatternSelection(false, List.of("")));
         assertThrows(IllegalArgumentException.class,
                 () -> new AggregatePatternSelection(false, List.of("x".repeat(161))));
-        var tooMany = java.util.stream.IntStream.range(0, AggregatePatternSelection.MAX_IDS + 1)
-                .mapToObj(index -> "id" + index)
-                .toList();
-        assertThrows(IllegalArgumentException.class, () -> new AggregatePatternSelection(false, tooMany));
+        assertEquals(Integer.MAX_VALUE, AggregatePatternSelection.MAX_IDS);
     }
 }

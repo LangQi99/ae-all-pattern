@@ -1,6 +1,7 @@
 package io.github.langqi99.aeallpattern.network;
 
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.machine.MachineAdapterRegistry;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
@@ -10,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.Collections;
 import java.util.Objects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
@@ -34,6 +34,9 @@ public final class AggregateGenerationService {
         long now = player.level().getGameTime();
         UPLOADS.entrySet().removeIf(entry -> now - entry.getValue().lastUpdateTick > UPLOAD_TIMEOUT_TICKS);
         if (!validTarget(payload, player)) {
+            return;
+        }
+        if (payload.totalRecipeCount() > AggregatePatternData.configuredRecipeLimit()) {
             return;
         }
 
@@ -105,7 +108,7 @@ public final class AggregateGenerationService {
         private final String machineKey;
         private final int pageCount;
         private final int totalRecipeCount;
-        private final List<List<AggregateRecipe>> pages;
+        private final Map<Integer, List<AggregateRecipe>> pages = new HashMap<>();
         private long lastUpdateTick;
 
         private Upload(GenerateAggregatePayload first, long now) {
@@ -114,7 +117,6 @@ public final class AggregateGenerationService {
             machineKey = first.machineTranslationKey();
             pageCount = first.pageCount();
             totalRecipeCount = first.totalRecipeCount();
-            pages = new ArrayList<>(Collections.nCopies(pageCount, null));
             lastUpdateTick = now;
         }
 
@@ -131,17 +133,21 @@ public final class AggregateGenerationService {
             if (previous != null && !previous.equals(page.recipes())) {
                 return false;
             }
-            pages.set(page.pageIndex(), page.recipes());
+            pages.put(page.pageIndex(), page.recipes());
             lastUpdateTick = now;
             return true;
         }
 
         private boolean complete() {
-            return pages.stream().allMatch(Objects::nonNull);
+            return pages.size() == pageCount;
         }
 
         private List<AggregateRecipe> flatten() {
-            return pages.stream().flatMap(List::stream).toList();
+            List<AggregateRecipe> recipes = new ArrayList<>(totalRecipeCount);
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+                recipes.addAll(pages.get(pageIndex));
+            }
+            return List.copyOf(recipes);
         }
     }
 }

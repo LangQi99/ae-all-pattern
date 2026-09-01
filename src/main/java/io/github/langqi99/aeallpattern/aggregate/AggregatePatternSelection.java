@@ -3,6 +3,7 @@ package io.github.langqi99.aeallpattern.aggregate;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -18,7 +19,7 @@ import net.minecraft.network.codec.StreamCodec;
  * everything removes the component, deselecting everything is an inverted empty list.</p>
  */
 public record AggregatePatternSelection(boolean inverted, List<String> ids) {
-    public static final int MAX_IDS = 16384;
+    public static final int MAX_IDS = Integer.MAX_VALUE;
     public static final int MAX_ID_LENGTH = 160;
 
     public static final AggregatePatternSelection ALL_ENABLED = new AggregatePatternSelection(false, List.of());
@@ -80,6 +81,22 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
         return new AggregatePatternSelection(inverted, updated);
     }
 
+    /** Selection with every supplied pattern set to the same publication state. */
+    public AggregatePatternSelection withEnabled(Collection<String> patternIds, boolean enabled) {
+        LinkedHashSet<String> updated = new LinkedHashSet<>(ids);
+        for (String patternId : patternIds) {
+            if (patternId == null || patternId.isBlank() || patternId.length() > MAX_ID_LENGTH) {
+                continue;
+            }
+            if (enabled == inverted) {
+                updated.add(patternId);
+            } else {
+                updated.remove(patternId);
+            }
+        }
+        return new AggregatePatternSelection(inverted, List.copyOf(updated));
+    }
+
     private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternSelection selection) {
         buffer.writeBoolean(selection.inverted);
         buffer.writeVarInt(selection.ids.size());
@@ -94,7 +111,7 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
         if (count < 0 || count > MAX_IDS) {
             throw new IllegalArgumentException("invalid aggregate pattern selection count: " + count);
         }
-        List<String> ids = new ArrayList<>(count);
+        List<String> ids = new ArrayList<>(Math.min(count, 16384));
         for (int index = 0; index < count; index++) {
             ids.add(buffer.readUtf(MAX_ID_LENGTH));
         }

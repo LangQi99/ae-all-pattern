@@ -35,7 +35,7 @@ AE All Pattern 是面向 Applied Energistics 2 的附属模组原型。玩家先
 
 | 组件 | 基线 |
 | --- | --- |
-| AE All Pattern | 0.1.24 |
+| AE All Pattern | 0.1.25 |
 | Minecraft | 1.21.1 |
 | 加载器 | NeoForge 21.1.219+ |
 | Java | 21 |

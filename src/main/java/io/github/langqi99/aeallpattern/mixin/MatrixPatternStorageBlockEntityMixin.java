@@ -87,6 +87,9 @@ public abstract class MatrixPatternStorageBlockEntityMixin {
             Method method = ((Object) this).getClass().getDeclaredMethod("rebuildPatternCache");
             method.setAccessible(true);
             method.invoke(this);
+            Method notifyPort = ((Object) this).getClass().getDeclaredMethod("notifyPortPatternsChanged");
+            notifyPort.setAccessible(true);
+            notifyPort.invoke(this);
         } catch (ReflectiveOperationException | RuntimeException error) {
             AeAllPattern.LOGGER.debug("Could not re-run matrix pattern storage rebuild", error);
         }

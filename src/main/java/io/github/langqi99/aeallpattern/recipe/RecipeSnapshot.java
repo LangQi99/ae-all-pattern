@@ -2,6 +2,7 @@ package io.github.langqi99.aeallpattern.recipe;
 
 import java.util.Objects;
 import java.util.List;
+import io.github.langqi99.aeallpattern.aggregate.AggregateInputSlot;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -55,8 +56,9 @@ public final class RecipeSnapshot {
         }
         this.inputAlternatives = inputAlternatives.stream()
                 .map(alternatives -> {
-                    if (alternatives == null || alternatives.isEmpty() || alternatives.size() > 32) {
-                        throw new IllegalArgumentException("input must have between 1 and 32 alternatives");
+                    if (alternatives == null || alternatives.isEmpty()
+                            || alternatives.size() > AggregateInputSlot.configuredAlternativeLimit()) {
+                        throw new IllegalArgumentException("input has too many alternatives");
                     }
                     return alternatives.stream().map(stack -> requireStack(stack, "input")).toList();
                 })

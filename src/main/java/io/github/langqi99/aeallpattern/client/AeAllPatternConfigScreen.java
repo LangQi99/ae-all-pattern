@@ -49,6 +49,27 @@ public final class AeAllPatternConfigScreen {
                 .setDefaultValue(1024).setMin(1).setMax(16384)
                 .setTooltip(Component.translatable("config.aeallpattern.selection_display_limit.tooltip"))
                 .setSaveConsumer(AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT::set).build());
+
+        ConfigCategory aggregate = builder.getOrCreateCategory(
+                Component.translatable("config.aeallpattern.aggregate_pattern"));
+        aggregate.addEntry(entries.startIntField(
+                        Component.translatable("config.aeallpattern.aggregate_recipe_limit"),
+                        AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt())
+                .setDefaultValue(16384)
+                .setMin(1)
+                .setMax(Integer.MAX_VALUE)
+                .setTooltip(Component.translatable("config.aeallpattern.aggregate_recipe_limit.tooltip"))
+                .setSaveConsumer(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT::set)
+                .build());
+        aggregate.addEntry(entries.startIntField(
+                        Component.translatable("config.aeallpattern.tag_expansion_limit"),
+                        AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.getAsInt())
+                .setDefaultValue(1024)
+                .setMin(1)
+                .setMax(Integer.MAX_VALUE)
+                .setTooltip(Component.translatable("config.aeallpattern.tag_expansion_limit.tooltip"))
+                .setSaveConsumer(AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT::set)
+                .build());
         builder.setSavingRunnable(AeAllPatternCommonConfig.SPEC::save);
         return builder.build();
     }

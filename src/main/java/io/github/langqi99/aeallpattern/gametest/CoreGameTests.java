@@ -669,6 +669,72 @@ public final class CoreGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
+    public static void assemblerMatrixAcceptsAndExpandsAggregatePatterns(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("extendedae")) {
+            helper.succeed();
+            return;
+        }
+        try {
+            AggregateRecipe recipe = new AggregateRecipe(
+                    "assembler-matrix-chest",
+                    ResourceLocation.withDefaultNamespace("chest"),
+                    AggregatePatternKind.CRAFTING,
+                    List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.OAK_PLANKS, 8)))),
+                    List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.CHEST)))),
+                    1);
+            AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                    helper.getLevel().getServer(),
+                    ResourceLocation.fromNamespaceAndPath("aeallpattern", "assembler_matrix_test"),
+                    "block.aeallpattern.assembler_matrix_test", List.of(recipe));
+            ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+            aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+
+            Class<?> filterClass = Class.forName(
+                    "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern$Filter");
+            Object filter = filterClass.getConstructor(java.util.function.Supplier.class)
+                    .newInstance((java.util.function.Supplier<net.minecraft.world.level.Level>) helper::getLevel);
+            boolean accepted = (boolean) filterClass.getMethod(
+                            "allowInsert", appeng.api.inventories.InternalInventory.class,
+                            int.class, ItemStack.class)
+                    .invoke(filter, appeng.api.inventories.InternalInventory.empty(), 0, aggregate);
+            helper.assertTrue(accepted, "assembler-matrix GUI rejected an aggregate pattern");
+
+            Class<?> singletons = Class.forName("com.glodblock.github.extendedae.common.EAESingletons");
+            net.minecraft.world.level.block.Block patternBlock =
+                    (net.minecraft.world.level.block.Block) singletons.getField("ASSEMBLER_MATRIX_PATTERN").get(null);
+            Class<?> tileClass = Class.forName(
+                    "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern");
+            Object tile = tileClass.getConstructor(BlockPos.class, net.minecraft.world.level.block.state.BlockState.class)
+                    .newInstance(helper.absolutePos(new BlockPos(0, 1, 0)), patternBlock.defaultBlockState());
+            ((net.minecraft.world.level.block.entity.BlockEntity) tile).setLevel(helper.getLevel());
+            appeng.api.inventories.InternalInventory inventory =
+                    (appeng.api.inventories.InternalInventory) tileClass.getMethod("getPatternInventory").invoke(tile);
+            inventory.setItemDirect(0, aggregate);
+            tileClass.getMethod("updatePatterns").invoke(tile);
+            List<?> patterns = (List<?>) tileClass.getMethod("getAvailablePatterns").invoke(tile);
+            helper.assertValueEqual(patterns.size(), 1,
+                    "assembler matrix did not expand the aggregate child");
+            helper.assertFalse(patterns.getFirst() instanceof AggregatePatternMarkerDetails,
+                    "assembler matrix published only the aggregate marker");
+
+            if (ModList.get().isLoaded("extendedae_plus")) {
+                Class<?> plusFilterClass = Class.forName(
+                        "com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity$Filter");
+                Object plusFilter = plusFilterClass.getConstructor(java.util.function.Supplier.class)
+                        .newInstance((java.util.function.Supplier<net.minecraft.world.level.Level>) helper::getLevel);
+                boolean plusAccepted = (boolean) plusFilterClass.getMethod(
+                                "allowInsert", appeng.api.inventories.InternalInventory.class,
+                                int.class, ItemStack.class)
+                        .invoke(plusFilter, appeng.api.inventories.InternalInventory.empty(), 0, aggregate);
+                helper.assertTrue(plusAccepted, "super assembler-matrix GUI rejected an aggregate pattern");
+            }
+            helper.succeed();
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError("Assembler-matrix aggregate compatibility failed", error);
+        }
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void aggregateProcessingSplitKeepsTagCandidates(GameTestHelper helper) {
         GenericStack oakPlanks = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.OAK_PLANKS, 3)));
         AggregateInputSlot plankSlot = new AggregateInputSlot(
@@ -1143,11 +1209,12 @@ public final class CoreGameTests {
     @GameTest(template = "empty")
     public static void legacyAggregateInputAlternativesAreMigrated(GameTestHelper helper) {
         List<GenericStack> alternatives = new ArrayList<>();
-        for (int index = 0; index <= AggregateInputSlot.MAX_ALTERNATIVES; index++) {
+        int limit = AggregateInputSlot.configuredAlternativeLimit();
+        for (int index = 0; index <= limit; index++) {
             alternatives.add(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.STONE))));
         }
         AggregateInputSlot migrated = AggregateInputSlot.fromSavedData(alternatives, Optional.empty());
-        helper.assertValueEqual(migrated.alternatives().size(), AggregateInputSlot.MAX_ALTERNATIVES,
+        helper.assertValueEqual(migrated.alternatives().size(), limit,
                 "legacy aggregate alternatives were not truncated to the current limit");
         helper.succeed();
     }

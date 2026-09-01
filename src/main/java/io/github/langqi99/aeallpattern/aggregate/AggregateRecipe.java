@@ -24,7 +24,7 @@ public record AggregateRecipe(
         int processingTicks) {
     public static final int MAX_INPUTS = 81;
     public static final int MAX_OUTPUTS = 27;
-    public static final int MAX_TOTAL_INPUT_ALTERNATIVES = MAX_INPUTS * AggregateInputSlot.MAX_ALTERNATIVES;
+    public static final int MAX_TOTAL_INPUT_ALTERNATIVES = Integer.MAX_VALUE;
     private static final Codec<List<GenericStack>> INPUTS_CODEC = GenericStack.CODEC.listOf()
             .validate(inputs -> validateStacks(inputs, MAX_INPUTS, "inputs"));
     private static final Codec<List<GenericStack>> OUTPUTS_CODEC = GenericStack.CODEC.listOf()
@@ -142,7 +142,7 @@ public record AggregateRecipe(
         if (result.stream().anyMatch(java.util.Objects::isNull)) {
             throw new IllegalArgumentException("aggregate recipe input slots must be non-empty");
         }
-        int totalAlternatives = result.stream().mapToInt(slot -> slot.alternatives().size()).sum();
+        long totalAlternatives = result.stream().mapToLong(slot -> slot.alternatives().size()).sum();
         if (totalAlternatives > MAX_TOTAL_INPUT_ALTERNATIVES) {
             throw new IllegalArgumentException("aggregate recipe has too many explicit input alternatives");
         }

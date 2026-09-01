@@ -79,6 +79,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private boolean searchDirty;
     private long lastSearchAt;
     private UUID pendingRequestId;
+    private boolean searchPending;
     private final Map<Integer, List<AggregatePatternSelectionMenu.Entry>> pendingPages = new HashMap<>();
     private int pendingPageCount;
     private int scrollOffset;
@@ -231,6 +232,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
 
     private void sendSearch() {
         pendingRequestId = UUID.randomUUID();
+        searchPending = true;
         pendingPages.clear();
         pendingPageCount = 0;
         PacketDistributor.sendToServer(new AggregateSearchPayload(
@@ -253,7 +255,8 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         }
         pendingPages.clear();
         pendingPageCount = 0;
-        menu.updateEntries(flat);
+        menu.updateEntries(flat, searchBox != null && !searchBox.getValue().isBlank());
+        searchPending = false;
         scrollOffset = 0;
         clampScroll();
     }
@@ -479,7 +482,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             allButton.setMessage(Component.translatable(menu.isAllSelected()
                     ? "gui.aeallpattern.aggregate_selection.deselect_all"
                     : "gui.aeallpattern.aggregate_selection.select_all"));
-            allButton.active = !menu.entries().isEmpty();
+            allButton.active = !searchDirty && !searchPending && !menu.entries().isEmpty();
         }
     }
 

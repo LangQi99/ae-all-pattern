@@ -39,6 +39,7 @@ public record GenerateAggregatePayload(
                 || pageIndex >= pageCount
                 || totalRecipeCount < 1
                 || totalRecipeCount > io.github.langqi99.aeallpattern.aggregate.AggregatePatternData.MAX_RECIPES
+                || pageCount > totalRecipeCount
                 || recipes.isEmpty() || recipes.size() > AggregatePatternLibrary.PAGE_SIZE) {
             throw new IllegalArgumentException("invalid aggregate upload page");
         }

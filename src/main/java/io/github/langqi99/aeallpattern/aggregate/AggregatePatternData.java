@@ -3,6 +3,7 @@ package io.github.langqi99.aeallpattern.aggregate;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.langqi99.aeallpattern.config.AeAllPatternCommonConfig;
 import io.github.langqi99.aeallpattern.machine.MachineAdapter;
 import io.github.langqi99.aeallpattern.recipe.RecipeCatalog;
 import java.util.List;
@@ -19,7 +20,8 @@ public record AggregatePatternData(
         String machineTranslationKey,
         List<AggregateRecipe> recipes) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
-    public static final int MAX_RECIPES = 16384;
+    /** Absolute serialization limit. New aggregates use the configured, usually smaller limit. */
+    public static final int MAX_RECIPES = Integer.MAX_VALUE;
 
     private static final Codec<List<AggregateRecipe>> RECIPES_CODEC = AggregateRecipe.CODEC.listOf()
             .validate(recipes -> recipes.isEmpty() || recipes.size() > MAX_RECIPES
@@ -56,7 +58,10 @@ public record AggregatePatternData(
                 CURRENT_SCHEMA_VERSION,
                 adapter.id(),
                 target.getBlockState().getBlock().getDescriptionId(),
-                catalog.recipes().stream().map(AggregateRecipe::from).toList());
+                catalog.recipes().stream()
+                        .limit(configuredRecipeLimit())
+                        .map(AggregateRecipe::from)
+                        .toList());
     }
 
     public static AggregatePatternData captureJei(
@@ -65,7 +70,11 @@ public record AggregatePatternData(
                 CURRENT_SCHEMA_VERSION,
                 ResourceLocation.fromNamespaceAndPath("aeallpattern", "jei"),
                 machineTranslationKey,
-                recipes);
+                recipes.stream().limit(configuredRecipeLimit()).toList());
+    }
+
+    public static int configuredRecipeLimit() {
+        return AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt();
     }
 
     private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternData data) {
@@ -83,7 +92,7 @@ public record AggregatePatternData(
         ResourceLocation adapterId = buffer.readResourceLocation();
         String machineKey = buffer.readUtf(256);
         int count = checkedCount(buffer.readVarInt(), 1, MAX_RECIPES, "recipe");
-        List<AggregateRecipe> recipes = new ArrayList<>(count);
+        List<AggregateRecipe> recipes = new ArrayList<>(Math.min(count, 16384));
         for (int index = 0; index < count; index++) {
             recipes.add(AggregateRecipe.STREAM_CODEC.decode(buffer));
         }

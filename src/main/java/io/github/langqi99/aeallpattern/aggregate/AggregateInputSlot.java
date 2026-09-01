@@ -5,6 +5,7 @@ import appeng.api.stacks.GenericStack;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.langqi99.aeallpattern.config.AeAllPatternCommonConfig;
 
 import java.util.*;
 
@@ -21,7 +22,11 @@ import net.minecraft.world.level.Level;
 public record AggregateInputSlot(
         List<GenericStack> alternatives,
         Optional<ResourceLocation> itemTag) {
-    public static final int MAX_ALTERNATIVES = 32;
+    public static final int MAX_ALTERNATIVES = Integer.MAX_VALUE;
+
+    public static int configuredAlternativeLimit() {
+        return AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.getAsInt();
+    }
 
     private static final Codec<List<GenericStack>> ALTERNATIVES_CODEC = GenericStack.CODEC.listOf()
             .validate(AggregateInputSlot::validateAlternatives);
@@ -46,8 +51,9 @@ public record AggregateInputSlot(
 
     public static AggregateInputSlot fromSavedData(
             List<GenericStack> alternatives, Optional<ResourceLocation> itemTag) {
-        if (alternatives.size() > MAX_ALTERNATIVES) {
-            alternatives = alternatives.subList(0, MAX_ALTERNATIVES);
+        int limit = configuredAlternativeLimit();
+        if (alternatives.size() > limit) {
+            alternatives = alternatives.subList(0, limit);
         }
         return new AggregateInputSlot(alternatives, itemTag);
     }
@@ -71,7 +77,7 @@ public record AggregateInputSlot(
         tag.orElseThrow().stream()
                 .map(Holder::value)
                 .sorted(Comparator.comparing(item -> Objects.requireNonNull(registry.getKey(item)).toString()))
-                .limit(MAX_ALTERNATIVES)
+                .limit(configuredAlternativeLimit())
                 .forEach(item -> {
                     GenericStack stack = new GenericStack(AEItemKey.of(item), amount);
                     resolved.putIfAbsent(stack.what(), stack);

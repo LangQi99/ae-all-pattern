@@ -47,20 +47,21 @@ public final class EmiAggregateScanner {
                         || manager.getWorkstations(category).stream().flatMap(i -> i.getEmiStacks().stream())
                         .anyMatch(stack -> stack.isEqual(machineStack))).toList();
         if (categories.isEmpty()) return false;
+        int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         List<EmiRecipe> candidates = categories.stream().flatMap(c -> manager.getRecipes(c).stream())
-                .limit(AggregatePatternData.MAX_RECIPES * 2L).toList();
+                .limit(recipeLimit * 2L).toList();
         if (candidates.isEmpty() || !RUNNING.compareAndSet(false, true)) return false;
         var connection = minecraft.getConnection();
         if (connection == null) { RUNNING.set(false); return true; }
         ResourceLocation catalystId = BuiltInRegistries.BLOCK.getKey(block);
         CompletableFuture.runAsync(() -> buildAndSend(machinePos, catalystId, block.getDescriptionId(), candidates,
-                connection.registryAccess(), connection.getConnectionType()))
+                recipeLimit, connection.registryAccess(), connection.getConnectionType()))
                 .whenComplete((ignored, error) -> RUNNING.set(false));
         return true;
     }
 
     private static void buildAndSend(BlockPos pos, ResourceLocation catalystId, String machineName,
-            List<EmiRecipe> candidates, RegistryAccess registries, ConnectionType connectionType) {
+            List<EmiRecipe> candidates, int recipeLimit, RegistryAccess registries, ConnectionType connectionType) {
         List<AggregateRecipe> recipes = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         int rejected = 0;
@@ -80,7 +81,7 @@ public final class EmiAggregateScanner {
                 rejected++;
                 if (firstError == null) firstError = error;
             }
-            if (recipes.size() >= AggregatePatternData.MAX_RECIPES) break;
+            if (recipes.size() >= recipeLimit) break;
         }
         AeAllPattern.LOGGER.info(
                 "EMI aggregate scan {}: candidates={}, accepted={}, rejected={}, encodingFailed={}",
@@ -91,7 +92,7 @@ public final class EmiAggregateScanner {
         }
         Minecraft.getInstance().execute(() -> {
             UUID uploadId = UUID.randomUUID();
-            int pageCount = (recipes.size() + AggregatePatternLibrary.PAGE_SIZE - 1) / AggregatePatternLibrary.PAGE_SIZE;
+            int pageCount = Math.ceilDiv(recipes.size(), AggregatePatternLibrary.PAGE_SIZE);
             for (int page = 0; page < pageCount; page++) {
                 int from = page * AggregatePatternLibrary.PAGE_SIZE;
                 int to = Math.min(recipes.size(), from + AggregatePatternLibrary.PAGE_SIZE);
@@ -119,7 +120,7 @@ public final class EmiAggregateScanner {
                 .toList();
         if (recipeInputs.isEmpty() || recipeInputs.size() > AggregateRecipe.MAX_INPUTS
                 || recipe.getOutputs().isEmpty()) return Optional.empty();
-        int limit = AggregateInputSlot.MAX_ALTERNATIVES;
+        int limit = AggregateInputSlot.configuredAlternativeLimit();
         List<AggregateInputSlot> inputs = recipeInputs.stream()
                 .map(i -> input(i, limit)).flatMap(Optional::stream).toList();
         List<ScannedOutput> scannedOutputs = recipe.getOutputs().stream()

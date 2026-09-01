@@ -9,6 +9,7 @@ import dev.nolij.toomanyrecipeviewers.impl.ingredient.TMRVStack;
 import io.github.langqi99.aeallpattern.aggregate.*;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.client.ClientRecipeMachineResolver;
+import io.github.langqi99.aeallpattern.client.ClientJeiAggregateScanner;
 import io.github.langqi99.aeallpattern.network.GenerateAggregatePayload;
 import io.github.langqi99.aeallpattern.recipe.RecipeFingerprint;
 import io.netty.buffer.Unpooled;
@@ -47,8 +48,13 @@ public final class EmiAggregateScanner {
                         || manager.getWorkstations(category).stream().flatMap(i -> i.getEmiStacks().stream())
                         .anyMatch(stack -> stack.isEqual(machineStack))).toList();
         if (categories.isEmpty()) return false;
+        ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
+        ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
+                categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId);
+        if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) return false;
         int recipeLimit = AggregatePatternData.configuredRecipeLimit();
-        List<EmiRecipe> candidates = categories.stream().flatMap(c -> manager.getRecipes(c).stream())
+        List<EmiRecipe> candidates = categories.stream().filter(category -> category.getId().equals(categoryId))
+                .flatMap(c -> manager.getRecipes(c).stream())
                 .limit(recipeLimit * 2L).toList();
         if (candidates.isEmpty() || !RUNNING.compareAndSet(false, true)) return false;
         var connection = minecraft.getConnection();
@@ -161,7 +167,8 @@ public final class EmiAggregateScanner {
 
     private static Optional<AggregateInputSlot> input(EmiIngredient ingredient, int limit) {
         List<GenericStack> alternatives = ingredient.getEmiStacks().stream()
-                .map(s -> stack(s.copy().setAmount(ingredient.getAmount()))).flatMap(Optional::stream).limit(limit).toList();
+                .map(s -> stack(s.copy().setAmount(ingredient.getAmount())))
+                .flatMap(Optional::stream).limit(limit).toList();
         return alternatives.isEmpty() ? Optional.empty() : Optional.of(new AggregateInputSlot(alternatives, Optional.empty()));
     }
 

@@ -30,6 +30,18 @@ class JeiCategorySelectionTest {
     }
 
     @Test
+    void onlyOxidizingMachinesEncodeItemToChemicalRecipes() {
+        assertEquals(true, ClientJeiAggregateScanner.allowsCategory(
+                id("mekanism:chemical_oxidizer"), id("mekanism:oxidizing")));
+        assertEquals(true, ClientJeiAggregateScanner.allowsCategory(
+                id("mekanism:advanced_oxidizing_factory"), id("mekanism:oxidizing")));
+        assertEquals(false, ClientJeiAggregateScanner.allowsCategory(
+                id("mekanism:metallurgic_infuser"), id("mekanism:infusion_conversion")));
+        assertEquals(false, ClientJeiAggregateScanner.allowsCategory(
+                id("mekanism:pigment_extractor"), id("mekanism:pigment_extracting")));
+    }
+
+    @Test
     void everyMekanismFactoryMapsToItsOwnOperation() {
         var categories = List.of(
                 id("mekanism:infusion_conversion"),

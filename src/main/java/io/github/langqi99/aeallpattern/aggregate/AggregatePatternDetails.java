@@ -107,9 +107,9 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
         return 31 * definition.hashCode() + patternId.hashCode();
     }
 
-    private record AlternativeInput(GenericStack[] possibleInputs) implements IInput {
+    private record AlternativeInput(GenericStack[] possibleInputs, long multiplier) implements IInput {
             private AlternativeInput(AggregateInputSlot slot) {
-                this(slot.alternatives().toArray(GenericStack[]::new));
+                this(normalize(slot.alternatives()), slot.primary().amount());
             }
 
             @Override
@@ -119,7 +119,7 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
 
             @Override
             public long getMultiplier() {
-                return 1;
+                return multiplier;
             }
 
             @Override
@@ -135,6 +135,12 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
             @Override
             public AEKey getRemainingKey(AEKey key) {
                 return null;
+            }
+
+            private static GenericStack[] normalize(List<GenericStack> alternatives) {
+                return alternatives.stream()
+                        .map(stack -> new GenericStack(stack.what(), 1))
+                        .toArray(GenericStack[]::new);
             }
         }
 }

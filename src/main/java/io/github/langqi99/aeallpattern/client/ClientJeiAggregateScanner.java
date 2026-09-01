@@ -162,11 +162,11 @@ public final class ClientJeiAggregateScanner {
         // its own category. A native JEI category is owned by the same namespace as
         // the clicked machine, so never fall back to an unrelated category.
         IRecipeCategory<?> category = findNativeCategory(categories, catalyst);
-        if (category == null) {
+        if (category == null || !allowsCategory(
+                BuiltInRegistries.ITEM.getKey(catalyst.getItem()), category.getRecipeType().getUid())) {
             show("message.aeallpattern.generator.no_jei_recipes");
             return;
         }
-        boolean chemicalOnly = isChemicalInputMachine(catalyst);
         AggregatePatternKind kind = patternKind(category.getRecipeType().getUid());
         var machineBlock = minecraft.level.getBlockState(pos).getBlock();
         if (kind == AggregatePatternKind.CRAFTING || kind == AggregatePatternKind.STONECUTTING) {
@@ -196,8 +196,7 @@ public final class ClientJeiAggregateScanner {
                 categoryRecipes,
                 pos,
                 machineBlock.getDescriptionId(),
-                BuiltInRegistries.BLOCK.getKey(machineBlock),
-                chemicalOnly);
+                BuiltInRegistries.BLOCK.getKey(machineBlock));
         show("message.aeallpattern.generator.scan_started");
     }
 
@@ -436,7 +435,6 @@ public final class ClientJeiAggregateScanner {
         private final BlockPos pos;
         private final String machineKey;
         private final ResourceLocation catalystId;
-        private final boolean chemicalOnly;
         private final int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         private final List<AggregateRecipe> destination = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
@@ -453,8 +451,7 @@ public final class ClientJeiAggregateScanner {
                 List<?> categoryRecipes,
                 BlockPos pos,
                 String machineKey,
-                ResourceLocation catalystId,
-                boolean chemicalOnly) {
+                ResourceLocation catalystId) {
             this.runtime = runtime;
             this.category = category;
             this.emptyFocus = emptyFocus;
@@ -464,7 +461,6 @@ public final class ClientJeiAggregateScanner {
             this.pos = pos;
             this.machineKey = machineKey;
             this.catalystId = catalystId;
-            this.chemicalOnly = chemicalOnly;
         }
 
         /** Processes recipes until the time budget is spent; true when the scan is complete. */
@@ -517,10 +513,10 @@ public final class ClientJeiAggregateScanner {
                     AggregateInputSlot.configuredAlternativeLimit(),
                     AggregateRecipe.MAX_TOTAL_INPUT_ALTERNATIVES / Math.max(1, inputViews.size()));
             for (IRecipeSlotView slot : inputViews) {
-                Optional<AggregateInputSlot> input = chooseInputSlot(slot, alternativesPerSlot, chemicalOnly);
+                Optional<AggregateInputSlot> input = chooseInputSlot(slot, alternativesPerSlot);
                 if (input.isPresent()) {
                     inputSlots.add(input.orElseThrow());
-                } else if (!chemicalOnly && !slot.isEmpty()) {
+                } else if (!slot.isEmpty()) {
                     valid = false;
                     return;
                 }
@@ -607,7 +603,7 @@ public final class ClientJeiAggregateScanner {
      * the keyword of its own category: {@code advanced_infusing_factory} -> {@code infusing},
      * which only {@code mekanism:metallurgic_infusing} contains.</p>
      */
-    static ResourceLocation pickCategoryId(
+    public static ResourceLocation pickCategoryId(
             List<ResourceLocation> categoryIds, ResourceLocation catalystId) {
         if (categoryIds.isEmpty()) {
             return null;
@@ -698,7 +694,8 @@ public final class ClientJeiAggregateScanner {
         return slot.getAllIngredients()
                 .map(ClientJeiAggregateScanner::toGenericStack)
                 .flatMap(Optional::stream)
-                .filter(stack -> stack.what() != null && stack.amount() > 0).min(Comparator.comparing(ClientJeiAggregateScanner::normalize));
+                .filter(stack -> stack.what() != null && stack.amount() > 0)
+                .min(Comparator.comparing(ClientJeiAggregateScanner::normalize));
     }
 
     private static Optional<ScannedOutput> scanOutput(IRecipeSlotView slot, AggregatePatternKind kind) {
@@ -759,13 +756,12 @@ public final class ClientJeiAggregateScanner {
     }
 
     private static Optional<AggregateInputSlot> chooseInputSlot(
-            IRecipeSlotView slot, int alternativeLimit, boolean chemicalOnly) {
+            IRecipeSlotView slot, int alternativeLimit) {
         LinkedHashMap<String, GenericStack> unique = new LinkedHashMap<>();
         slot.getAllIngredients()
                 .map(ClientJeiAggregateScanner::toGenericStack)
                 .flatMap(Optional::stream)
                 .filter(stack -> stack.what() != null && stack.amount() > 0)
-                .filter(stack -> !chemicalOnly || isChemical(stack))
                 .sorted(Comparator.comparing(ClientJeiAggregateScanner::normalize))
                 .limit(AggregateInputSlot.configuredAlternativeLimit())
                 .forEach(stack -> unique.putIfAbsent(normalize(stack), stack));
@@ -785,20 +781,15 @@ public final class ClientJeiAggregateScanner {
                 Optional.empty()));
     }
 
-    private static boolean isChemicalInputMachine(ItemStack catalyst) {
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(catalyst.getItem());
-        return id.getNamespace().equals("mekanism")
-                && (id.getPath().equals("metallurgic_infuser")
-                        || id.getPath().endsWith("_infusing_factory")
-                        || id.getPath().equals("osmium_compressor")
-                        || id.getPath().equals("chemical_oxidizer")
-                        || id.getPath().endsWith("_compressing_factory")
-                        || id.getPath().endsWith("_oxidizing_factory"));
-    }
-
-    private static boolean isChemical(GenericStack stack) {
-        return stack.what().getType().getId().equals(
-                ResourceLocation.fromNamespaceAndPath("appmek", "chemical"));
+    public static boolean allowsCategory(ResourceLocation catalystId, ResourceLocation categoryId) {
+        if (!categoryId.getNamespace().equals("mekanism")) {
+            return true;
+        }
+        return switch (categoryId.getPath()) {
+            case "infusion_conversion", "pigment_extracting" -> false;
+            case "oxidizing" -> machineKeyword(catalystId.getPath()).equals("oxidizing");
+            default -> true;
+        };
     }
 
     /** Tag lookups scan the whole registry; cache by the exact item set. */

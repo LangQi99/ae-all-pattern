@@ -6,6 +6,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternMarkerDetails;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.world.level.Level;
@@ -61,6 +62,11 @@ public abstract class OverloadedProviderPatternCatalogMixin {
         aeallpattern$lastLevel = level;
         aeallpattern$lastPatterns = patterns;
         aeallpattern$lastInputs = patternInputs;
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            AggregateProviderRefreshService.track(
+                    serverLevel.getServer(), this,
+                    owner -> ((OverloadedProviderPatternCatalogMixin) owner).aeallpattern$rerunRebuild());
+        }
         patterns.removeIf(AggregatePatternMarkerDetails.class::isInstance);
 
         boolean cold = false;

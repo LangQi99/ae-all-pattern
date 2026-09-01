@@ -12,6 +12,9 @@ public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
         if (mixin.endsWith("ClientJeiAggregateScannerMixin")) {
             return loaded("emi") && loaded("toomanyrecipeviewers");
         }
+        if (mixin.contains("Ae2cs")) {
+            return loaded("ae2cs");
+        }
         if (mixin.endsWith("ECOCraftingPatternBusBlockEntityMixin")) {
             return loaded("neoecoae");
         }

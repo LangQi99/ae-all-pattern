@@ -8,6 +8,7 @@ import io.github.langqi99.aeallpattern.registry.ModItems;
 import io.github.langqi99.aeallpattern.registry.ModMenus;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternDecoder;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.recipe.RecipeIndexService;
 import io.github.langqi99.aeallpattern.network.BindingNetwork;
 import io.github.langqi99.aeallpattern.network.BindingSyncService;
@@ -43,13 +44,16 @@ public final class AeAllPattern {
         modBus.addListener(ModBlockEntities::registerCapabilities);
         modBus.addListener(BindingNetwork::register);
         NeoForge.EVENT_BUS.addListener(RecipeIndexService::addReloadListener);
+        NeoForge.EVENT_BUS.addListener(AggregateProviderRefreshService::onDatapackSync);
         NeoForge.EVENT_BUS.addListener(BindingSyncService::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(BindingSyncService::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(AggregateMetadataSyncService::onPlayerLoggedIn);
         NeoForge.EVENT_BUS.addListener(AggregateMetadataSyncService::onPlayerChangedDimension);
         NeoForge.EVENT_BUS.addListener(ModCommands::register);
-        NeoForge.EVENT_BUS.addListener(
-                (ServerTickEvent.Post event) -> AggregatePatternExpander.tickServer(event.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post event) -> {
+            AggregateProviderRefreshService.tickServer(event.getServer());
+            AggregatePatternExpander.tickServer(event.getServer());
+        });
         if (FMLEnvironment.dist == Dist.CLIENT) {
             modBus.addListener(ClientEvents::registerScreens);
             modBus.addListener(ClientEvents::registerConfigScreen);

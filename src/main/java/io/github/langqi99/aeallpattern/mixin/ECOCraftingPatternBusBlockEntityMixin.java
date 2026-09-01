@@ -5,6 +5,7 @@ import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.util.inv.AppEngInternalInventory;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
 import java.util.List;
 import net.minecraft.world.item.ItemStack;
@@ -33,6 +34,12 @@ public abstract class ECOCraftingPatternBusBlockEntityMixin {
     private void addAggregatePatterns(CallbackInfo ci) {
         var level = ((BlockEntity) (Object) this).getLevel();
         if (level == null) return;
+        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            AggregateProviderRefreshService.track(
+                    serverLevel.getServer(), this,
+                    owner -> ((ECOCraftingPatternBusBlockEntityMixin) owner)
+                            .aeallpattern$rerunUpdatePatternDetails());
+        }
         boolean cold = false;
         for (var stack : inventory) {
             var expanded = AggregatePatternExpander.expandScheduled(

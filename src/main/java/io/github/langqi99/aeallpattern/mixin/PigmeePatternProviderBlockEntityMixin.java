@@ -4,6 +4,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternMarkerDetails;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.aggregate.AggregateProviderExpansion;
 import io.github.langqi99.aeallpattern.util.Reflect;
 import java.util.List;
@@ -43,6 +44,12 @@ public abstract class PigmeePatternProviderBlockEntityMixin {
             Level level = self.getLevel();
             if (level == null) {
                 return;
+            }
+            if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                AggregateProviderRefreshService.track(
+                        serverLevel.getServer(), this,
+                        owner -> ((PigmeePatternProviderBlockEntityMixin) owner)
+                                .aeallpattern$rerunUpdatePatterns());
             }
             List<IPatternDetails> patterns = Reflect.field(self, "patterns", List.class);
             InternalInventory inventory = Reflect.field(self, "patternInventory", InternalInventory.class);

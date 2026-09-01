@@ -5,6 +5,7 @@ import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternMarkerDetails;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -40,6 +41,11 @@ public abstract class MatrixPatternStorageBlockEntityMixin {
             Level level = self.getLevel();
             if (level == null) {
                 return;
+            }
+            if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                AggregateProviderRefreshService.track(
+                        serverLevel.getServer(), this,
+                        owner -> ((MatrixPatternStorageBlockEntityMixin) owner).aeallpattern$rerunRebuild());
             }
             @SuppressWarnings("unchecked")
             List<IPatternDetails> cached = (List<IPatternDetails>) field(self, "cachedPatterns");

@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.recipe;
 
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
 import io.github.langqi99.aeallpattern.machine.MachineAdapter;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,6 +66,7 @@ public final class RecipeIndexService {
     public static synchronized void invalidate() {
         GENERATION.incrementAndGet();
         CACHE.clear();
+        AggregatePatternExpander.clearCaches();
     }
 
     private static final class ManagerCache {

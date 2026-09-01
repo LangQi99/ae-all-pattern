@@ -11,6 +11,8 @@
     "TianshuCraftingCalculationMixin",
     "CraftingServiceSecondaryOutputMixin",
     "PatternProviderLogicMixin",
+    "Ae2csMirrorPatternProviderLogicMixin",
+    "Ae2csIntegratedInterfaceLogicMixin",
     "compat.useless.AdvancedAlloyFurnaceAeManagerMixin",
     "PackagedAutoPackagingProviderBlockEntityMixin",
     "PackagedAutoPackagingProviderItemHandlerMixin",

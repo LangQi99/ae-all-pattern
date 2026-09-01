@@ -77,7 +77,6 @@ public final class AggregatePatternExpander {
      */
     private static final long SCHEDULED_BUDGET_NANOS = 2_000_000L;
     private static final int SCHEDULED_MAX_STEPS_PER_TICK = 256;
-    private static final int MAX_PENDING_JOBS = 4;
     private static final Map<MinecraftServer, List<PendingExpansion>> PENDING = new WeakHashMap<>();
 
     /** True in GameTest runs: the scheduled path then behaves like the synchronous one. */
@@ -265,7 +264,7 @@ public final class AggregatePatternExpander {
         List<PendingExpansion> jobs = PENDING.computeIfAbsent(server, ignored -> new ArrayList<>());
         for (PendingExpansion job : jobs) {
             if (job.key.equals(context.key())) {
-                if (onCompletion != null && job.completionCallbacks.size() < 16) {
+                if (onCompletion != null) {
                     job.completionCallbacks.add(onCompletion);
                 }
                 return List.copyOf(job.partial);
@@ -274,9 +273,6 @@ public final class AggregatePatternExpander {
         PendingExpansion job = new PendingExpansion(context);
         if (onCompletion != null) {
             job.completionCallbacks.add(onCompletion);
-        }
-        while (jobs.size() >= MAX_PENDING_JOBS) {
-            jobs.removeFirst();
         }
         jobs.add(job);
         return List.copyOf(job.partial);
@@ -295,6 +291,7 @@ public final class AggregatePatternExpander {
             PendingExpansion job = iterator.next();
             if (job.recipeGeneration != RecipeIndexService.generation()) {
                 iterator.remove();
+                completions.addAll(job.completionCallbacks);
                 continue;
             }
             int steps = 0;
@@ -306,6 +303,7 @@ public final class AggregatePatternExpander {
                     job.partial.add(details);
                 }
                 if (System.nanoTime() >= deadline) {
+                    runCompletions(completions);
                     return;
                 }
             }
@@ -318,9 +316,16 @@ public final class AggregatePatternExpander {
                     }
                 }).put(job.key, frozen);
                 iterator.remove();
+                AeAllPattern.LOGGER.info(
+                        "Aggregate expansion completed: library={}, recipes={}, callbacks={}",
+                        job.key.libraryId(), job.recipes.size(), job.completionCallbacks.size());
                 completions.addAll(job.completionCallbacks);
             }
         }
+        runCompletions(completions);
+    }
+
+    private static void runCompletions(List<Runnable> completions) {
         for (Runnable callback : completions) {
             try {
                 callback.run();

@@ -1352,6 +1352,119 @@ public final class CoreGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void scheduledExpansionRetriesAfterRecipeReload(GameTestHelper helper) {
+        AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                helper.getLevel().getServer(),
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "reload_retry_machine"),
+                "block.aeallpattern.reload_retry_machine",
+                List.of(new AggregateRecipe(
+                        "reload-retry",
+                        ResourceLocation.fromNamespaceAndPath("aeallpattern", "reload_retry"),
+                        AggregatePatternKind.PROCESSING,
+                        List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.RAW_IRON)))),
+                        List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT)))),
+                        1)));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+
+        AggregatePatternExpander.setSynchronous(false);
+        try {
+            boolean[] retryRequested = {false};
+            AggregatePatternExpander.expandScheduled(
+                    aggregate, helper.getLevel(), () -> retryRequested[0] = true);
+            RecipeIndexService.invalidate();
+            AggregatePatternExpander.tickServer(helper.getLevel().getServer());
+            helper.assertTrue(retryRequested[0],
+                    "recipe reload discarded the provider retry callback");
+        } finally {
+            AggregatePatternExpander.setSynchronous(true);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void worldLoadQueuesEveryColdAggregate(GameTestHelper helper) {
+        AggregatePatternExpander.setSynchronous(false);
+        try {
+            int count = 12;
+            boolean[] completed = new boolean[count];
+            for (int index = 0; index < count; index++) {
+                AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                        helper.getLevel().getServer(),
+                        ResourceLocation.fromNamespaceAndPath("aeallpattern", "queue_machine_" + index),
+                        "block.aeallpattern.queue_machine_" + index,
+                        List.of(new AggregateRecipe(
+                                "queue-" + index,
+                                ResourceLocation.fromNamespaceAndPath("aeallpattern", "queue_" + index),
+                                AggregatePatternKind.PROCESSING,
+                                List.of(Objects.requireNonNull(GenericStack.fromItemStack(
+                                        new ItemStack(Items.RAW_IRON)))),
+                                List.of(Objects.requireNonNull(GenericStack.fromItemStack(
+                                        new ItemStack(Items.IRON_INGOT)))),
+                                1)));
+                ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+                aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+                int job = index;
+                AggregatePatternExpander.expandScheduled(
+                        aggregate, helper.getLevel(), () -> completed[job] = true);
+            }
+
+            int guard = 0;
+            while (java.util.stream.IntStream.range(0, completed.length)
+                    .anyMatch(index -> !completed[index]) && guard++ < 120) {
+                AggregatePatternExpander.tickServer(helper.getLevel().getServer());
+            }
+            helper.assertTrue(java.util.stream.IntStream.range(0, completed.length)
+                            .allMatch(index -> completed[index]),
+                    "world-load expansion queue discarded cold aggregate providers");
+        } finally {
+            AggregatePatternExpander.setSynchronous(true);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void sharedAggregateRefreshesEveryProvider(GameTestHelper helper) {
+        AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                helper.getLevel().getServer(),
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "shared_queue_machine"),
+                "block.aeallpattern.shared_queue_machine",
+                List.of(new AggregateRecipe(
+                        "shared-queue",
+                        ResourceLocation.fromNamespaceAndPath("aeallpattern", "shared_queue"),
+                        AggregatePatternKind.PROCESSING,
+                        List.of(Objects.requireNonNull(GenericStack.fromItemStack(
+                                new ItemStack(Items.RAW_IRON)))),
+                        List.of(Objects.requireNonNull(GenericStack.fromItemStack(
+                                new ItemStack(Items.IRON_INGOT)))),
+                        1)));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+
+        AggregatePatternExpander.setSynchronous(false);
+        try {
+            int providerCount = 32;
+            boolean[] refreshed = new boolean[providerCount];
+            for (int provider = 0; provider < providerCount; provider++) {
+                int index = provider;
+                AggregatePatternExpander.expandScheduled(
+                        aggregate, helper.getLevel(), () -> refreshed[index] = true);
+            }
+            int guard = 0;
+            while (java.util.stream.IntStream.range(0, refreshed.length)
+                    .anyMatch(index -> !refreshed[index]) && guard++ < 120) {
+                AggregatePatternExpander.tickServer(helper.getLevel().getServer());
+            }
+            helper.assertTrue(java.util.stream.IntStream.range(0, refreshed.length)
+                            .allMatch(index -> refreshed[index]),
+                    "shared aggregate expansion discarded provider refresh callbacks");
+        } finally {
+            AggregatePatternExpander.setSynchronous(true);
+        }
+        helper.succeed();
+    }
+
     /**
      * Guards the addon provider mixins against an unloadable helper class.
      *
@@ -1503,4 +1616,3 @@ public final class CoreGameTests {
                 helper.getLevel().getGameTime());
     }
 }
-

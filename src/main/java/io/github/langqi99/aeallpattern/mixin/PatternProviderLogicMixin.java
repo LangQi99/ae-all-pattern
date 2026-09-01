@@ -10,6 +10,7 @@ import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.util.inv.AppEngInternalInventory;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternMarkerDetails;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.compat.TechStartPatternCompat;
 import java.util.List;
 import java.util.Set;
@@ -50,10 +51,16 @@ public abstract class PatternProviderLogicMixin {
 
     @Inject(method = "updatePatterns", at = @At("HEAD"), cancellable = true)
     private void aeallpattern$expandAggregatePatterns(CallbackInfo callback) {
+        var blockEntity = host.getBlockEntity();
+        if (blockEntity.getLevel() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            AggregateProviderRefreshService.track(
+                    serverLevel.getServer(), this,
+                    owner -> ((PatternProviderLogicMixin) owner).aeallpattern$rerunUpdatePatterns());
+        }
         patterns.clear();
         patternInputs.clear();
         patterns.removeIf(AggregatePatternMarkerDetails.class::isInstance);
-        var level = host.getBlockEntity().getLevel();
+        var level = blockEntity.getLevel();
         if (level != null) {
             for (var stack : patternInventory) {
                 var expanded = TechStartPatternCompat.expand(stack, level);

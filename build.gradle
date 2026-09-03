@@ -53,7 +53,10 @@ neoForge {
                     .getOrElse(false)) {
                 programArguments.addAll '--quickPlayMultiplayer', 'localhost:25565'
             }
-            if (providers.gradleProperty('showcase_singleplayer')
+            def quickplayWorld = providers.gradleProperty('quickplay_world')
+            if (quickplayWorld.isPresent()) {
+                programArguments.addAll '--quickPlaySingleplayer', quickplayWorld.get()
+            } else if (providers.gradleProperty('showcase_singleplayer')
                     .map { it.toBoolean() }
                     .getOrElse(false)) {
                 programArguments.addAll '--quickPlaySingleplayer', 'AE全样板_纯净演示场_0.1.6'

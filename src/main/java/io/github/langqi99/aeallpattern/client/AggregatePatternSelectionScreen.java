@@ -4,6 +4,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternRef;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu;
 import io.github.langqi99.aeallpattern.network.AggregateSearchPayload;
@@ -27,36 +28,37 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Grid-style picker for the child patterns inside one aggregate pattern item. Each pattern
- * occupies one 18x18 slot: selected slots are filled pink, unselected slots are filled gray.
- * Selected slots are placed first, then unselected slots, so the enabled subset is always at
- * the top-left of the grid.
+ * Unified editor for one aggregate pattern item. The settings tab edits encoding options and
+ * the patterns tab toggles published child patterns without changing their original order.
  */
 public final class AggregatePatternSelectionScreen extends AbstractContainerScreen<AggregatePatternSelectionMenu> {
-    private static final int COLUMNS = 9;
+    private static final int COLUMNS = 11;
     private static final int SLOT_SIZE = 26;
     private static final int SLOT_PITCH = 28;
     private static final int GRID_LEFT = 8;
-    private static final int SEARCH_TOP = 26;
-    private static final int GRID_TOP = 50;
+    private static final int MAIN_TAB_TOP = 27;
+    private static final int MAIN_TAB_WIDTH = 88;
+    private static final int MAIN_TAB_HEIGHT = 20;
+    private static final int SEARCH_TOP = 52;
+    private static final int GRID_TOP = 76;
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int SCROLLBAR_GAP = 2;
-    private static final int RIGHT_PADDING = 8;
+    private static final int RIGHT_PADDING = 12;
     private static final int BOTTOM_AREA = 32;
     private static final int VISIBLE_ROWS = 6;
     private static final float ICON_SCALE = 0.75F;
     private static final int INPUT_ICON_XY = 2;
     private static final int OUTPUT_ICON_XY = 12;
-    private static final int SEARCH_BOX_WIDTH = 100;
+    private static final int SEARCH_BOX_WIDTH = 148;
     private static final int SEARCH_BOX_HEIGHT = 16;
-    private static final int MODE_TAB_WIDTH = 34;
+    private static final int MODE_TAB_WIDTH = 58;
     private static final int MODE_TAB_HEIGHT = 16;
     private static final int ALL_BUTTON_WIDTH = 66;
     private static final int ALL_BUTTON_HEIGHT = 18;
 
-    private static final int SELECTED_FILL = 0xFFF7CBE0;
-    private static final int SELECTED_FILL_HOVER = 0xFFFAD9E9;
-    private static final int SELECTED_OUTLINE = 0xFFE75480;
+    private static final int SELECTED_FILL = 0xFFD2E8EA;
+    private static final int SELECTED_FILL_HOVER = 0xFFE2F3F4;
+    private static final int SELECTED_OUTLINE = 0xFF3E929B;
     private static final int UNSELECTED_FILL = 0xFFBFBFCB;
     private static final int UNSELECTED_FILL_HOVER = 0xFFD2D2DC;
     private static final int UNSELECTED_OUTLINE = 0xFF8A8A98;
@@ -72,8 +74,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
 
     private Button allButton;
     private EditBox searchBox;
+    private final List<AggregateConfigOptionButton> optionButtons = new ArrayList<>();
     private int modeTabInputX;
     private int modeTabOutputX;
+    private boolean settingsPage = true;
     /** True searches the outputs of each entry, false searches the inputs. */
     private boolean searchOutputs = true;
     private boolean searchDirty;
@@ -88,7 +92,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     public AggregatePatternSelectionScreen(
             AggregatePatternSelectionMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = GRID_LEFT + COLUMNS * SLOT_PITCH - 1 + SCROLLBAR_GAP + SCROLLBAR_WIDTH + RIGHT_PADDING;
+        imageWidth = 354;
         imageHeight = GRID_TOP + VISIBLE_ROWS * SLOT_PITCH - 1 + BOTTOM_AREA;
         titleLabelX = 30;
         titleLabelY = 10;
@@ -120,20 +124,127 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                         button -> onAllButtonClick())
                 .bounds(leftPos + 8, buttonY, ALL_BUTTON_WIDTH, ALL_BUTTON_HEIGHT)
                 .build());
+        addConfigOptions();
+        updatePageVisibility();
         updateAllButton();
         clampScroll();
     }
 
-    /** Display order: selected slots first, then unselected; stable inside each group. */
-    private List<Integer> sortedIndices() {
-        List<Integer> selected = new ArrayList<>();
-        List<Integer> unselected = new ArrayList<>();
-        List<AggregatePatternSelectionMenu.Entry> entries = menu.entries();
-        for (int index = 0; index < entries.size(); index++) {
-            (menu.isEnabled(index) ? selected : unselected).add(index);
+    private void addConfigOptions() {
+        addOption(12, 57, 164,
+                "gui.aeallpattern.aggregate_config.split_same_items",
+                "gui.aeallpattern.aggregate_config.split_same_items.tooltip",
+                () -> menu.getOptions().splitSameItems(),
+                AggregatePatternConfigMenu.TOGGLE_SPLIT_SAME_ITEMS);
+        addOption(178, 57, 164,
+                "gui.aeallpattern.aggregate_config.ignore_output_nbt",
+                "gui.aeallpattern.aggregate_config.ignore_output_nbt.tooltip",
+                () -> menu.getOptions().ignoreOutputComponents(),
+                AggregatePatternConfigMenu.TOGGLE_IGNORE_OUTPUT_COMPONENTS);
+        addOption(12, 82, 164,
+                "gui.aeallpattern.aggregate_config.skip_probabilistic_main",
+                "gui.aeallpattern.aggregate_config.skip_probabilistic_main.tooltip",
+                () -> menu.getOptions().skipProbabilisticMainOutput(),
+                AggregatePatternConfigMenu.TOGGLE_SKIP_PROBABILISTIC_MAIN_OUTPUT);
+        addOption(178, 82, 164,
+                "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts",
+                "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts.tooltip",
+                () -> menu.getOptions().ignoreProbabilisticByproducts(),
+                AggregatePatternConfigMenu.TOGGLE_IGNORE_PROBABILISTIC_BYPRODUCTS);
+        addOption(12, 107, 164,
+                "gui.aeallpattern.aggregate_config.allow_item_substitutions",
+                "gui.aeallpattern.aggregate_config.allow_item_substitutions.tooltip",
+                () -> menu.getOptions().allowItemSubstitutions(),
+                AggregatePatternConfigMenu.TOGGLE_ALLOW_ITEM_SUBSTITUTIONS);
+        addOption(178, 107, 164,
+                "gui.aeallpattern.aggregate_config.allow_fluid_substitutions",
+                "gui.aeallpattern.aggregate_config.allow_fluid_substitutions.tooltip",
+                () -> menu.getOptions().allowFluidSubstitutions(),
+                AggregatePatternConfigMenu.TOGGLE_ALLOW_FLUID_SUBSTITUTIONS);
+        addOption(12, 132, 164,
+                "gui.aeallpattern.aggregate_config.remove_input_fluids",
+                "gui.aeallpattern.aggregate_config.remove_input_fluids.tooltip",
+                () -> menu.getOptions().removeInputFluids(),
+                AggregatePatternConfigMenu.TOGGLE_REMOVE_INPUT_FLUIDS);
+        addOption(178, 132, 164,
+                "gui.aeallpattern.aggregate_config.remove_output_fluids",
+                "gui.aeallpattern.aggregate_config.remove_output_fluids.tooltip",
+                () -> menu.getOptions().removeOutputFluids(),
+                AggregatePatternConfigMenu.TOGGLE_REMOVE_OUTPUT_FLUIDS);
+        addOption(12, 157, 164,
+                "gui.aeallpattern.aggregate_config.remove_input_chemicals",
+                "gui.aeallpattern.aggregate_config.remove_input_chemicals.tooltip",
+                () -> menu.getOptions().removeInputChemicals(),
+                AggregatePatternConfigMenu.TOGGLE_REMOVE_INPUT_CHEMICALS);
+        addOption(178, 157, 164,
+                "gui.aeallpattern.aggregate_config.remove_output_chemicals",
+                "gui.aeallpattern.aggregate_config.remove_output_chemicals.tooltip",
+                () -> menu.getOptions().removeOutputChemicals(),
+                AggregatePatternConfigMenu.TOGGLE_REMOVE_OUTPUT_CHEMICALS);
+        addOption(12, 182, 164,
+                "gui.aeallpattern.aggregate_config.remove_processing_catalysts",
+                "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip",
+                () -> menu.getOptions().removeProcessingCatalysts(),
+                AggregatePatternConfigMenu.TOGGLE_REMOVE_PROCESSING_CATALYSTS);
+        addOption(178, 182, 164,
+                "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs",
+                "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs.tooltip",
+                () -> menu.getOptions().swapFirstAndLastInputs(),
+                AggregatePatternConfigMenu.TOGGLE_SWAP_FIRST_AND_LAST_INPUTS);
+        addOption(12, 207, 164,
+                "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes",
+                "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes.tooltip",
+                () -> menu.getOptions().skipDurabilityConsumingRecipes(),
+                AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES);
+    }
+
+    private void addOption(
+            int x,
+            int y,
+            int width,
+            String labelKey,
+            String tooltipKey,
+            java.util.function.BooleanSupplier enabled,
+            int toggleIndex) {
+        optionButtons.add(addRenderableWidget(new AggregateConfigOptionButton(
+                leftPos + x,
+                topPos + y,
+                width,
+                Component.translatable(labelKey),
+                Component.translatable(tooltipKey),
+                enabled,
+                () -> toggleOption(toggleIndex))));
+    }
+
+    private void toggleOption(int optionIndex) {
+        if (minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
+            return;
         }
-        selected.addAll(unselected);
-        return selected;
+        int id = AggregatePatternSelectionMenu.optionButtonId(optionIndex);
+        menu.clickMenuButton(minecraft.player, id);
+        minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+    }
+
+    private void setSettingsPage(boolean settingsPage) {
+        if (this.settingsPage == settingsPage) {
+            return;
+        }
+        this.settingsPage = settingsPage;
+        draggingScrollbar = false;
+        updatePageVisibility();
+    }
+
+    private void updatePageVisibility() {
+        if (searchBox != null) {
+            searchBox.visible = !settingsPage;
+            if (settingsPage) {
+                searchBox.setFocused(false);
+            }
+        }
+        if (allButton != null) {
+            allButton.visible = !settingsPage;
+        }
+        optionButtons.forEach(button -> button.visible = settingsPage);
     }
 
     private void onAllButtonClick() {
@@ -171,7 +282,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
-        if (scrollY != 0) {
+        if (!settingsPage && scrollY != 0) {
             scrollOffset -= (int) Math.signum(scrollY);
             clampScroll();
             return true;
@@ -182,6 +293,16 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
+            if (inMainTab(mouseX, mouseY, 0)) {
+                setSettingsPage(true);
+                return true;
+            }
+            if (inMainTab(mouseX, mouseY, 1)) {
+                setSettingsPage(false);
+                return true;
+            }
+        }
+        if (!settingsPage && button == 0) {
             if (inModeTab(mouseX, mouseY, modeTabInputX)) {
                 setSearchOutputs(false);
                 return true;
@@ -191,12 +312,12 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                 return true;
             }
         }
-        if (button == 0 && inScrollbarArea(mouseX, mouseY)) {
+        if (!settingsPage && button == 0 && inScrollbarArea(mouseX, mouseY)) {
             draggingScrollbar = true;
             scrollToMouse(mouseY);
             return true;
         }
-        if (button == 0) {
+        if (!settingsPage && button == 0) {
             int slotIndex = slotIndexAt(mouseX, mouseY);
             if (slotIndex >= 0) {
                 int entryIndex = visibleOrderIndex(slotIndex);
@@ -218,11 +339,18 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         }
     }
 
+    private boolean inMainTab(double mouseX, double mouseY, int index) {
+        int x = leftPos + 12 + index * MAIN_TAB_WIDTH;
+        int y = topPos + MAIN_TAB_TOP;
+        return mouseX >= x && mouseX < x + MAIN_TAB_WIDTH
+                && mouseY >= y && mouseY < y + MAIN_TAB_HEIGHT;
+    }
+
     @Override
     protected void containerTick() {
         super.containerTick();
         // Debounce typing, then let the server filter the complete recipe list.
-        if (searchDirty && searchBox != null
+        if (!settingsPage && searchDirty && searchBox != null
                 && System.currentTimeMillis() - lastSearchAt > 250) {
             searchDirty = false;
             lastSearchAt = System.currentTimeMillis();
@@ -310,7 +438,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private boolean inScrollbarArea(double mouseX, double mouseY) {
-        if (menu.entries().size() <= visibleSlots()) {
+        if (settingsPage || menu.entries().size() <= visibleSlots()) {
             return false;
         }
         int trackX = leftPos + GRID_LEFT + COLUMNS * SLOT_PITCH - 1 + SCROLLBAR_GAP;
@@ -355,23 +483,24 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private int visibleOrderIndex(int slotIndex) {
-        List<Integer> order = sortedIndices();
         int target = scrollOffset + slotIndex;
-        return target < order.size() ? order.get(target) : -1;
+        return target < menu.entries().size() ? target : -1;
     }
 
     @Override
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        List<Integer> order = sortedIndices();
-        renderGrid(graphics, mouseX, mouseY, order);
-        renderScrollbar(graphics, order.size());
-        renderModeTabs(graphics);
-        updateAllButton();
-        renderHoveredTooltip(graphics, mouseX, mouseY);
+        renderMainTabs(graphics);
+        if (!settingsPage) {
+            renderGrid(graphics, mouseX, mouseY);
+            renderScrollbar(graphics, menu.entries().size());
+            renderModeTabs(graphics);
+            updateAllButton();
+            renderHoveredTooltip(graphics, mouseX, mouseY);
+        }
     }
 
-    private void renderGrid(GuiGraphics graphics, int mouseX, int mouseY, List<Integer> order) {
+    private void renderGrid(GuiGraphics graphics, int mouseX, int mouseY) {
         List<AggregatePatternSelectionMenu.Entry> entries = menu.entries();
 
         if (entries.isEmpty()) {
@@ -383,27 +512,16 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                     0xFF67677A);
             return;
         }
-        if (order.isEmpty()) {
-            graphics.drawCenteredString(
-                    font,
-                    Component.translatable("gui.aeallpattern.aggregate_selection.search_no_results"),
-                    leftPos + imageWidth / 2,
-                    topPos + GRID_TOP + 50,
-                    0xFF67677A);
-            return;
-        }
-
         int hoveredSlot = slotIndexAt(mouseX, mouseY);
         for (int slotIndex = 0; slotIndex < visibleSlots(); slotIndex++) {
-            int orderIndex = scrollOffset + slotIndex;
-            if (orderIndex >= order.size()) {
+            int entryIndex = scrollOffset + slotIndex;
+            if (entryIndex >= entries.size()) {
                 break;
             }
             int col = slotIndex % COLUMNS;
             int row = slotIndex / COLUMNS;
             int cellX = leftPos + GRID_LEFT + col * SLOT_PITCH;
             int cellY = topPos + GRID_TOP + row * SLOT_PITCH;
-            int entryIndex = order.get(orderIndex);
             AggregatePatternSelectionMenu.Entry entry = entries.get(entryIndex);
             boolean enabled = menu.isEnabled(entryIndex);
             boolean hovered = slotIndex == hoveredSlot;
@@ -457,7 +575,30 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbHeight, SCROLLBAR_THUMB);
     }
 
-    /** Search mode tabs: which half of the entry (inputs or outputs) is searched. */
+    private void renderMainTabs(GuiGraphics graphics) {
+        renderMainTab(
+                graphics,
+                leftPos + 12,
+                Component.translatable("gui.aeallpattern.aggregate_management.settings_tab"),
+                settingsPage);
+        renderMainTab(
+                graphics,
+                leftPos + 12 + MAIN_TAB_WIDTH,
+                Component.translatable("gui.aeallpattern.aggregate_management.patterns_tab"),
+                !settingsPage);
+    }
+
+    private void renderMainTab(GuiGraphics graphics, int x, Component label, boolean active) {
+        int y = topPos + MAIN_TAB_TOP;
+        graphics.fill(x, y, x + MAIN_TAB_WIDTH, y + MAIN_TAB_HEIGHT,
+                active ? TAB_ACTIVE_FILL : TAB_INACTIVE_FILL);
+        graphics.renderOutline(x, y, MAIN_TAB_WIDTH, MAIN_TAB_HEIGHT, PANEL_BORDER);
+        graphics.drawCenteredString(
+                font, label, x + MAIN_TAB_WIDTH / 2, y + (MAIN_TAB_HEIGHT - 8) / 2,
+                active ? TAB_ACTIVE_TEXT : TAB_INACTIVE_TEXT);
+    }
+
+    /** Search scope buttons: choose which half of each pattern is matched. */
     private void renderModeTabs(GuiGraphics graphics) {
         renderModeTab(graphics, modeTabInputX,
                 Component.translatable("gui.aeallpattern.aggregate_selection.search_by_input"),
@@ -487,6 +628,22 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private void renderHoveredTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (inModeTab(mouseX, mouseY, modeTabInputX)) {
+            graphics.renderTooltip(
+                    font,
+                    Component.translatable("gui.aeallpattern.aggregate_selection.search_by_input.tooltip"),
+                    mouseX,
+                    mouseY);
+            return;
+        }
+        if (inModeTab(mouseX, mouseY, modeTabOutputX)) {
+            graphics.renderTooltip(
+                    font,
+                    Component.translatable("gui.aeallpattern.aggregate_selection.search_by_output.tooltip"),
+                    mouseX,
+                    mouseY);
+            return;
+        }
         int slotIndex = slotIndexAt(mouseX, mouseY);
         if (slotIndex < 0) {
             return;
@@ -519,7 +676,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         lines.add(Component.translatable(menu.isEnabled(entryIndex)
                         ? "gui.aeallpattern.aggregate_selection.selected"
                         : "gui.aeallpattern.aggregate_selection.unselected")
-                .withStyle(menu.isEnabled(entryIndex) ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.DARK_GRAY));
+                .withStyle(menu.isEnabled(entryIndex) ? ChatFormatting.AQUA : ChatFormatting.DARK_GRAY));
         graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
     }
 
@@ -550,8 +707,13 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL_BG);
         graphics.renderOutline(leftPos, topPos, imageWidth, imageHeight, PANEL_BORDER);
         graphics.renderOutline(leftPos + 3, topPos + 3, imageWidth - 6, imageHeight - 6, PANEL_INNER);
-        int separatorY = topPos + SEARCH_TOP + SEARCH_BOX_HEIGHT + 2;
+        int separatorY = topPos + MAIN_TAB_TOP + MAIN_TAB_HEIGHT + 2;
         graphics.fill(leftPos + 8, separatorY, leftPos + imageWidth - 8, separatorY + 1, SCROLLBAR_THUMB);
+        if (!settingsPage) {
+            int searchSeparatorY = topPos + SEARCH_TOP + SEARCH_BOX_HEIGHT + 2;
+            graphics.fill(leftPos + 8, searchSeparatorY, leftPos + imageWidth - 8, searchSeparatorY + 1,
+                    SCROLLBAR_THUMB);
+        }
 
         ItemStack machine = machineStack();
         if (!machine.isEmpty()) {
@@ -562,6 +724,17 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, title, titleLabelX, titleLabelY, 0xFF3A3A50, false);
+
+        if (settingsPage) {
+            graphics.drawString(
+                    font,
+                    Component.translatable("gui.aeallpattern.aggregate_config.hint"),
+                    12,
+                    imageHeight - 18,
+                    0xFF67677A,
+                    false);
+            return;
+        }
 
         String count = Component.translatable(
                         "gui.aeallpattern.aggregate_selection.selected_count",

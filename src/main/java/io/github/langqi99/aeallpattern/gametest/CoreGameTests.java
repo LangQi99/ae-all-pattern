@@ -1574,6 +1574,17 @@ public final class CoreGameTests {
         helper.assertTrue(menu.stillValid(player), "owner could not open the selection menu");
         helper.assertTrue(menu.selectedCount() == 1, "selection menu counted the wrong enabled patterns");
 
+        // The unified menu must also edit encoding options on the same held item.
+        helper.assertTrue(menu.clickMenuButton(
+                        player,
+                        AggregatePatternSelectionMenu.optionButtonId(
+                                AggregatePatternConfigMenu.TOGGLE_REMOVE_INPUT_FLUIDS)),
+                "unified menu rejected an aggregate option toggle");
+        helper.assertTrue(aggregate.getOrDefault(
+                        ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.DEFAULT)
+                        .removeInputFluids(),
+                "unified menu did not store the configured aggregate option");
+
         // Toggling the remaining enabled pattern must disable it on the held stack.
         helper.assertTrue(menu.clickMenuButton(player, 1), "menu rejected a pattern toggle");
         var stored = aggregate.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 - 2026-09-03
+
+- Unified aggregate-pattern settings and child-pattern selection into one right-click management panel with separate tabs, search scopes, and clearer enabled-state styling.
+- Added a default-on safeguard that excludes recipes which consume tool durability while keeping unchanged catalysts and returned containers available.
+- Added paged aggregate metadata and batched generation transfers so catalogs with thousands of recipes no longer depend on one oversized payload.
+- Expanded compatibility coverage for AE provider add-ons, PackagedAuto, Extended Crafting, Mekanism, Mekanism Extras, Mekanism More Machine, Create, Mystical Agriculture, Industrial Foregoing, and Neo ECO AE Extension.
+- Added JEI and EMI/TMRV-specific scanner tests, real client startup smoke tests, and nine no-GUI GameTest dependency profiles that download pinned mod fixtures in CI.
+
 ## 0.1.25 - 2026-09-01
 
 - Added aggregate-pattern support for ExtendedAE and ExtendedAE Plus assembler matrices, including slot validation and full child-pattern publication.

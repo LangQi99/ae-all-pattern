@@ -6,7 +6,7 @@ AE All Pattern 是面向 Applied Energistics 2 的附属模组原型。玩家先
 
 ## 当前状态
 
-**当前版本为 0.1.19。** 链接器是占用一个频道、消耗 2 AE/t 的真实 AE 节点；绑定器、世界持久化、紫色包围框、虚拟处理样板、安全输入缓冲、诊断命令和可选 Mekanism/JEI/EMI 集成都已实现。自动化测试同时覆盖只有 AE2 的最小专服和带配方查看器及机器模组的完整环境。
+**当前版本为 0.2.1。** 链接器是占用一个频道、消耗 2 AE/t 的真实 AE 节点；绑定器、世界持久化、紫色包围框、虚拟处理样板、安全输入缓冲、诊断命令和可选 Mekanism/JEI/EMI 集成都已实现。自动化测试同时覆盖只有 AE2 的最小专服和带配方查看器及机器模组的完整环境。
 
 “天枢样版路由器”的第一阶段也已接入：它是一个可六面接入 AE 网络的单方块，使用模组内置的私有规划引擎提供快速下单和动态样版路由，但不会向网络注册为合成 CPU。方块在线时会切换为发光模型；规划出的任务仍由玩家搭建的普通 AE 合成 CPU 执行。它不要求安装闪电科技，也不会接管闪电科技自己的 CPU；若两者同时安装，闪电科技普通 CPU 仍完全使用玩家所安装版本的 Thunderbolt 逻辑。
 
@@ -35,7 +35,7 @@ AE All Pattern 是面向 Applied Energistics 2 的附属模组原型。玩家先
 
 | 组件 | 基线 |
 | --- | --- |
-| AE All Pattern | 0.1.26 |
+| AE All Pattern | 0.2.1 |
 | Minecraft | 1.21.1 |
 | 加载器 | NeoForge 21.1.219+ |
 | Java | 21 |
@@ -69,7 +69,7 @@ Applied Mekanistics 与 AE2 JEI Integration 后，Mekanism 气体及统一 Chemi
 ./gradlew clean check build
 ```
 
-完整说明从 [文档索引](docs/index.md) 开始；[当前支持矩阵](docs/product/support-matrix.md) 和 [已知限制](docs/product/limitations.md) 描述 0.1.19 的准确边界，后续计划见 [实施路线图](docs/roadmap.md)。
+完整说明从 [文档索引](docs/index.md) 开始；[当前支持矩阵](docs/product/support-matrix.md) 和 [已知限制](docs/product/limitations.md) 描述当前能力边界，后续计划见 [实施路线图](docs/roadmap.md)。
 
 ## 许可证
 

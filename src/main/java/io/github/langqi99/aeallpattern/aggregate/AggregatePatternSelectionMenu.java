@@ -16,6 +16,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.NotNull;
@@ -25,9 +26,10 @@ import org.jetbrains.annotations.NotNull;
  * optimistic copy of the selection so clicks feel instant, exactly like the option menu.
  */
 public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
-    /** clickMenuButton ids below zero are bulk actions. */
+    /** Negative clickMenuButton ids are reserved for bulk actions and option toggles. */
     public static final int SELECT_ALL = -1;
     public static final int DESELECT_ALL = -2;
+    private static final int OPTION_BUTTON_BASE = -100;
 
     /** Safety cap for the open-packet payload; bulk actions still cover every stored recipe. */
     public static final int MAX_SYNCED_ENTRIES = 16384;
@@ -40,6 +42,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     private List<Entry> entries;
     private AggregatePatternSelection selection;
     private boolean filteredView;
+    private int optionFlags;
 
     /** Client-side summary of one child pattern inside the aggregate. */
     public record Entry(String patternId, List<GenericStack> inputs, List<GenericStack> outputs) {
@@ -66,6 +69,26 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         this.hand = hand;
         this.entries = List.copyOf(entries);
         this.selection = selection == null ? AggregatePatternSelection.ALL_ENABLED : selection;
+        optionFlags = currentOptions().flags();
+        addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return inventory.player.level().isClientSide() ? optionFlags : currentOptions().flags();
+            }
+
+            @Override
+            public void set(int value) {
+                optionFlags = value & 8191;
+            }
+        });
+    }
+
+    public static int optionButtonId(int optionIndex) {
+        return OPTION_BUTTON_BASE - optionIndex;
+    }
+
+    public AggregatePatternOptions getOptions() {
+        return AggregatePatternOptions.fromFlags(optionFlags);
     }
 
     public static List<Entry> entriesFromRecipes(List<AggregateRecipe> recipes) {
@@ -148,6 +171,12 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
 
     @Override
     public boolean clickMenuButton(@NotNull Player player, int id) {
+        int optionIndex = OPTION_BUTTON_BASE - id;
+        if (optionIndex >= AggregatePatternConfigMenu.TOGGLE_SPLIT_SAME_ITEMS
+                && optionIndex <= AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES) {
+            return toggleOption(player, optionIndex);
+        }
+
         AggregatePatternSelection updated;
         if (id == SELECT_ALL) {
             updated = filteredView
@@ -183,6 +212,23 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         return true;
     }
 
+    private boolean toggleOption(Player player, int optionIndex) {
+        ItemStack stack = stack();
+        if (!isSelectable(stack)) {
+            return false;
+        }
+        int mask = 1 << optionIndex;
+        if (player.level().isClientSide()) {
+            optionFlags ^= mask;
+            return true;
+        }
+        optionFlags = options(stack).flags() ^ mask;
+        stack.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.fromFlags(optionFlags));
+        player.getInventory().setChanged();
+        broadcastChanges();
+        return true;
+    }
+
     @Override
     public boolean stillValid(@NotNull Player player) {
         return hand != null && isSelectable(player.getItemInHand(hand));
@@ -196,6 +242,15 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     private static boolean isSelectable(ItemStack stack) {
         return stack.is(ModItems.AGGREGATE_PATTERN.get())
                 && stack.has(ModDataComponents.AGGREGATE_PATTERN.get());
+    }
+
+    private static AggregatePatternOptions options(ItemStack stack) {
+        AggregatePatternOptions options = stack.get(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get());
+        return options == null ? AggregatePatternOptions.DEFAULT : options;
+    }
+
+    private AggregatePatternOptions currentOptions() {
+        return options(stack());
     }
 
     private static List<Entry> readEntries(RegistryFriendlyByteBuf buffer) {

@@ -30,18 +30,7 @@ public final class AggregatePatternItem extends Item {
             return InteractionResultHolder.pass(stack);
         }
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
-            if (player.isShiftKeyDown()) {
-                openSelectionMenu(serverPlayer, stack, hand);
-            } else {
-                serverPlayer.openMenu(
-                        new SimpleMenuProvider(
-                                (id, inventory, ignored) -> new AggregatePatternConfigMenu(id, inventory, hand),
-                                Component.translatable("gui.aeallpattern.aggregate_config.title")),
-                        data -> {
-                            data.writeBoolean(false);
-                            data.writeEnum(hand);
-                        });
-            }
+            openSelectionMenu(serverPlayer, stack, hand);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
     }
@@ -63,7 +52,7 @@ public final class AggregatePatternItem extends Item {
                 new SimpleMenuProvider(
                         (id, inventory, ignored) -> new AggregatePatternSelectionMenu(
                                 id, inventory, hand, entries, finalSelection),
-                        Component.translatable("gui.aeallpattern.aggregate_selection.title")),
+                        Component.translatable("gui.aeallpattern.aggregate_management.title")),
                 data -> {
                     data.writeEnum(hand);
                     data.writeVarInt(entries.size());
@@ -137,8 +126,6 @@ public final class AggregatePatternItem extends Item {
         tooltip.add(Component.translatable("tooltip.aeallpattern.aggregate_pattern.provider")
                 .withStyle(ChatFormatting.DARK_PURPLE));
         tooltip.add(Component.translatable("tooltip.aeallpattern.aggregate_pattern.configure")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip.aeallpattern.aggregate_pattern.select_hint")
                 .withStyle(ChatFormatting.GRAY));
     }
 

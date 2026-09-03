@@ -2,6 +2,7 @@ package io.github.langqi99.aeallpattern.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.network.BindingRenderEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -22,6 +23,7 @@ import appeng.init.client.InitScreens;
 
 public final class ClientEvents {
     private static final double MAX_RENDER_DISTANCE_SQUARED = 96.0 * 96.0;
+    private static int smokeTestTicks;
 
     private ClientEvents() {
     }
@@ -31,6 +33,24 @@ public final class ClientEvents {
         NeoForge.EVENT_BUS.addListener(ClientEvents::onLogout);
         NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
+        if (Boolean.getBoolean("aeallpattern.clientSmokeTest")) {
+            NeoForge.EVENT_BUS.addListener(ClientEvents::runClientSmokeTest);
+        }
+    }
+
+    private static void runClientSmokeTest(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.screen == null || ++smokeTestTicks < 20) {
+            return;
+        }
+        for (String value : System.getProperty("aeallpattern.expectedTestMods", "").split(",")) {
+            String modId = value.trim();
+            if (!modId.isEmpty() && !ModList.get().isLoaded(modId)) {
+                throw new IllegalStateException("Client smoke test expected mod '" + modId + "' but it was not loaded");
+            }
+        }
+        AeAllPattern.LOGGER.info("CLIENT_SMOKE_TEST_PASSED");
+        minecraft.stop();
     }
 
     public static void registerScreens(RegisterMenuScreensEvent event) {

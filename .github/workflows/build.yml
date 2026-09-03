@@ -86,6 +86,51 @@ jobs:
             build/test-results/**
           if-no-files-found: ignore
 
+  client-smoke:
+    name: Client startup · ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: JEI
+            properties: >-
+              -Pclient_smoke_test=true -Pruntime_jei=true -Pruntime_emi=false
+              -Pruntime_mekanism=false -Pruntime_mystical_agriculture=false
+              -Pruntime_create=false -Pruntime_industrial_foregoing=false
+              -Pruntime_neoecoae=false -Pruntime_ae_provider_addons=false
+              -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=jei,ae2jeiintegration
+          - name: EMI-TMRV
+            properties: >-
+              -Pclient_smoke_test=true -Pruntime_jei=false -Pruntime_emi=true
+              -Pruntime_mekanism=false -Pruntime_mystical_agriculture=false
+              -Pruntime_create=false -Pruntime_industrial_foregoing=false
+              -Pruntime_neoecoae=false -Pruntime_ae_provider_addons=false
+              -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Start the real client and exit after the title screen
+        run: xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
+      - name: Verify smoke-test completion marker
+        run: grep -F 'CLIENT_SMOKE_TEST_PASSED' run/logs/latest.log
+      - name: Upload client failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-${{ matrix.name }}-failure-${{ github.run_id }}
+          path: |
+            run/logs/**
+            run/crash-reports/**
+          if-no-files-found: ignore
+
   gametest:
     name: No-GUI GameTest · ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -120,7 +165,6 @@ jobs:
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
               -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration
-              -Pforbidden_test_mods=jei
           - name: Mekanism-JEI
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
@@ -138,7 +182,6 @@ jobs:
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
               -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration,mekanism,appmek
-              -Pforbidden_test_mods=jei
           - name: Mekanism-factory-addons
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true

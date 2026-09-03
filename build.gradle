@@ -41,6 +41,13 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            if (providers.gradleProperty('client_smoke_test')
+                    .map { it.toBoolean() }
+                    .getOrElse(false)) {
+                systemProperty 'aeallpattern.clientSmokeTest', 'true'
+                systemProperty 'aeallpattern.expectedTestMods',
+                        providers.gradleProperty('expected_test_mods').getOrElse('')
+            }
             if (providers.gradleProperty('showcase_quickplay')
                     .map { it.toBoolean() }
                     .getOrElse(false)) {

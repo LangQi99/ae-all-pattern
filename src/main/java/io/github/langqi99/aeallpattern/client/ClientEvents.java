@@ -33,6 +33,7 @@ public final class ClientEvents {
         NeoForge.EVENT_BUS.addListener(ClientEvents::onLogout);
         NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
+        NeoForge.EVENT_BUS.addListener(AggregateStartupRefreshService::onClientTick);
         if (Boolean.getBoolean("aeallpattern.clientSmokeTest")) {
             NeoForge.EVENT_BUS.addListener(ClientEvents::runClientSmokeTest);
         }
@@ -71,6 +72,8 @@ public final class ClientEvents {
 
     private static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientBindingState.clear();
+        io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView.replace(java.util.List.of());
+        AggregateStartupRefreshService.reset();
     }
 
     private static void renderBindings(RenderLevelStageEvent event) {

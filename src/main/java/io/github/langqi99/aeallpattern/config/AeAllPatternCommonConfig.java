@@ -26,7 +26,9 @@ public final class AeAllPatternCommonConfig {
         builder.push("aggregatePattern");
         AGGREGATE_RECIPE_LIMIT = builder
                 .comment("Maximum number of recipes stored in a newly generated aggregate pattern.")
-                .defineInRange("recipeLimit", 16384, 1, 16384);
+                // This key intentionally differs from the old per-part limit. Existing 0.2.1
+                // configs must receive the new single-item default instead of retaining 16384.
+                .defineInRange("singlePatternRecipeLimit", 1_048_576, 1, 1_048_576);
         TAG_EXPANSION_LIMIT = builder
                 .comment("Maximum number of item alternatives expanded from one recipe ingredient tag.")
                 .defineInRange("tagExpansionLimit", 1024, 1, Integer.MAX_VALUE);

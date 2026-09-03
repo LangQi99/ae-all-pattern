@@ -2,7 +2,7 @@ package io.github.langqi99.aeallpattern.aggregate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.resources.ResourceLocation;
@@ -20,26 +20,7 @@ class AggregateMetadataViewTest {
     }
 
     @Test
-    void selectsFirstMissingBatchAndStopsWhenSeriesIsComplete() {
-        AggregateMetadataView.replace(List.of(entry(0), entry(2)));
-        assertEquals(1, AggregateMetadataView.nextMissingBatch(CATALYST, SERIES, 16384, 3));
-
-        AggregateMetadataView.replace(List.of(entry(0), entry(1), entry(2)));
-        assertEquals(3, AggregateMetadataView.nextMissingBatch(CATALYST, SERIES, 16384, 3));
-    }
-
-    @Test
-    void ignoresPartsFromAnotherCatalogSeries() {
-        AggregateMetadataView.Entry other = new AggregateMetadataView.Entry(
-                UUID.randomUUID(), CATALYST, "block.test", "b".repeat(64), 16384,
-                "b".repeat(64), 16384, 0, 3, 40000);
-        AggregateMetadataView.replace(List.of(other));
-
-        assertEquals(0, AggregateMetadataView.nextMissingBatch(CATALYST, SERIES, 16384, 3));
-    }
-
-    @Test
-    void acceptsOversizedLegacySingleEntryForSaveCompatibility() {
+    void acceptsLegacySingleEntryForSaveCompatibility() {
         int legacyRecipeCount = 18000;
         assertDoesNotThrow(() -> new AggregatePatternLibrary.Entry(
                 UUID.randomUUID(), CATALYST, "block.test", SERIES, legacyRecipeCount,
@@ -47,10 +28,41 @@ class AggregateMetadataViewTest {
                 SERIES, legacyRecipeCount, 0, 1, legacyRecipeCount));
     }
 
-    private static AggregateMetadataView.Entry entry(int batchIndex) {
-        int recipeCount = batchIndex == 2 ? 7232 : 16384;
-        return new AggregateMetadataView.Entry(
-                UUID.randomUUID(), CATALYST, "block.test", SERIES, recipeCount,
-                SERIES, 16384, batchIndex, 3, 40000);
+    @Test
+    void replacementAdvancesRevisionAndRemovesDeletedCatalogs() {
+        long before = AggregateMetadataView.revision();
+        var firstId = UUID.randomUUID();
+        var deletedId = UUID.randomUUID();
+        var first = entry(firstId, 2);
+        var deleted = entry(deletedId, 7);
+        AggregateMetadataView.replace(List.of(first, deleted));
+
+        long populatedRevision = AggregateMetadataView.revision();
+        assertTrue(populatedRevision > before);
+        assertEquals(2, AggregateMetadataView.entries().size());
+
+        var refreshed = entry(firstId, 3);
+        AggregateMetadataView.replace(List.of(refreshed));
+        assertTrue(AggregateMetadataView.revision() > populatedRevision);
+        assertEquals(3, AggregateMetadataView.find(firstId).orElseThrow().recipeCount());
+        assertTrue(AggregateMetadataView.find(deletedId).isEmpty());
     }
+
+    @Test
+    void entriesReturnsASnapshotInsteadOfTheMutableBackingMap() {
+        var old = entry(UUID.randomUUID(), 1);
+        AggregateMetadataView.replace(List.of(old));
+        var snapshot = AggregateMetadataView.entries();
+
+        AggregateMetadataView.replace(List.of(entry(UUID.randomUUID(), 2)));
+
+        assertEquals(List.of(old), snapshot.stream().toList());
+    }
+
+    private static AggregateMetadataView.Entry entry(UUID id, int recipeCount) {
+        return new AggregateMetadataView.Entry(
+                id, CATALYST, "block.test", SERIES, recipeCount,
+                SERIES, Math.max(1, recipeCount), 0, 1, recipeCount, true);
+    }
+
 }

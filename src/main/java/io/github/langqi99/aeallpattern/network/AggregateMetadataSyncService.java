@@ -30,7 +30,9 @@ public final class AggregateMetadataSyncService {
                 .map(entry -> new AggregateMetadataView.Entry(
                         entry.libraryId(), entry.catalystId(), entry.machineTranslationKey(),
                         entry.contentHash(), entry.recipeCount(), entry.seriesHash(), entry.batchSize(),
-                        entry.batchIndex(), entry.batchCount(), entry.totalRecipeCount()))
+                        entry.batchIndex(), entry.batchCount(), entry.totalRecipeCount(),
+                        entry.batchCount() == 1
+                                && AggregateStartupRefreshState.isRequired(player.getServer(), entry.libraryId())))
                 .toList();
         PacketDistributor.sendToPlayer(player, new AggregateMetadataPayload(entries));
     }

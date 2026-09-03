@@ -45,9 +45,16 @@ public final class AggregatePatternItem extends Item {
                 .orElseGet(List::of);
         List<AggregatePatternSelectionMenu.Entry> entries =
                 AggregatePatternSelectionMenu.entriesFromRecipes(recipes);
-        final AggregatePatternSelection finalSelection =
-                stack.getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
-                        AggregatePatternSelection.ALL_ENABLED);
+        final AggregatePatternSelection finalSelection = stack
+                .getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                        AggregatePatternSelection.ALL_ENABLED)
+                .reconciled(recipes.stream().map(AggregateRecipe::patternId).toList());
+        if (finalSelection.isAllEnabled()) {
+            stack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+        } else {
+            stack.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(), finalSelection);
+        }
+        player.getInventory().setChanged();
         player.openMenu(
                 new SimpleMenuProvider(
                         (id, inventory, ignored) -> new AggregatePatternSelectionMenu(

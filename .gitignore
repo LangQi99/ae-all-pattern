@@ -3,6 +3,7 @@ build/
 out/
 run/
 run-gametest/
+run-gametest-*/
 run-data/
 .idea/
 *.iml

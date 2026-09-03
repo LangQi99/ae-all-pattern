@@ -46,49 +46,14 @@ public final class AggregatePatternLibrary extends SavedData {
             ResourceLocation catalystId,
             String machineTranslationKey,
             List<AggregateRecipe> recipes) {
-        return putBatch(server, catalystId, machineTranslationKey, recipes,
-                contentHash(recipes), AggregatePatternData.configuredRecipeLimit(),
-                0, 1, recipes.size(), true);
-    }
-
-    /** Stores one numbered part of a larger recipe catalog without replacing sibling parts. */
-    public AggregatePatternRef putBatch(
-            MinecraftServer server,
-            ResourceLocation catalystId,
-            String machineTranslationKey,
-            List<AggregateRecipe> recipes,
-            String seriesHash,
-            int batchSize,
-            int batchIndex,
-            int batchCount,
-            int totalRecipeCount) {
-        return putBatch(server, catalystId, machineTranslationKey, recipes, seriesHash, batchSize,
-                batchIndex, batchCount, totalRecipeCount, false);
-    }
-
-    private AggregatePatternRef putBatch(
-            MinecraftServer server,
-            ResourceLocation catalystId,
-            String machineTranslationKey,
-            List<AggregateRecipe> recipes,
-            String seriesHash,
-            int batchSize,
-            int batchIndex,
-            int batchCount,
-            int totalRecipeCount,
-            boolean replaceLegacyEntry) {
         if (recipes.isEmpty() || recipes.size() > AggregatePatternData.configuredRecipeLimit()) {
             throw new IllegalArgumentException("invalid aggregate library recipe count: " + recipes.size());
         }
-        validateBatch(seriesHash, batchSize, batchIndex, batchCount, totalRecipeCount, recipes.size());
         String hash = contentHash(recipes);
-        Entry entry = replaceLegacyEntry ? entries.values().stream()
+        Entry entry = entries.values().stream()
                 .filter(candidate -> candidate.catalystId().equals(catalystId)
                         && candidate.batchCount() == 1)
-                .findFirst().orElse(null) : null;
-        if (!replaceLegacyEntry && findBatch(catalystId, seriesHash, batchSize, batchIndex).isPresent()) {
-            throw new IllegalArgumentException("aggregate batch already exists: " + (batchIndex + 1));
-        }
+                .findFirst().orElse(null);
         UUID id = entry == null ? UUID.randomUUID() : entry.libraryId();
         int pageCount = Math.ceilDiv(recipes.size(), PAGE_SIZE);
         var storage = server.overworld().getDataStorage();
@@ -98,31 +63,41 @@ public final class AggregatePatternLibrary extends SavedData {
             storage.set(pageName(id, pageIndex), new Page(recipes.subList(from, to)));
         }
         Entry updated = new Entry(id, catalystId, machineTranslationKey, hash, recipes.size(), pageCount,
-                seriesHash, batchSize, batchIndex, batchCount, totalRecipeCount);
+                hash, recipes.size(), 0, 1, recipes.size());
         entries.put(id, updated);
         setDirty();
         return updated.toRef();
     }
 
-    public Optional<Entry> findBatch(
-            ResourceLocation catalystId, String seriesHash, int batchSize, int batchIndex) {
-        return entries.values().stream()
-                .filter(entry -> entry.catalystId().equals(catalystId)
-                        && entry.seriesHash().equals(seriesHash)
-                        && entry.batchSize() == batchSize
-                        && entry.batchIndex() == batchIndex)
-                .findFirst();
-    }
-
-    /** Returns the first part that has not been generated, or {@code batchCount} when complete. */
-    public int nextMissingBatch(
-            ResourceLocation catalystId, String seriesHash, int batchSize, int batchCount) {
-        for (int batchIndex = 0; batchIndex < batchCount; batchIndex++) {
-            if (findBatch(catalystId, seriesHash, batchSize, batchIndex).isEmpty()) {
-                return batchIndex;
-            }
+    /** Replaces one existing single-item catalog while keeping every item reference valid. */
+    public AggregatePatternRef replace(
+            MinecraftServer server,
+            UUID libraryId,
+            ResourceLocation catalystId,
+            String machineTranslationKey,
+            List<AggregateRecipe> recipes) {
+        Entry existing = entries.get(libraryId);
+        if (existing == null || existing.batchCount() != 1
+                || !existing.catalystId().equals(catalystId)) {
+            throw new IllegalArgumentException("aggregate library entry cannot be refreshed: " + libraryId);
         }
-        return batchCount;
+        if (recipes.size() > AggregatePatternData.configuredRecipeLimit()) {
+            throw new IllegalArgumentException("invalid aggregate library recipe count: " + recipes.size());
+        }
+        String hash = contentHash(recipes);
+        int pageCount = Math.ceilDiv(recipes.size(), PAGE_SIZE);
+        var storage = server.overworld().getDataStorage();
+        for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            int from = pageIndex * PAGE_SIZE;
+            int to = Math.min(recipes.size(), from + PAGE_SIZE);
+            storage.set(pageName(libraryId, pageIndex), new Page(recipes.subList(from, to)));
+        }
+        Entry updated = new Entry(
+                libraryId, catalystId, machineTranslationKey, hash, recipes.size(), pageCount,
+                hash, Math.max(1, recipes.size()), 0, 1, recipes.size());
+        entries.put(libraryId, updated);
+        setDirty();
+        return updated.toRef();
     }
 
     public Optional<List<AggregateRecipe>> recipes(MinecraftServer server, UUID libraryId) {
@@ -206,11 +181,6 @@ public final class AggregatePatternLibrary extends SavedData {
         return hashPatternIds(recipes.stream().map(AggregateRecipe::patternId).sorted().toList());
     }
 
-    /** Order-sensitive identity used to keep numbered parts on the same stable partition. */
-    public static String seriesHash(List<AggregateRecipe> recipes) {
-        return hashPatternIds(recipes.stream().map(AggregateRecipe::patternId).toList());
-    }
-
     private static String hashPatternIds(List<String> patternIds) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -241,10 +211,17 @@ public final class AggregatePatternLibrary extends SavedData {
             int batchCount,
             int totalRecipeCount) {
         public Entry {
-            if (recipeCount < 1 || pageCount != Math.ceilDiv(recipeCount, PAGE_SIZE)) {
+            if (recipeCount < 0 || pageCount != Math.ceilDiv(recipeCount, PAGE_SIZE)) {
                 throw new IllegalArgumentException("invalid aggregate library metadata");
             }
-            validateBatch(seriesHash, batchSize, batchIndex, batchCount, totalRecipeCount, recipeCount);
+            if (recipeCount == 0) {
+                if (seriesHash == null || seriesHash.length() != 64 || batchSize != 1
+                        || batchIndex != 0 || batchCount != 1 || totalRecipeCount != 0) {
+                    throw new IllegalArgumentException("invalid empty aggregate library metadata");
+                }
+            } else {
+                validateBatch(seriesHash, batchSize, batchIndex, batchCount, totalRecipeCount, recipeCount);
+            }
         }
 
         public AggregatePatternRef toRef() {

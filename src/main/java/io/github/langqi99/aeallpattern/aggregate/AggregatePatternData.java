@@ -21,7 +21,7 @@ public record AggregatePatternData(
         List<AggregateRecipe> recipes) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
     /** Absolute number of recipes stored by one physical aggregate-pattern item. */
-    public static final int MAX_RECIPES = 16384;
+    public static final int MAX_RECIPES = 1_048_576;
 
     private static final Codec<List<AggregateRecipe>> RECIPES_CODEC = AggregateRecipe.CODEC.listOf()
             .validate(recipes -> recipes.isEmpty() || recipes.size() > MAX_RECIPES

@@ -201,6 +201,15 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         if (!isSelectable(stack)) {
             return false;
         }
+        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        if (ref != null && player instanceof ServerPlayer serverPlayer) {
+            List<String> currentPatternIds = AggregatePatternLibrary.get(serverPlayer.server)
+                    .recipes(serverPlayer.server, ref.libraryId())
+                    .orElseGet(List::of).stream()
+                    .map(AggregateRecipe::patternId)
+                    .toList();
+            updated = updated.reconciled(currentPatternIds);
+        }
         if (updated.isAllEnabled()) {
             stack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
         } else {

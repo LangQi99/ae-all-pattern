@@ -75,12 +75,15 @@ neoForge {
             // Keep dependency-matrix tests away from the playable lab save. A
             // minimal run intentionally omits optional block registries and
             // would otherwise replace those machines with air when saving.
-            gameDirectory = file('run-gametest')
+            gameDirectory = file(providers.gradleProperty('gametest_directory')
+                    .getOrElse('run-gametest'))
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'aeallpattern.expectedTestMods',
                     providers.gradleProperty('expected_test_mods').getOrElse('')
             systemProperty 'aeallpattern.forbiddenTestMods',
                     providers.gradleProperty('forbidden_test_mods').getOrElse('')
+            systemProperty 'aeallpattern.persistencePhase',
+                    providers.gradleProperty('persistence_phase').getOrElse('')
         }
 
         data {

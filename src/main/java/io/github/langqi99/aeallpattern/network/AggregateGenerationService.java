@@ -2,6 +2,8 @@ package io.github.langqi99.aeallpattern.network;
 
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
+import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.machine.MachineAdapterRegistry;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
@@ -36,8 +38,7 @@ public final class AggregateGenerationService {
         if (!validTarget(payload, player)) {
             return;
         }
-        if (payload.batchSize() > AggregatePatternData.configuredRecipeLimit()
-                || payload.totalRecipeCount() > AggregatePatternData.configuredRecipeLimit()) {
+        if (payload.totalRecipeCount() > AggregatePatternData.configuredRecipeLimit()) {
             return;
         }
 
@@ -56,24 +57,20 @@ public final class AggregateGenerationService {
             return;
         }
         var library = AggregatePatternLibrary.get(Objects.requireNonNull(player.getServer()));
-        if (payload.batchCount() > 1 && library.findBatch(payload.catalystId(), payload.seriesHash(),
-                payload.batchSize(), payload.batchIndex()).isPresent()) {
-            AggregateMetadataSyncService.send(player);
-            int next = library.nextMissingBatch(payload.catalystId(), payload.seriesHash(),
-                    payload.batchSize(), payload.batchCount());
-            player.displayClientMessage(Component.translatable(
-                    next >= payload.batchCount()
-                            ? "message.aeallpattern.generator.series_complete"
-                            : "message.aeallpattern.generator.progress_updated",
-                    next >= payload.batchCount() ? payload.batchCount() : next + 1), true);
+        boolean refresh = payload.replacementLibraryId() != null;
+        var ref = refresh
+                ? library.replace(player.getServer(), payload.replacementLibraryId(),
+                        payload.catalystId(), payload.machineTranslationKey(), recipes)
+                : library.put(player.getServer(), payload.catalystId(),
+                        payload.machineTranslationKey(), recipes);
+        AggregateStartupRefreshState.markComplete(player.getServer(), ref.libraryId());
+        AggregatePatternExpander.clearCaches();
+        AggregateProviderRefreshService.requestRefresh(player.getServer());
+        AggregateMetadataSyncService.sendToOnlinePlayers(player.getServer());
+
+        if (refresh) {
             return;
         }
-        var ref = payload.batchCount() == 1
-                ? library.put(player.getServer(), payload.catalystId(), payload.machineTranslationKey(), recipes)
-                : library.putBatch(player.getServer(), payload.catalystId(), payload.machineTranslationKey(), recipes,
-                        payload.seriesHash(), payload.batchSize(), payload.batchIndex(), payload.batchCount(),
-                        payload.totalCatalogRecipeCount());
-        AggregateMetadataSyncService.sendToOnlinePlayers(player.getServer());
 
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
         aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
@@ -83,10 +80,20 @@ public final class AggregateGenerationService {
         player.level().playSound(
                 null, payload.machinePos(), SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS, 0.6F, 1.25F);
-        showCreated(player, payload, recipes.size());
+        player.displayClientMessage(Component.translatable(
+                "message.aeallpattern.generator.created",
+                Component.translatable(payload.machineTranslationKey()), recipes.size()), true);
     }
 
     private static boolean validTarget(GenerateAggregatePayload payload, ServerPlayer player) {
+        if (payload.replacementLibraryId() != null) {
+            return AggregatePatternLibrary.get(Objects.requireNonNull(player.getServer()))
+                    .find(payload.replacementLibraryId())
+                    .filter(entry -> entry.batchCount() == 1)
+                    .filter(entry -> entry.catalystId().equals(payload.catalystId()))
+                    .filter(entry -> entry.machineTranslationKey().equals(payload.machineTranslationKey()))
+                    .isPresent();
+        }
         // The client scan runs across many ticks, so the player legitimately walks away from
         // the machine while it completes. Enforce the machine identity instead of proximity:
         // the clicked block must still be the same block, and the player must still hold the
@@ -113,22 +120,6 @@ public final class AggregateGenerationService {
                 || player.getOffhandItem().is(ModItems.ALL_PATTERN_GENERATOR.get());
     }
 
-    private static void showCreated(ServerPlayer player, GenerateAggregatePayload payload, int recipeCount) {
-        Component machine = Component.translatable(payload.machineTranslationKey());
-        if (payload.batchCount() <= 1) {
-            player.displayClientMessage(Component.translatable(
-                    "message.aeallpattern.generator.created", machine, recipeCount), true);
-        } else if (payload.batchIndex() + 1 < payload.batchCount()) {
-            player.displayClientMessage(Component.translatable(
-                    "message.aeallpattern.generator.created_part", machine, payload.batchIndex() + 1,
-                    payload.batchCount(), recipeCount, payload.batchIndex() + 2), true);
-        } else {
-            player.displayClientMessage(Component.translatable(
-                    "message.aeallpattern.generator.created_last_part", machine,
-                    payload.batchIndex() + 1, payload.batchCount(), recipeCount), true);
-        }
-    }
-
     private record UploadKey(UUID playerId, UUID uploadId) {
     }
 
@@ -136,11 +127,7 @@ public final class AggregateGenerationService {
         private final BlockPos machinePos;
         private final ResourceLocation catalystId;
         private final String machineKey;
-        private final String seriesHash;
-        private final int batchSize;
-        private final int batchIndex;
-        private final int batchCount;
-        private final int totalCatalogRecipeCount;
+        private final UUID replacementLibraryId;
         private final int pageCount;
         private final int totalRecipeCount;
         private final Map<Integer, List<AggregateRecipe>> pages = new HashMap<>();
@@ -150,11 +137,7 @@ public final class AggregateGenerationService {
             machinePos = first.machinePos();
             catalystId = first.catalystId();
             machineKey = first.machineTranslationKey();
-            seriesHash = first.seriesHash();
-            batchSize = first.batchSize();
-            batchIndex = first.batchIndex();
-            batchCount = first.batchCount();
-            totalCatalogRecipeCount = first.totalCatalogRecipeCount();
+            replacementLibraryId = first.replacementLibraryId();
             pageCount = first.pageCount();
             totalRecipeCount = first.totalRecipeCount();
             lastUpdateTick = now;
@@ -164,11 +147,7 @@ public final class AggregateGenerationService {
             return machinePos.equals(page.machinePos())
                     && catalystId.equals(page.catalystId())
                     && machineKey.equals(page.machineTranslationKey())
-                    && seriesHash.equals(page.seriesHash())
-                    && batchSize == page.batchSize()
-                    && batchIndex == page.batchIndex()
-                    && batchCount == page.batchCount()
-                    && totalCatalogRecipeCount == page.totalCatalogRecipeCount()
+                    && Objects.equals(replacementLibraryId, page.replacementLibraryId())
                     && pageCount == page.pageCount()
                     && totalRecipeCount == page.totalRecipeCount();
         }

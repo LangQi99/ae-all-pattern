@@ -23,7 +23,7 @@ AE All Pattern removes the repetitive work of encoding and maintaining hundreds�
 ### Quick start: Aggregate Patterns
 
 1. Hold an **All Pattern Generator** and sneak-right-click a machine.
-2. The generated **Aggregate Pattern** contains every encodable recipe discovered for that machine. Very large catalogs are transferred and stored in bounded pages instead of one oversized packet or item tag.
+2. The generated **Aggregate Pattern** contains every encodable recipe discovered for that machine. Very large catalogs are transferred and stored in bounded pages instead of one oversized packet or item tag. Existing catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client, and their server-library UUID is updated in place.
 3. Insert it into an AE2 Pattern Provider or a supported provider add-on. AE sees the selected child recipes as normal crafting or processing patterns.
 4. Hold the Aggregate Pattern and right-click to search its contents, enable or disable individual recipes, and change its encoding rules.
 
@@ -41,6 +41,8 @@ The Linker is a real AE node: it uses one channel and 2 AE/t. The Binder and Gen
 ### Aggregate Pattern controls
 
 Each Aggregate Pattern keeps its own settings. The management screen also lets you search the complete catalog by input or output and publish only the recipes you want.
+
+Recipe checkboxes are stored on the physical item as recipe IDs only. The item automatically keeps whichever list is shorter—enabled recipes or disabled recipes. After a catalog refresh, removed IDs are discarded; newly added recipes follow the previous majority default and the surviving choices keep their meaning.
 
 | Setting | Effect | Default |
 | --- | --- | :---: |
@@ -106,7 +108,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 ### 聚合样板：一张装下一整套配方
 
 1. 手持**全样板生成器**，潜行右击一台机器。
-2. 生成的**聚合样板**会包含这台机器可编码的全部配方。面对数百、数千条配方时，数据会分批传输并分页保存在服务端，不会全部塞进一次网络包或物品 NBT。
+2. 生成的**聚合样板**会包含这台机器可编码的全部配方。面对数百、数千条配方时，数据会分批传输并分页保存在服务端，不会全部塞进一次网络包或物品 NBT。每次服务端启动后，首个可用的 JEI 或 EMI/TMRV 客户端会扫描一次已有目录，并在不改变服务端 UUID 的前提下更新内容。
 3. 把聚合样板直接放入 AE2 样板供应器或受支持的附属供应器；其中启用的子样板会像普通 AE 样板一样参与合成。
 4. 手持聚合样板右击，可按输入或输出搜索完整配方库、单独启用或禁用配方，并调整编码规则。
 
@@ -124,6 +126,8 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 ### 聚合样板配置
 
 每张聚合样板独立保存自己的设置。管理界面还可以搜索全部子样板，并只发布玩家真正需要的配方。
+
+配方勾选状态只在实体物品中保存配方 ID，并自动在“已启用列表”和“已禁用列表”中选择较短的一边。目录刷新后，已删除的 ID 会被清理，新增配方按原有的多数默认状态处理，其余勾选语义保持不变。
 
 | 选项 | 作用 | 默认 |
 | --- | --- | :---: |
@@ -188,9 +192,9 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 ./gradlew clean check build
 ```
 
-The CI matrix covers unit tests, real client startup smoke tests, and no-GUI GameTests across minimal AE2, JEI, EMI/TMRV, machine-mod, provider-add-on, packaging, and Mekanism-add-on profiles. Test fixtures are downloaded at pinned versions during CI and are not bundled into the release JAR.
+The CI matrix covers unit tests, real client startup smoke tests, a two-process save/reopen persistence test, and no-GUI GameTests across minimal AE2, JEI, EMI/TMRV, machine-mod, provider-add-on, packaging, and Mekanism-add-on profiles. Test fixtures are downloaded at pinned versions during CI and are not bundled into the release JAR.
 
-CI 会执行单元测试、真实客户端启动冒烟测试，以及最小 AE2、JEI、EMI/TMRV、机器模组、供应器附属、打包合成和 Mekanism 附属等多组无界面 GameTest；测试依赖在流水线中按固定版本下载，不会进入发布 JAR。
+CI 会执行单元测试、真实客户端启动冒烟测试、跨两个独立游戏进程的存档重开测试，以及最小 AE2、JEI、EMI/TMRV、机器模组、供应器附属、打包合成和 Mekanism 附属等多组无界面 GameTest；测试依赖在流水线中按固定版本下载，不会进入发布 JAR。
 
 Start with the [documentation index](docs/index.md). Architecture decisions, environment setup, testing strategy, release steps, troubleshooting, and the project roadmap are maintained under [`docs/`](docs/).
 

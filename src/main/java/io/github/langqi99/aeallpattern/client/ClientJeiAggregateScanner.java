@@ -83,6 +83,14 @@ public final class ClientJeiAggregateScanner {
     private static long lastScanTick = Long.MIN_VALUE;
     private static BlockPos lastScanPos = BlockPos.ZERO;
     private static ScanJob activeJob;
+    private static volatile boolean vanillaScanRunning;
+
+    private record ScanTarget(
+            BlockPos machinePos,
+            ResourceLocation catalystId,
+            String machineKey,
+            UUID replacementLibraryId) {
+    }
 
     private ClientJeiAggregateScanner() {
     }
@@ -127,7 +135,7 @@ public final class ClientJeiAggregateScanner {
         }
     }
 
-    /** Cheap preparation: resolve the catalyst and its native JEI category, then queue the job. */
+    /** Cheap preparation for a player-triggered scan. Kept as a stable mixin hook for EMI/TMRV. */
     private static void startScan(IJeiRuntime runtime, BlockPos pos) {
         var minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
@@ -138,6 +146,40 @@ public final class ClientJeiAggregateScanner {
             show("message.aeallpattern.generator.no_jei_recipes");
             return;
         }
+        var machineBlock = minecraft.level.getBlockState(pos).getBlock();
+        startScan(runtime, catalyst, new ScanTarget(
+                pos, BuiltInRegistries.BLOCK.getKey(machineBlock),
+                machineBlock.getDescriptionId(), null), true);
+    }
+
+    /** Queues a one-time world-entry refresh of an existing server library entry. */
+    public static boolean startRefresh(AggregateMetadataView.Entry entry) {
+        if (isBusy() || entry.batchCount() != 1) {
+            return false;
+        }
+        var runtime = AeAllPatternJeiPlugin.runtime();
+        var minecraft = net.minecraft.client.Minecraft.getInstance();
+        if (runtime.isEmpty() || minecraft.level == null || minecraft.player == null) {
+            return false;
+        }
+        var block = BuiltInRegistries.BLOCK.get(entry.catalystId());
+        ItemStack catalyst = block == null ? ItemStack.EMPTY : block.asItem().getDefaultInstance();
+        ScanTarget target = new ScanTarget(
+                BlockPos.ZERO, entry.catalystId(), entry.machineTranslationKey(), entry.libraryId());
+        if (catalyst.isEmpty()
+                || (block == Blocks.AIR && !entry.catalystId().equals(BuiltInRegistries.BLOCK.getKey(Blocks.AIR)))) {
+            uploadRefresh(List.of(), target);
+            return true;
+        }
+        return startScan(runtime.orElseThrow(), catalyst, target, false);
+    }
+
+    public static boolean isBusy() {
+        return activeJob != null || vanillaScanRunning;
+    }
+
+    private static boolean startScan(
+            IJeiRuntime runtime, ItemStack catalyst, ScanTarget target, boolean notifyPlayer) {
 
         var focusFactory = runtime.getJeiHelpers().getFocusFactory();
         IFocus<ItemStack> catalystFocus = focusFactory.createFocus(
@@ -155,8 +197,12 @@ public final class ClientJeiAggregateScanner {
                     .toList();
         }
         if (categories.isEmpty()) {
-            show("message.aeallpattern.generator.no_jei_recipes");
-            return;
+            if (target.replacementLibraryId() != null) {
+                uploadRefresh(List.of(), target);
+            } else if (notifyPlayer) {
+                show("message.aeallpattern.generator.no_jei_recipes");
+            }
+            return true;
         }
 
         // A compatibility machine may register the clicked block as a catalyst for
@@ -165,29 +211,35 @@ public final class ClientJeiAggregateScanner {
         IRecipeCategory<?> category = findNativeCategory(categories, catalyst);
         if (category == null || !allowsCategory(
                 BuiltInRegistries.ITEM.getKey(catalyst.getItem()), category.getRecipeType().getUid())) {
-            show("message.aeallpattern.generator.no_jei_recipes");
-            return;
+            if (target.replacementLibraryId() != null) {
+                uploadRefresh(List.of(), target);
+            } else if (notifyPlayer) {
+                show("message.aeallpattern.generator.no_jei_recipes");
+            }
+            return true;
         }
         AggregatePatternKind kind = patternKind(category.getRecipeType().getUid());
-        var machineBlock = minecraft.level.getBlockState(pos).getBlock();
         if (kind == AggregatePatternKind.CRAFTING || kind == AggregatePatternKind.STONECUTTING) {
             // Vanilla recipes are plain data; parsing them through JEI layout drawables is
             // hundreds of times slower for no extra fidelity. Scan them on a worker thread so
             // a 18k-recipe crafting category completes in seconds without touching the render
             // thread, then hand the result back for the same paged upload.
-            startVanillaScan(
-                    kind, pos,
-                    machineBlock.getDescriptionId(),
-                    BuiltInRegistries.BLOCK.getKey(machineBlock));
-            show("message.aeallpattern.generator.scan_started");
-            return;
+            startVanillaScan(kind, target, notifyPlayer);
+            if (notifyPlayer) {
+                show("message.aeallpattern.generator.scan_started");
+            }
+            return true;
         }
 
         var manager = runtime.getRecipeManager();
         List<?> categoryRecipes = manager.createRecipeLookup(category.getRecipeType()).get().toList();
         if (categoryRecipes.isEmpty()) {
-            show("message.aeallpattern.generator.no_item_recipes");
-            return;
+            if (target.replacementLibraryId() != null) {
+                uploadRefresh(List.of(), target);
+            } else if (notifyPlayer) {
+                show("message.aeallpattern.generator.no_item_recipes");
+            }
+            return true;
         }
 
         activeJob = new ScanJob(
@@ -195,15 +247,17 @@ public final class ClientJeiAggregateScanner {
                 kind,
                 category.getRecipeType().getUid(),
                 categoryRecipes,
-                pos,
-                machineBlock.getDescriptionId(),
-                BuiltInRegistries.BLOCK.getKey(machineBlock));
-        show("message.aeallpattern.generator.scan_started");
+                target,
+                notifyPlayer);
+        if (notifyPlayer) {
+            show("message.aeallpattern.generator.scan_started");
+        }
+        return true;
     }
 
     /** Worker-thread scan of vanilla crafting/stonecutting recipes. */
     private static void startVanillaScan(
-            AggregatePatternKind kind, BlockPos pos, String machineKey, ResourceLocation catalystId) {
+            AggregatePatternKind kind, ScanTarget target, boolean notifyPlayer) {
         var level = net.minecraft.client.Minecraft.getInstance().level;
         if (level == null) {
             return;
@@ -213,19 +267,26 @@ public final class ClientJeiAggregateScanner {
         ResourceLocation categoryId = kind == AggregatePatternKind.CRAFTING
                 ? RecipeTypes.CRAFTING.getUid()
                 : RecipeTypes.STONECUTTING.getUid();
+        vanillaScanRunning = true;
         Thread worker = new Thread(() -> {
+            int recipeLimit = AggregatePatternData.configuredRecipeLimit();
             List<AggregateRecipe> result = new ArrayList<>();
             Set<String> seen = new HashSet<>();
             int index = 0;
+            boolean truncated = false;
             int[] lastNotify = {0};
             try {
                 if (kind == AggregatePatternKind.CRAFTING) {
                     List<RecipeHolder<CraftingRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.CRAFTING);
                     for (RecipeHolder<CraftingRecipe> holder : recipes) {
+                        if (result.size() >= recipeLimit) {
+                            truncated = true;
+                            break;
+                        }
                         scanVanillaCrafting(holder, registryAccess, categoryId, result, seen);
                         index++;
-                        if (index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
+                        if (notifyPlayer && index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
                             lastNotify[0] = index;
                             notifyProgress(index, recipes.size());
                         }
@@ -234,9 +295,13 @@ public final class ClientJeiAggregateScanner {
                     List<RecipeHolder<StonecutterRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.STONECUTTING);
                     for (RecipeHolder<StonecutterRecipe> holder : recipes) {
+                        if (result.size() >= recipeLimit) {
+                            truncated = true;
+                            break;
+                        }
                         scanVanillaStonecutting(holder, registryAccess, categoryId, result, seen);
                         index++;
-                        if (index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
+                        if (notifyPlayer && index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
                             lastNotify[0] = index;
                             notifyProgress(index, recipes.size());
                         }
@@ -246,9 +311,15 @@ public final class ClientJeiAggregateScanner {
                 io.github.langqi99.aeallpattern.AeAllPattern.LOGGER.debug(
                         "vanilla recipe scan aborted after {} recipes", index, error);
             }
+            final boolean wasTruncated = truncated;
             final List<AggregateRecipe> frozen = List.copyOf(result);
             net.minecraft.client.Minecraft.getInstance().execute(() -> {
-                uploadNextBatch(frozen, pos, machineKey, catalystId);
+                vanillaScanRunning = false;
+                if (wasTruncated && notifyPlayer) {
+                    show("message.aeallpattern.generator.truncated",
+                            String.valueOf(recipeLimit), String.valueOf(frozen.size()));
+                }
+                upload(frozen, target);
             });
         }, "aeallpattern-vanilla-scan");
         worker.setDaemon(true);
@@ -370,33 +441,52 @@ public final class ClientJeiAggregateScanner {
     }
 
     /** Shared paged upload for both the JEI job and the vanilla worker path. */
-    public static void uploadNextBatch(
+    public static void upload(
             List<AggregateRecipe> recipes, BlockPos pos, String machineKey, ResourceLocation catalystId) {
-        if (recipes.isEmpty()) {
+        upload(recipes, new ScanTarget(pos, catalystId, machineKey, null));
+    }
+
+    public static void uploadRefresh(List<AggregateRecipe> recipes, AggregateMetadataView.Entry entry) {
+        uploadRefresh(recipes, entry.libraryId(), entry.catalystId(), entry.machineTranslationKey());
+    }
+
+    public static void uploadRefresh(
+            List<AggregateRecipe> recipes,
+            UUID libraryId,
+            ResourceLocation catalystId,
+            String machineKey) {
+        uploadRefresh(recipes, new ScanTarget(BlockPos.ZERO, catalystId, machineKey, libraryId));
+    }
+
+    private static void uploadRefresh(List<AggregateRecipe> recipes, ScanTarget target) {
+        upload(recipes, target);
+    }
+
+    private static void upload(List<AggregateRecipe> recipes, ScanTarget target) {
+        if (recipes.isEmpty() && target.replacementLibraryId() == null) {
             show("message.aeallpattern.generator.no_item_recipes");
             return;
         }
-        int batchSize = AggregatePatternData.configuredRecipeLimit();
-        int batchCount = Math.ceilDiv(recipes.size(), batchSize);
-        String seriesHash = AggregatePatternLibrary.seriesHash(recipes);
-        int batchIndex = batchCount == 1 ? 0 : AggregateMetadataView.nextMissingBatch(
-                catalystId, seriesHash, batchSize, batchCount);
-        if (batchIndex >= batchCount) {
-            show("message.aeallpattern.generator.series_complete", batchCount);
-            return;
+        int recipeLimit = AggregatePatternData.configuredRecipeLimit();
+        List<AggregateRecipe> selected = recipes.size() <= recipeLimit
+                ? List.copyOf(recipes)
+                : List.copyOf(recipes.subList(0, recipeLimit));
+        if (selected.size() < recipes.size()) {
+            show("message.aeallpattern.generator.truncated",
+                    String.valueOf(recipeLimit), String.valueOf(selected.size()));
         }
-        int from = batchIndex * batchSize;
-        int to = Math.min(recipes.size(), from + batchSize);
-        List<AggregateRecipe> batch = List.copyOf(recipes.subList(from, to));
         UUID uploadId = UUID.randomUUID();
         // Split by estimated bytes so a page never exceeds the protocol packet limit,
         // and never by a fixed recipe count alone.
-        List<List<AggregateRecipe>> pages = createPages(batch);
+        List<List<AggregateRecipe>> pages = createPages(selected);
+        if (pages.isEmpty()) {
+            pages = List.of(List.of());
+        }
         for (int pageIndex = 0; pageIndex < pages.size(); pageIndex++) {
             PacketDistributor.sendToServer(new GenerateAggregatePayload(
-                    uploadId, pos, catalystId, machineKey, seriesHash, batchSize, batchIndex,
-                    batchCount, recipes.size(), pageIndex, pages.size(),
-                    batch.size(), pages.get(pageIndex)));
+                    uploadId, target.machinePos(), target.catalystId(), target.machineKey(),
+                    target.replacementLibraryId(), pageIndex, pages.size(),
+                    selected.size(), pages.get(pageIndex)));
         }
     }
 
@@ -431,9 +521,9 @@ public final class ClientJeiAggregateScanner {
         private final AggregatePatternKind kind;
         private final ResourceLocation categoryId;
         private final List<?> categoryRecipes;
-        private final BlockPos pos;
-        private final String machineKey;
-        private final ResourceLocation catalystId;
+        private final ScanTarget target;
+        private final boolean notifyPlayer;
+        private final int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         private final List<AggregateRecipe> destination = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
         private int index;
@@ -447,24 +537,22 @@ public final class ClientJeiAggregateScanner {
                 AggregatePatternKind kind,
                 ResourceLocation categoryId,
                 List<?> categoryRecipes,
-                BlockPos pos,
-                String machineKey,
-                ResourceLocation catalystId) {
+                ScanTarget target,
+                boolean notifyPlayer) {
             this.runtime = runtime;
             this.category = category;
             this.emptyFocus = emptyFocus;
             this.kind = kind;
             this.categoryId = categoryId;
             this.categoryRecipes = categoryRecipes;
-            this.pos = pos;
-            this.machineKey = machineKey;
-            this.catalystId = catalystId;
+            this.target = target;
+            this.notifyPlayer = notifyPlayer;
         }
 
         /** Processes recipes until the time budget is spent; true when the scan is complete. */
         boolean step() {
             long deadline = System.nanoTime() + ClientJeiAggregateScanner.SCAN_BUDGET_NANOS;
-            while (index < categoryRecipes.size()) {
+            while (index < categoryRecipes.size() && destination.size() < recipeLimit) {
                 try {
                     scanOne(categoryRecipes.get(index), index);
                 } catch (RuntimeException error) {
@@ -477,17 +565,21 @@ public final class ClientJeiAggregateScanner {
                     break;
                 }
             }
-            if (index - lastProgressShown >= PROGRESS_INTERVAL) {
+            if (notifyPlayer && index - lastProgressShown >= PROGRESS_INTERVAL) {
                 lastProgressShown = index;
                 show("message.aeallpattern.generator.scan_progress",
                         String.valueOf(Math.min(index, categoryRecipes.size())),
                         String.valueOf(categoryRecipes.size()));
             }
-            return index >= categoryRecipes.size();
+            return index >= categoryRecipes.size() || destination.size() >= recipeLimit;
         }
 
         private void finish() {
-            uploadNextBatch(destination, pos, machineKey, catalystId);
+            if (notifyPlayer && index < categoryRecipes.size()) {
+                show("message.aeallpattern.generator.truncated",
+                        String.valueOf(recipeLimit), String.valueOf(destination.size()));
+            }
+            upload(destination, target);
         }
 
         @SuppressWarnings({"unchecked"})

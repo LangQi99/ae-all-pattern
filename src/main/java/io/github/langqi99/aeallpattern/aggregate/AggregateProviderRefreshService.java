@@ -40,6 +40,11 @@ public final class AggregateProviderRefreshService {
         }
     }
 
+    /** Schedules every tracked provider to observe a replaced aggregate library entry. */
+    public static synchronized void requestRefresh(MinecraftServer server) {
+        PENDING.put(server, RecipeIndexService.generation());
+    }
+
     /** Called one tick after datapack sync, when RecipeManager is stable again. */
     public static void tickServer(MinecraftServer server) {
         List<TrackedRefresh> refresh;

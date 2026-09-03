@@ -97,6 +97,51 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
         return new AggregatePatternSelection(inverted, List.copyOf(updated));
     }
 
+    /**
+     * Removes ids that no longer exist and stores whichever side of the current catalog is
+     * smaller. The existing mode decides the state of newly discovered ids before compaction:
+     * a disabled-id list enables new recipes, while an enabled-id list keeps them disabled.
+     */
+    public AggregatePatternSelection reconciled(Collection<String> currentPatternIds) {
+        LinkedHashSet<String> current = new LinkedHashSet<>();
+        for (String patternId : currentPatternIds) {
+            if (patternId != null && !patternId.isBlank() && patternId.length() <= MAX_ID_LENGTH) {
+                current.add(patternId);
+            }
+        }
+        if (current.isEmpty()) {
+            return inverted ? NONE_ENABLED : ALL_ENABLED;
+        }
+
+        List<String> enabled = new ArrayList<>();
+        List<String> disabled = new ArrayList<>();
+        for (String patternId : current) {
+            (isEnabled(patternId) ? enabled : disabled).add(patternId);
+        }
+        if (enabled.size() < disabled.size()) {
+            return new AggregatePatternSelection(true, enabled);
+        }
+        if (disabled.size() < enabled.size()) {
+            return new AggregatePatternSelection(false, disabled);
+        }
+        // A tie has equal storage cost. Preserve the old mode so the default state of recipes
+        // added by a later catalog refresh does not change merely because we compacted it.
+        return inverted
+                ? new AggregatePatternSelection(true, enabled)
+                : new AggregatePatternSelection(false, disabled);
+    }
+
+    public AggregatePatternSelection toggled(String patternId, Collection<String> currentPatternIds) {
+        return toggled(patternId).reconciled(currentPatternIds);
+    }
+
+    public AggregatePatternSelection withEnabled(
+            Collection<String> patternIds,
+            boolean enabled,
+            Collection<String> currentPatternIds) {
+        return withEnabled(patternIds, enabled).reconciled(currentPatternIds);
+    }
+
     private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternSelection selection) {
         buffer.writeBoolean(selection.inverted);
         buffer.writeVarInt(selection.ids.size());

@@ -155,6 +155,22 @@ public final class AggregatePatternExpander {
         AggregatePatternOptions options = savedOptions == null ? AggregatePatternOptions.DEFAULT : savedOptions;
         AggregatePatternSelection selection =
                 aggregateStack.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+        if (selection != null) {
+            AggregatePatternSelection reconciled = selection.reconciled(
+                    recipes.stream().map(AggregateRecipe::patternId).toList());
+            // Catalogs are refreshed independently of their physical item copies. Normalize
+            // the component on first real use as well as when the management menu opens, so
+            // deleted ids do not remain in provider inventories forever and the item always
+            // keeps the smaller of the enabled/disabled id sets.
+            if (!reconciled.equals(selection)) {
+                if (reconciled.isAllEnabled()) {
+                    aggregateStack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+                } else {
+                    aggregateStack.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(), reconciled);
+                }
+            }
+            selection = reconciled;
+        }
 
         int selectionHash = selection == null || selection.isAllEnabled() ? 0 : selection.hashCode();
         CacheKey key = new CacheKey(

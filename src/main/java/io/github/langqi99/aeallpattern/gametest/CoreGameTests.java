@@ -83,6 +83,14 @@ import org.jetbrains.annotations.NotNull;
 @GameTestHolder(AeAllPattern.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class CoreGameTests {
+    private static final String PERSISTENCE_PHASE_PROPERTY = "aeallpattern.persistencePhase";
+    private static final BlockPos RESTART_PROVIDER_POS = new BlockPos(8, 80, 8);
+    private static final BlockPos RESTART_ENERGY_POS = RESTART_PROVIDER_POS.south();
+    private static final ResourceLocation RESTART_MACHINE_ID =
+            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "restart_persistence_machine");
+    private static final ResourceLocation RESTART_RECIPE_ID =
+            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "restart_persistence_recipe");
+
     static {
         // GameTests assert full publication immediately after updatePatterns, so the scheduled
         // expansion path must behave synchronously here. The scheduled-modes test toggles it.
@@ -494,6 +502,100 @@ public final class CoreGameTests {
                     "AE network crafting service did not receive the expanded aggregate pattern");
             helper.succeed();
         });
+    }
+
+    /**
+     * A two-process persistence probe used by CI. The seed phase writes a real aggregate item,
+     * its paged server library entry, and an online AE provider into a dedicated world. The
+     * verify phase runs in a fresh JVM against the same world directory and proves that the
+     * restored provider still publishes the child pattern to AE's crafting service.
+     */
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void aggregatePatternSurvivesServerRestart(GameTestHelper helper) {
+        String phase = System.getProperty(PERSISTENCE_PHASE_PROPERTY, "");
+        if (phase.isBlank()) {
+            helper.succeed();
+            return;
+        }
+        if ("seed".equals(phase)) {
+            seedRestartPersistenceWorld(helper);
+            return;
+        }
+        if ("verify".equals(phase)) {
+            verifyRestartPersistenceWorld(helper);
+            return;
+        }
+        helper.fail("unknown aggregate persistence phase: " + phase);
+    }
+
+    private static void seedRestartPersistenceWorld(GameTestHelper helper) {
+        var level = helper.getLevel();
+        level.getChunkAt(RESTART_PROVIDER_POS);
+        level.setBlockAndUpdate(RESTART_PROVIDER_POS, AEBlocks.PATTERN_PROVIDER.block().defaultBlockState());
+        level.setBlockAndUpdate(RESTART_ENERGY_POS, AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
+
+        helper.runAfterDelay(20, () -> {
+            PatternProviderBlockEntity provider = Objects.requireNonNull(
+                    (PatternProviderBlockEntity) level.getBlockEntity(RESTART_PROVIDER_POS),
+                    "restart seed provider was not created");
+            AggregateRecipe recipe = restartPersistenceRecipe();
+            AggregatePatternRef ref = AggregatePatternLibrary.get(level.getServer()).put(
+                    level.getServer(), RESTART_MACHINE_ID,
+                    "block.aeallpattern.restart_persistence_machine", List.of(recipe));
+            ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+            aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+            provider.getLogic().getPatternInv().setItemDirect(0, aggregate);
+            provider.getLogic().updatePatterns();
+            provider.setChanged();
+
+            helper.assertTrue(Objects.requireNonNull(provider.getMainNode().getGrid())
+                            .getCraftingService().isCraftable(AEItemKey.of(Items.DIAMOND)),
+                    "restart seed did not publish the aggregate child pattern");
+            AeAllPattern.LOGGER.info("PERSISTENCE_RESTART_SEED_PASSED");
+            helper.succeed();
+        });
+    }
+
+    private static void verifyRestartPersistenceWorld(GameTestHelper helper) {
+        var level = helper.getLevel();
+        level.getChunkAt(RESTART_PROVIDER_POS);
+        helper.runAfterDelay(30, () -> {
+            BlockEntity blockEntity = level.getBlockEntity(RESTART_PROVIDER_POS);
+            helper.assertTrue(blockEntity instanceof PatternProviderBlockEntity,
+                    "pattern provider was not restored after reopening the save");
+            PatternProviderBlockEntity provider = (PatternProviderBlockEntity) blockEntity;
+            ItemStack aggregate = provider.getLogic().getPatternInv().getStackInSlot(0);
+            helper.assertTrue(aggregate.is(ModItems.AGGREGATE_PATTERN.get()),
+                    "aggregate pattern item was not restored after reopening the save");
+            AggregatePatternRef ref = aggregate.get(ModDataComponents.AGGREGATE_PATTERN.get());
+            helper.assertTrue(ref != null,
+                    "restored aggregate pattern lost its server-library reference");
+            helper.assertValueEqual(
+                    AggregatePatternLibrary.get(level.getServer())
+                            .recipes(level.getServer(), Objects.requireNonNull(ref).libraryId())
+                            .orElseThrow(() -> new AssertionError(
+                                    "aggregate recipe library was not restored after reopening the save"))
+                            .size(),
+                    1, "restored aggregate recipe count changed");
+
+            helper.assertValueEqual(provider.getLogic().getAvailablePatterns().size(), 1,
+                    "restored provider did not republish the aggregate child pattern");
+            helper.assertTrue(Objects.requireNonNull(provider.getMainNode().getGrid())
+                            .getCraftingService().isCraftable(AEItemKey.of(Items.DIAMOND)),
+                    "AE no longer considered the restored aggregate pattern craftable");
+            AeAllPattern.LOGGER.info("PERSISTENCE_RESTART_VERIFY_PASSED");
+            helper.succeed();
+        });
+    }
+
+    private static AggregateRecipe restartPersistenceRecipe() {
+        return new AggregateRecipe(
+                "restart-persistence",
+                RESTART_RECIPE_ID,
+                AggregatePatternKind.PROCESSING,
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.DIAMOND)))),
+                1);
     }
 
     @GameTest(template = "empty", timeoutTicks = 80)
@@ -1163,7 +1265,7 @@ public final class CoreGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
-    public static void aggregateLibraryStoresNumberedBatchesIndependently(GameTestHelper helper) {
+    public static void aggregateLibraryStoresOneLogicalCatalog(GameTestHelper helper) {
         List<AggregateRecipe> recipes = new ArrayList<>();
         for (int index = 0; index < 5; index++) {
             String id = String.format("%064x", index + 1);
@@ -1175,37 +1277,135 @@ public final class CoreGameTests {
                     1));
         }
         var library = AggregatePatternLibrary.get(helper.getLevel().getServer());
-        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.SMOKER);
-        String randomSeries = UUID.randomUUID().toString().replace("-", "");
-        String seriesHash = randomSeries + randomSeries;
-        int batchSize = 2;
-        int batchCount = 3;
-
-        AggregatePatternRef first = library.putBatch(
-                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
-                recipes.subList(0, 2), seriesHash, batchSize, 0, batchCount, recipes.size());
-        helper.assertValueEqual(
-                library.nextMissingBatch(catalyst, seriesHash, batchSize, batchCount), 1,
-                "numbered aggregate did not continue with its second part");
-        AggregatePatternRef second = library.putBatch(
-                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
-                recipes.subList(2, 4), seriesHash, batchSize, 1, batchCount, recipes.size());
-        AggregatePatternRef third = library.putBatch(
-                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
-                recipes.subList(4, 5), seriesHash, batchSize, 2, batchCount, recipes.size());
-
-        helper.assertFalse(first.libraryId().equals(second.libraryId()),
-                "second aggregate part replaced the first part");
-        helper.assertFalse(second.libraryId().equals(third.libraryId()),
-                "last aggregate part replaced an earlier part");
-        helper.assertValueEqual(
-                library.nextMissingBatch(catalyst, seriesHash, batchSize, batchCount), batchCount,
-                "completed aggregate series still reported a missing part");
-        var lastEntry = library.find(third.libraryId()).orElseThrow();
-        helper.assertValueEqual(lastEntry.batchIndex(), 2, "last aggregate part has the wrong number");
-        helper.assertValueEqual(lastEntry.batchCount(), 3, "aggregate part count was not retained");
-        helper.assertValueEqual(lastEntry.totalRecipeCount(), 5, "aggregate total recipe count was not retained");
+        AggregatePatternRef ref = library.put(
+                helper.getLevel().getServer(), BuiltInRegistries.BLOCK.getKey(Blocks.SMOKER),
+                Blocks.SMOKER.getDescriptionId(), recipes);
+        var entry = library.find(ref.libraryId()).orElseThrow();
+        helper.assertValueEqual(entry.recipeCount(), recipes.size(),
+                "single aggregate did not retain the complete catalog");
+        helper.assertValueEqual(entry.batchIndex(), 0, "single aggregate has a numbered-part index");
+        helper.assertValueEqual(entry.batchCount(), 1, "single aggregate was split into multiple items");
+        helper.assertValueEqual(entry.totalRecipeCount(), recipes.size(),
+                "single aggregate has the wrong total recipe count");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateLibraryRefreshPreservesReferenceAcrossAddAndDelete(GameTestHelper helper) {
+        List<AggregateRecipe> original = List.of(
+                libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                libraryRefreshRecipe("delete-b", Items.GOLD_INGOT),
+                libraryRefreshRecipe("keep-c", Items.COPPER_INGOT));
+        List<AggregateRecipe> refreshed = List.of(
+                libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                libraryRefreshRecipe("keep-c", Items.COPPER_INGOT),
+                libraryRefreshRecipe("add-d", Items.DIAMOND));
+        var server = helper.getLevel().getServer();
+        var library = AggregatePatternLibrary.get(server);
+        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.CARTOGRAPHY_TABLE);
+        AggregatePatternRef ref = library.put(
+                server, catalyst, Blocks.CARTOGRAPHY_TABLE.getDescriptionId(), original);
+
+        AggregatePatternRef refreshedRef = library.replace(
+                server, ref.libraryId(), catalyst,
+                Blocks.CARTOGRAPHY_TABLE.getDescriptionId(), refreshed);
+
+        helper.assertValueEqual(refreshedRef.libraryId(), ref.libraryId(),
+                "catalog refresh changed the UUID stored by physical pattern items");
+        helper.assertValueEqual(
+                library.recipes(server, ref.libraryId()).orElseThrow().stream()
+                        .map(AggregateRecipe::patternId).toList(),
+                List.of("keep-a", "keep-c", "add-d"),
+                "catalog refresh did not atomically apply additions and deletions");
+        helper.assertValueEqual(library.find(ref.libraryId()).orElseThrow().batchCount(), 1,
+                "refreshed catalog was split into physical parts");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateLibraryRefreshSupportsAllRecipesDeleted(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var library = AggregatePatternLibrary.get(server);
+        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.FLETCHING_TABLE);
+        AggregatePatternRef ref = library.put(
+                server, catalyst, Blocks.FLETCHING_TABLE.getDescriptionId(),
+                List.of(libraryRefreshRecipe("delete-only", Items.FLINT)));
+
+        library.replace(server, ref.libraryId(), catalyst,
+                Blocks.FLETCHING_TABLE.getDescriptionId(), List.of());
+
+        helper.assertTrue(library.recipes(server, ref.libraryId()).orElseThrow().isEmpty(),
+                "deleting every recipe did not leave an empty, valid aggregate catalog");
+        var entry = library.find(ref.libraryId()).orElseThrow();
+        helper.assertValueEqual(entry.recipeCount(), 0, "empty refreshed catalog retained an old count");
+        helper.assertValueEqual(entry.pageCount(), 0, "empty refreshed catalog retained data pages");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void catalogRefreshReconcilesDisabledIdsOnPhysicalPattern(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var library = AggregatePatternLibrary.get(server);
+        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.LOOM);
+        AggregatePatternRef ref = library.put(
+                server, catalyst, Blocks.LOOM.getDescriptionId(), List.of(
+                        libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                        libraryRefreshRecipe("delete-b", Items.GOLD_INGOT),
+                        libraryRefreshRecipe("keep-c", Items.COPPER_INGOT)));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                new AggregatePatternSelection(false, List.of("delete-b", "already-deleted")));
+
+        library.replace(server, ref.libraryId(), catalyst, Blocks.LOOM.getDescriptionId(), List.of(
+                libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                libraryRefreshRecipe("keep-c", Items.COPPER_INGOT),
+                libraryRefreshRecipe("add-d", Items.DIAMOND)));
+        AggregatePatternExpander.clearCaches();
+
+        helper.assertValueEqual(AggregatePatternExpander.expand(aggregate, helper.getLevel()).size(), 3,
+                "new recipes did not inherit the selected-majority policy");
+        helper.assertFalse(aggregate.has(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get()),
+                "deleted recipe ids were not removed from the physical aggregate item");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void catalogRefreshPreservesEnabledOnlySelectionOnPhysicalPattern(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var library = AggregatePatternLibrary.get(server);
+        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.STONECUTTER);
+        AggregatePatternRef ref = library.put(
+                server, catalyst, Blocks.STONECUTTER.getDescriptionId(), List.of(
+                        libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                        libraryRefreshRecipe("delete-b", Items.GOLD_INGOT),
+                        libraryRefreshRecipe("keep-c", Items.COPPER_INGOT)));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                new AggregatePatternSelection(true, List.of("keep-a", "already-deleted")));
+
+        library.replace(server, ref.libraryId(), catalyst, Blocks.STONECUTTER.getDescriptionId(), List.of(
+                libraryRefreshRecipe("keep-a", Items.IRON_INGOT),
+                libraryRefreshRecipe("keep-c", Items.COPPER_INGOT),
+                libraryRefreshRecipe("add-d", Items.DIAMOND)));
+        AggregatePatternExpander.clearCaches();
+
+        helper.assertValueEqual(AggregatePatternExpander.expand(aggregate, helper.getLevel()).size(), 1,
+                "new recipes unexpectedly became selected for an enabled-only aggregate");
+        var stored = aggregate.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+        helper.assertTrue(stored != null && stored.inverted() && stored.ids().equals(List.of("keep-a")),
+                "physical aggregate did not persist the compact enabled-only recipe id set");
+        helper.succeed();
+    }
+
+    private static AggregateRecipe libraryRefreshRecipe(String patternId, net.minecraft.world.item.Item output) {
+        return new AggregateRecipe(
+                patternId,
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "refresh_test/" + patternId),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(output)))),
+                1);
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)

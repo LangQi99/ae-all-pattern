@@ -1,10 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Aggregate generation now keeps a machine catalog in one physical pattern item instead of creating numbered `[1/2]` parts.
+- Raised the single Aggregate Pattern recipe limit to 1,048,576 while retaining bounded network-transfer and server-storage pages.
+- Existing aggregate catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client and are replaced under the same server-library UUID.
+- Recipe selections now discard deleted IDs and automatically store the smaller of the enabled-ID and disabled-ID sets after catalog changes.
+
 ## 0.2.1 - 2026-09-03
 
 - Unified aggregate-pattern settings and child-pattern selection into one right-click management panel with separate tabs, search scopes, and clearer enabled-state styling.
 - Added a default-on safeguard that excludes recipes which consume tool durability while keeping unchanged catalysts and returned containers available.
-- Added paged aggregate metadata and batched generation transfers so catalogs with thousands of recipes no longer depend on one oversized payload.
+- Added paged aggregate metadata and paged generation transfers so catalogs with thousands of recipes no longer depend on one oversized payload.
 - Expanded compatibility coverage for AE provider add-ons, PackagedAuto, Extended Crafting, Mekanism, Mekanism Extras, Mekanism More Machine, Create, Mystical Agriculture, Industrial Foregoing, and Neo ECO AE Extension.
 - Added JEI and EMI/TMRV-specific scanner tests, real client startup smoke tests, and nine no-GUI GameTest dependency profiles that download pinned mod fixtures in CI.
 

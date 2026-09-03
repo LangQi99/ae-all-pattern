@@ -238,3 +238,51 @@ jobs:
             build/reports/tests/**
             build/test-results/**
           if-no-files-found: ignore
+
+  restart-persistence:
+    name: Save reopen · aggregate pattern remains craftable
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Create and save the aggregate-pattern fixture
+        run: >-
+          ./gradlew runGameTestServer --stacktrace
+          -Pgametest_directory=run-gametest-restart
+          -Ppersistence_phase=seed
+          -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+          -Pruntime_mystical_agriculture=false -Pruntime_create=false
+          -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+          -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+          -Pruntime_mekanism_addons=false
+          -Pexpected_test_mods=aeallpattern,ae2
+      - name: Confirm that the seed phase really ran
+        run: grep -F 'PERSISTENCE_RESTART_SEED_PASSED' run-gametest-restart/logs/latest.log
+      - name: Reopen the same save in a fresh game process
+        run: >-
+          ./gradlew runGameTestServer --stacktrace
+          -Pgametest_directory=run-gametest-restart
+          -Ppersistence_phase=verify
+          -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+          -Pruntime_mystical_agriculture=false -Pruntime_create=false
+          -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+          -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+          -Pruntime_mekanism_addons=false
+          -Pexpected_test_mods=aeallpattern,ae2
+      - name: Confirm that the reopened save retained a craftable pattern
+        run: grep -F 'PERSISTENCE_RESTART_VERIFY_PASSED' run-gametest-restart/logs/latest.log
+      - name: Upload restart-test failure logs and save
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restart-persistence-failure-${{ github.run_id }}
+          path: |
+            run-gametest-restart/logs/**
+            run-gametest-restart/crash-reports/**
+            run-gametest-restart/world/**
+          if-no-files-found: ignore

@@ -19,11 +19,7 @@ public record GenerateAggregatePayload(
         BlockPos machinePos,
         ResourceLocation catalystId,
         String machineTranslationKey,
-        String seriesHash,
-        int batchSize,
-        int batchIndex,
-        int batchCount,
-        int totalCatalogRecipeCount,
+        UUID replacementLibraryId,
         int pageIndex,
         int pageCount,
         int totalRecipeCount,
@@ -35,27 +31,19 @@ public record GenerateAggregatePayload(
 
     public GenerateAggregatePayload {
         recipes = List.copyOf(recipes);
-        long batchStart = (long) batchIndex * batchSize;
-        int expectedBatchCount = totalCatalogRecipeCount < 1 || batchSize < 1
-                ? 0 : Math.ceilDiv(totalCatalogRecipeCount, batchSize);
-        int expectedRecipeCount = batchStart >= totalCatalogRecipeCount
-                ? 0 : (int) Math.min(batchSize, totalCatalogRecipeCount - batchStart);
         // Upload pages are split by an estimated byte budget on the client (protocol packet
         // limit), so a page may hold far fewer than PAGE_SIZE recipes. Allow one page per
         // recipe as the degenerate upper bound.
         if (machineTranslationKey == null || machineTranslationKey.isBlank()
                 || machineTranslationKey.length() > 256
-                || seriesHash == null || seriesHash.length() != 64
-                || batchSize < 1 || batchSize > io.github.langqi99.aeallpattern.aggregate.AggregatePatternData.MAX_RECIPES
-                || batchIndex < 0 || batchCount < 1 || batchIndex >= batchCount
-                || totalCatalogRecipeCount < 1 || batchCount != expectedBatchCount
-                || totalRecipeCount != expectedRecipeCount
                 || pageIndex < 0 || pageCount < 1 || pageCount > io.github.langqi99.aeallpattern.aggregate.AggregatePatternData.MAX_RECIPES
                 || pageIndex >= pageCount
-                || totalRecipeCount < 1
+                || totalRecipeCount < (replacementLibraryId == null ? 1 : 0)
                 || totalRecipeCount > io.github.langqi99.aeallpattern.aggregate.AggregatePatternData.MAX_RECIPES
-                || pageCount > totalRecipeCount
-                || recipes.isEmpty() || recipes.size() > AggregatePatternLibrary.PAGE_SIZE) {
+                || pageCount > Math.max(1, totalRecipeCount)
+                || (recipes.isEmpty() && !(replacementLibraryId != null
+                        && totalRecipeCount == 0 && pageIndex == 0 && pageCount == 1))
+                || recipes.size() > AggregatePatternLibrary.PAGE_SIZE) {
             throw new IllegalArgumentException("invalid aggregate upload page");
         }
     }
@@ -70,11 +58,10 @@ public record GenerateAggregatePayload(
         buffer.writeBlockPos(payload.machinePos());
         buffer.writeResourceLocation(payload.catalystId());
         buffer.writeUtf(payload.machineTranslationKey(), 256);
-        buffer.writeUtf(payload.seriesHash(), 64);
-        buffer.writeVarInt(payload.batchSize());
-        buffer.writeVarInt(payload.batchIndex());
-        buffer.writeVarInt(payload.batchCount());
-        buffer.writeVarInt(payload.totalCatalogRecipeCount());
+        buffer.writeBoolean(payload.replacementLibraryId() != null);
+        if (payload.replacementLibraryId() != null) {
+            buffer.writeUUID(payload.replacementLibraryId());
+        }
         buffer.writeVarInt(payload.pageIndex());
         buffer.writeVarInt(payload.pageCount());
         buffer.writeVarInt(payload.totalRecipeCount());
@@ -87,16 +74,12 @@ public record GenerateAggregatePayload(
         BlockPos pos = buffer.readBlockPos();
         ResourceLocation catalystId = buffer.readResourceLocation();
         String machineKey = buffer.readUtf(256);
-        String seriesHash = buffer.readUtf(64);
-        int batchSize = buffer.readVarInt();
-        int batchIndex = buffer.readVarInt();
-        int batchCount = buffer.readVarInt();
-        int totalCatalogRecipeCount = buffer.readVarInt();
+        UUID replacementLibraryId = buffer.readBoolean() ? buffer.readUUID() : null;
         int pageIndex = buffer.readVarInt();
         int pageCount = buffer.readVarInt();
         int total = buffer.readVarInt();
         int count = buffer.readVarInt();
-        if (count < 1 || count > AggregatePatternLibrary.PAGE_SIZE) {
+        if (count < 0 || count > AggregatePatternLibrary.PAGE_SIZE) {
             throw new IllegalArgumentException("invalid aggregate upload page size: " + count);
         }
         List<AggregateRecipe> recipes = new ArrayList<>(count);
@@ -104,7 +87,7 @@ public record GenerateAggregatePayload(
             recipes.add(AggregateRecipe.STREAM_CODEC.decode(buffer));
         }
         return new GenerateAggregatePayload(
-                uploadId, pos, catalystId, machineKey, seriesHash, batchSize, batchIndex,
-                batchCount, totalCatalogRecipeCount, pageIndex, pageCount, total, recipes);
+                uploadId, pos, catalystId, machineKey, replacementLibraryId,
+                pageIndex, pageCount, total, recipes);
     }
 }

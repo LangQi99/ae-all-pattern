@@ -32,6 +32,10 @@ public final class EmiAggregateScanner {
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
     private EmiAggregateScanner() {}
 
+    public static boolean isBusy() {
+        return RUNNING.get();
+    }
+
     public static boolean scan(BlockPos pos) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) return true;
@@ -57,13 +61,63 @@ public final class EmiAggregateScanner {
         var connection = minecraft.getConnection();
         if (connection == null) { RUNNING.set(false); return true; }
         ResourceLocation catalystId = BuiltInRegistries.BLOCK.getKey(block);
-        CompletableFuture.runAsync(() -> buildAndSend(machinePos, catalystId, block.getDescriptionId(), candidates,
-                connection.registryAccess(), connection.getConnectionType()))
+        CompletableFuture.runAsync(() -> buildAndSend(machinePos, catalystId, block.getDescriptionId(), null,
+                candidates, connection.registryAccess(), connection.getConnectionType()))
                 .whenComplete((ignored, error) -> RUNNING.set(false));
         return true;
     }
 
-    private static void buildAndSend(BlockPos pos, ResourceLocation catalystId, String machineName,
+    public static boolean refresh(AggregateMetadataView.Entry entry) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.player == null || minecraft.getConnection() == null
+                || entry.batchCount() != 1 || !RUNNING.compareAndSet(false, true)) {
+            return false;
+        }
+        try {
+            Block block = BuiltInRegistries.BLOCK.get(entry.catalystId());
+            ItemStack machine = block == null ? ItemStack.EMPTY : block.asItem().getDefaultInstance();
+            if (machine.isEmpty()
+                    || (block == Blocks.AIR
+                            && !entry.catalystId().equals(BuiltInRegistries.BLOCK.getKey(Blocks.AIR)))) {
+                ClientJeiAggregateScanner.uploadRefresh(List.of(), entry);
+                RUNNING.set(false);
+                return true;
+            }
+            EmiRecipeManager manager = EmiApi.getRecipeManager();
+            EmiStack machineStack = EmiStack.of(machine);
+            List<EmiRecipeCategory> categories = manager.getCategories().stream()
+                    .filter(category -> isCraftingMachine(machine, category)
+                            || manager.getWorkstations(category).stream()
+                                    .flatMap(i -> i.getEmiStacks().stream())
+                                    .anyMatch(stack -> stack.isEqual(machineStack)))
+                    .toList();
+            ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
+            ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
+                    categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId);
+            if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) {
+                ClientJeiAggregateScanner.uploadRefresh(List.of(), entry);
+                RUNNING.set(false);
+                return true;
+            }
+            List<EmiRecipe> candidates = categories.stream()
+                    .filter(category -> category.getId().equals(categoryId))
+                    .flatMap(category -> manager.getRecipes(category).stream())
+                    .toList();
+            var connection = minecraft.getConnection();
+            CompletableFuture.runAsync(() -> buildAndSend(
+                    BlockPos.ZERO, entry.catalystId(), entry.machineTranslationKey(), entry.libraryId(),
+                    candidates, connection.registryAccess(), connection.getConnectionType()))
+                    .whenComplete((ignored, error) -> RUNNING.set(false));
+            return true;
+        } catch (RuntimeException error) {
+            RUNNING.set(false);
+            AeAllPattern.LOGGER.debug("Could not start EMI aggregate refresh for {}", entry.libraryId(), error);
+            return false;
+        }
+    }
+
+    private static void buildAndSend(
+            BlockPos pos, ResourceLocation catalystId, String machineName, UUID replacementLibraryId,
             List<EmiRecipe> candidates, RegistryAccess registries, ConnectionType connectionType) {
         List<AggregateRecipe> recipes = new ArrayList<>();
         Set<String> ids = new HashSet<>();
@@ -89,11 +143,23 @@ public final class EmiAggregateScanner {
                 "EMI aggregate scan {}: candidates={}, accepted={}, rejected={}, encodingFailed={}",
                 catalystId, candidates.size(), recipes.size(), rejected, encodingFailed, firstError);
         if (recipes.isEmpty()) {
-            Minecraft.getInstance().execute(() -> show("message.aeallpattern.generator.no_item_recipes"));
+            Minecraft.getInstance().execute(() -> {
+                if (replacementLibraryId == null) {
+                    show("message.aeallpattern.generator.no_item_recipes");
+                } else {
+                    ClientJeiAggregateScanner.uploadRefresh(
+                            List.of(), replacementLibraryId, catalystId, machineName);
+                }
+            });
             return;
         }
         Minecraft.getInstance().execute(() -> {
-            ClientJeiAggregateScanner.uploadNextBatch(recipes, pos, machineName, catalystId);
+            if (replacementLibraryId == null) {
+                ClientJeiAggregateScanner.upload(recipes, pos, machineName, catalystId);
+            } else {
+                ClientJeiAggregateScanner.uploadRefresh(
+                        recipes, replacementLibraryId, catalystId, machineName);
+            }
         });
     }
 

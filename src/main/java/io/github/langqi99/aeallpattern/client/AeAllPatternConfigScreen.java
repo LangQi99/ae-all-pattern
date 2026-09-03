@@ -55,9 +55,9 @@ public final class AeAllPatternConfigScreen {
         aggregate.addEntry(entries.startIntField(
                         Component.translatable("config.aeallpattern.aggregate_recipe_limit"),
                         AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt())
-                .setDefaultValue(16384)
+                .setDefaultValue(1_048_576)
                 .setMin(1)
-                .setMax(16384)
+                .setMax(1_048_576)
                 .setTooltip(Component.translatable("config.aeallpattern.aggregate_recipe_limit.tooltip"))
                 .setSaveConsumer(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT::set)
                 .build());

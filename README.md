@@ -1,65 +1,184 @@
-# AE All Pattern
+# AE All Pattern | AE 全样板
 
-> 用一次绑定，让机器支持的配方自动成为 AE2 的虚拟处理样板。
+[![Minecraft 1.21.1](https://img.shields.io/badge/Minecraft-1.21.1-62b47a?style=flat-square)](https://www.minecraft.net/)
+[![NeoForge](https://img.shields.io/badge/NeoForge-21.1.219%2B-e96d4f?style=flat-square)](https://neoforged.net/)
+[![AE2](https://img.shields.io/badge/Applied%20Energistics%202-19.2.17-7b62a3?style=flat-square)](https://github.com/AppliedEnergistics/Applied-Energistics-2)
+[![Release](https://img.shields.io/github/v/release/LangQi99/ae-all-pattern?style=flat-square)](https://github.com/LangQi99/ae-all-pattern/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-AE All Pattern 是面向 Applied Energistics 2 的附属模组原型。玩家先用“全样板绑定器”选择一个 AE 网络锚点，再连续潜行右击任意数量的目标机器。绑定成功后，机器会显示紫色 AE 风格立体框架，AE 网络会把这些机器可自动化的配方作为虚拟处理样板公开，无需逐张制作并存放实体样板。
+**Put an entire machine's recipe catalog into one AE pattern, then let AE choose the right recipe for each order.**
 
-## 当前状态
+**把一台机器的整套配方装进一张 AE 样板，再让 AE 为每次订单选择合适的路线。**
 
-**当前版本为 0.2.1。** 链接器是占用一个频道、消耗 2 AE/t 的真实 AE 节点；绑定器、世界持久化、紫色包围框、虚拟处理样板、安全输入缓冲、诊断命令和可选 Mekanism/JEI/EMI 集成都已实现。自动化测试同时覆盖只有 AE2 的最小专服和带配方查看器及机器模组的完整环境。
+[CurseForge](https://www.curseforge.com/minecraft/mc-mods/ae-all-pattern-ae) · [Releases](https://github.com/LangQi99/ae-all-pattern/releases) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/LangQi99/ae-all-pattern/issues) · [中文说明](#中文说明)
 
-“天枢样版路由器”的第一阶段也已接入：它是一个可六面接入 AE 网络的单方块，使用模组内置的私有规划引擎提供快速下单和动态样版路由，但不会向网络注册为合成 CPU。方块在线时会切换为发光模型；规划出的任务仍由玩家搭建的普通 AE 合成 CPU 执行。它不要求安装闪电科技，也不会接管闪电科技自己的 CPU；若两者同时安装，闪电科技普通 CPU 仍完全使用玩家所安装版本的 Thunderbolt 逻辑。
+## English
 
-生存成本按能力分层：绑定器需要空白样版与福鲁伊克斯水晶；链接器需要样板供应器和工程处理器；全样版生成器需要计算处理器与高级卡；天枢路由器还需要两张高级卡、两个计算处理器和一个工程处理器。绑定器与生成器都是永久工具，使用时不掉耐久，也不消耗额外材料。
+AE All Pattern removes the repetitive work of encoding and maintaining hundreds—or thousands—of AE2 patterns. It provides three complementary tools:
 
-## 目标交互
+- **All Pattern Generator + Aggregate Pattern:** capture the recipes associated with a machine in JEI or EMI/TMRV and store them as one manageable pattern item.
+- **All Pattern Linker + Binder:** bind machines directly to an AE network and publish their recipes as live virtual processing patterns.
+- **Tianshu Pattern Router:** resolve recipe conflicts dynamically when one output has several possible crafting paths.
 
-1. 手持绑定器右击“全样板链接器”，绑定 AE 网络锚点。
-2. 潜行右击目标机器，例如 Mekanism 电力熔炉；链接器选择会保留，可继续绑定其他机器。
-3. 服务端验证权限、距离、维度、区块与机器适配器。
-4. 客户端为目标机器显示贴合方块轮廓的紫色 AE 风格立体框架。
-5. 服务端从 `RecipeManager` 和机器公开 API 建立配方目录。
-6. 链接器通过 AE2 `ICraftingProvider` 发布虚拟处理样板。
-7. AE 发起合成时，链接器先持久接管完整输入，再由适配器跨面安全转运；绑定机器所有可抽取输出自动回到同一 ME 网络。
+### Quick start: Aggregate Patterns
 
-## 核心原则
+1. Hold an **All Pattern Generator** and sneak-right-click a machine.
+2. The generated **Aggregate Pattern** contains every encodable recipe discovered for that machine. Very large catalogs are transferred and stored in bounded pages instead of one oversized packet or item tag.
+3. Insert it into an AE2 Pattern Provider or a supported provider add-on. AE sees the selected child recipes as normal crafting or processing patterns.
+4. Hold the Aggregate Pattern and right-click to search its contents, enable or disable individual recipes, and change its encoding rules.
 
-- **JEI 不是服务端配方真源。** JEI 是可选客户端展示层；专用服务器从 `RecipeManager` 与机器 API 建索引。
-- **拥有自己的 AE 锚点。** 不把持久状态或服务强行注入任意 AE 方块，避免网络拆分、重启和升级时失效。
-- **适配器明确声明能力。** 不凭 JEI 页面猜测输入面、催化剂、概率、流体和输出回收规则。
-- **虚拟样板不是伪造物品库存。** 由 AE2 `ICraftingProvider` 发布内存中的 `IPatternDetails`。
-- **扫描发生在绑定或配方重载时。** AE 查询可合成物时只读取不可变快照，不在每 tick 全量遍历配方。
-- **先接管、后转运。** `pushPattern` 成功前完整输入进入链接器持久暂存；机器变化或堵塞时材料留在缓冲，不部分丢失。
+Crafting-table recipes remain crafting patterns and work with Molecular Assemblers. Machine recipes remain processing patterns. Ingredient tags and candidate inputs are preserved so recipes such as chests can use any valid plank instead of being locked to the first JEI example.
 
-## 技术基线
+### Quick start: Live machine binding
 
-| 组件 | 基线 |
+1. Place an **All Pattern Linker** on the AE network.
+2. Hold an **All Pattern Binder** and sneak-right-click the Linker to select it.
+3. Keep sneak-right-clicking machines to bind them. A purple outline marks a successful connection.
+4. The Linker publishes the machines' deterministic recipes as virtual processing patterns and safely buffers submitted inputs before transfer.
+
+The Linker is a real AE node: it uses one channel and 2 AE/t. The Binder and Generator are reusable tools and are not consumed when used.
+
+### Aggregate Pattern controls
+
+Each Aggregate Pattern keeps its own settings. The management screen also lets you search the complete catalog by input or output and publish only the recipes you want.
+
+| Setting | Effect | Default |
+| --- | --- | :---: |
+| Skip chance-based main outputs | Does not encode a recipe whose main result is probabilistic | On |
+| Skip chance-based byproducts | Keeps probabilistic secondary results out of the pattern outputs | On |
+| Skip durability-consuming recipes | Excludes recipes that damage an input tool; returned containers and unchanged catalysts remain valid | On |
+| Split identical items | Expands an amount of `n` into `n` independent input slots of one item each | Off |
+| Ignore output NBT/components | Matches the base output item during AE planning | Off |
+| Remove processing catalysts | Removes inputs identified as reusable processing catalysts | Off |
+| Item/fluid substitution | Uses AE2's native ingredient and contained-fluid substitution rules | Item: Off · Fluid: On |
+| Remove fluids or chemicals | Independently removes fluid/chemical inputs or outputs from processing patterns | Off |
+| Swap first/last inputs | Reverses the first and last processing inputs for order-sensitive subnet setups | Off |
+
+### Dynamic routing
+
+The **Tianshu Pattern Router is not a crafting CPU**. It adds an order-planning layer while the actual job still runs on the player's normal AE crafting CPU.
+
+When a Router is online on the same ME network, the crafting confirmation screen exposes per-order preferences. Feasibility is always evaluated first, so an unavailable route cannot win merely because it scores well elsewhere. The remaining criteria can be dragged into any order and reversed or disabled:
+
+- shorter or longer dependency path;
+- more or less whole-chain material surplus;
+- higher or lower output per operation;
+- fewer waits / more immediately available machines.
+
+The default Aggregate Pattern priority is `-1`, so a player's explicitly encoded patterns at priority `0` remain preferred. Router defaults are stored on the block, while a single order can temporarily override and recalculate them in the confirmation screen. Secondary outputs cannot trigger an expensive recipe by themselves unless **Independent byproduct orders** is explicitly enabled.
+
+The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tech are not dependencies. If either is installed, its ordinary CPUs continue to use that installed mod's own behavior; AE All Pattern routing applies only while an online Tianshu Router is present.
+
+### Compatibility
+
+| Component | Support |
 | --- | --- |
 | AE All Pattern | 0.2.1 |
 | Minecraft | 1.21.1 |
-| 加载器 | NeoForge 21.1.219+ |
+| Mod loader | NeoForge 21.1.219+ |
 | Java | 21 |
-| Applied Energistics 2 | 19.2.17 |
-| 私有路由引擎 | 内置于 AE All Pattern（快速规划 / 动态路线选择） |
-| JEI | 可选，全样板生成器的通用配方发现 |
-| AE2 JEI Integration | 可选，把 JEI 原料类型转换为 AE 通用键 |
-| Mekanism | 可选，冶炼、粉碎、富集机器与工厂 |
-| Applied Mekanistics | 可选，Mekanism 气体/化学品的 AE 存储键与物流 |
+| Applied Energistics 2 | 19.2.17 (required) |
+| Recipe viewers | JEI 19.x, or EMI + TooManyRecipeViewers |
+| Generic AE keys | Items and fluids; Mekanism chemicals through Applied Mekanistics + AE2 JEI Integration |
+| Machine ecosystems | Vanilla, Mekanism and tested factory add-ons, Create, Mystical Agriculture, Industrial Foregoing |
+| Crafting ecosystems | Vanilla crafting/stonecutting/smithing, Extended Crafting, PackagedAuto/PackagedExCrafting |
+| Pattern-provider add-ons | ExtendedAE, ExtendedAE Plus, AdvancedAE, Neo ECO AE Extension, AE2 Crystal Science, AE2 Lightning Tech, AE2LT Packaged Provider |
 
-## 已支持机器
+Optional integrations are isolated: their absence does not prevent the game or a dedicated server from starting. The release JAR does not bundle AE2, JEI, EMI, Mekanism, or any other external mod.
 
-- 原版熔炉、高炉、烟熏炉；燃料由机器自身或外部物流供应。
-- Mekanism 充能冶炼炉及冶炼工厂。
-- Mekanism 粉碎机/粉碎工厂、富集仓/富集工厂。
+For precise boundaries and tested versions, see the [support matrix](docs/product/support-matrix.md) and [known limitations](docs/product/limitations.md).
 
-全样板生成器生成的聚合样板直接保存 AE `GenericStack`：物品和流体原生支持；安装
-Applied Mekanistics 与 AE2 JEI Integration 后，Mekanism 气体及统一 Chemical 类型也会按原始
-类型和数量进入样板，不会被替换成桶、储罐或其他物品。机器投料与产物回收继续由 AE2 及其
-兼容附属负责，聚合样板只发布配方。
+### Installation
 
-绑定时点击的面是首选投料能力面；该面无法完整接收时，适配器会寻找机器真正可用的输入能力。绑定机器通过输出能力公开的所有物品都会由链接器自动送回同一个 ME 网络，不要求额外放置导入总线。
+1. Install Minecraft 1.21.1, NeoForge, Java 21, and Applied Energistics 2.
+2. Add JEI, or EMI together with TooManyRecipeViewers, if you want the universal Aggregate Pattern Generator workflow.
+3. Put the AE All Pattern JAR in the `mods` folder on both client and server.
+4. Add only the optional machine and AE add-ons used by your pack.
 
-## 开发
+## 中文说明
+
+AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上千张样板的工作。它提供三套可以独立使用、也可以互相配合的功能：
+
+- **全样板生成器 + 聚合样板：** 从 JEI 或 EMI/TMRV 读取一台机器对应的配方，并把它们收进一张可管理的样板。
+- **全样板链接器 + 全样板绑定器：** 直接把机器绑定到 AE 网络，将机器配方实时发布为虚拟处理样板。
+- **天枢样板路由器：** 当同一产物存在多种配方时，根据当前订单动态选择路线。
+
+### 聚合样板：一张装下一整套配方
+
+1. 手持**全样板生成器**，潜行右击一台机器。
+2. 生成的**聚合样板**会包含这台机器可编码的全部配方。面对数百、数千条配方时，数据会分批传输并分页保存在服务端，不会全部塞进一次网络包或物品 NBT。
+3. 把聚合样板直接放入 AE2 样板供应器或受支持的附属供应器；其中启用的子样板会像普通 AE 样板一样参与合成。
+4. 手持聚合样板右击，可按输入或输出搜索完整配方库、单独启用或禁用配方，并调整编码规则。
+
+工作台配方仍会生成合成样板，可交给分子装配室；机器配方仍是处理样板。矿物词典/物品标签与候选输入会被保留，例如箱子配方可以自动使用网络中实际充足的任意有效木板，而不是锁死 JEI 展示的第一种木板。
+
+### 绑定机器：不生成实体样板
+
+1. 在 AE 网络上放置**全样板链接器**。
+2. 手持**全样板绑定器**，潜行右击链接器完成选择。
+3. 继续潜行右击任意数量的机器；紫色框代表连接成功。
+4. 链接器会把机器的确定性配方发布为虚拟处理样板，并在投料前完整、安全地接管输入。
+
+链接器是真实 AE 节点，占用一个频道并消耗 2 AE/t。绑定器和生成器都是可重复使用的工具，使用时不会被消耗。
+
+### 聚合样板配置
+
+每张聚合样板独立保存自己的设置。管理界面还可以搜索全部子样板，并只发布玩家真正需要的配方。
+
+| 选项 | 作用 | 默认 |
+| --- | --- | :---: |
+| 不编码概率主产物 | 主产物为概率产出时跳过整条配方 | 开启 |
+| 不编码概率副产物 | 概率副产物不再标记为样板产物 | 开启 |
+| 不编码耐久消耗配方 | 输入工具每次执行都会损失耐久时跳过；返还容器和不消耗的催化剂不受影响 | 开启 |
+| 分裂同种物品 | 数量为 `n` 的同类输入展开成 `n` 个数量为 1 的独立输入槽 | 关闭 |
+| 忽略产物 NBT/组件 | AE 规划时只匹配产物的基础物品类型 | 关闭 |
+| 移除处理配方催化剂 | 从处理样板输入中移除识别为可重复使用的催化剂 | 关闭 |
+| 物品/流体替换 | 使用 AE2 原生原料替换与容器流体替换 | 物品：关闭 · 流体：开启 |
+| 删除流体或化学品 | 分别删除处理样板的流体/化学品输入或输出 | 关闭 |
+| 输入材料首尾互换 | 交换处理样板的第一个和最后一个输入，适配重视输入顺序的子网机器 | 关闭 |
+
+### 动态配方路由
+
+**天枢样板路由器不是合成 CPU。** 它只负责优化下单计算与冲突配方选择，真正的任务仍由玩家搭建的普通 AE 合成 CPU 执行。
+
+同一 ME 网络中有在线路由器时，合成确认界面会出现本次订单的路线偏好。可行性永远固定在第一位，保证最终采用的路线材料充足、能够完成。其余规则可以拖动排序、反向选择或关闭：
+
+- 依赖路径更短或更长；
+- 整条生产链的材料余量更多或更少；
+- 单次产出更多或更少；
+- 等待更少，优先选择有空闲设备的路线。
+
+聚合样板默认优先级为 `-1`，因此玩家手动编码、优先级为 `0` 的普通样板始终优先。方块界面保存全局默认偏好，下单界面则允许临时覆盖并实时重新计算。默认情况下副产物只能随主产物生产，不能单独触发一整套昂贵配方；只有主动开启**副产物可独立下单**后，副产物才与主产物拥有相同的下单资格。
+
+路由引擎已经完整内置，本模组不依赖 Thunderbolt 或 AE2 Lightning Tech。即使玩家安装了它们，普通闪电科技 CPU 仍由玩家安装的对应版本自行管理；只有网络中存在在线的天枢路由器时，AE 全样板才会应用自己的路由逻辑。
+
+### 兼容与依赖
+
+| 组件 | 支持情况 |
+| --- | --- |
+| AE 全样板 | 0.2.1 |
+| Minecraft | 1.21.1 |
+| 模组加载器 | NeoForge 21.1.219+ |
+| Java | 21 |
+| Applied Energistics 2 | 19.2.17（必需） |
+| 配方查看器 | JEI 19.x，或 EMI + TooManyRecipeViewers |
+| AE 通用键 | 原生物品与流体；安装 Applied Mekanistics + AE2 JEI Integration 后支持 Mekanism 化学品 |
+| 机器生态 | 原版、Mekanism 及已测试的工厂附属、机械动力、神秘农业、工业先锋 |
+| 合成生态 | 原版合成/切石/锻造、Extended Crafting、PackagedAuto/PackagedExCrafting |
+| 样板供应器附属 | ExtendedAE、ExtendedAE Plus、AdvancedAE、Neo ECO AE Extension、AE2 Crystal Science、AE2 Lightning Tech、AE2LT Packaged Provider |
+
+所有兼容模组均为可选依赖：不安装它们时，客户端和专用服务器也能正常启动。发布 JAR 不会把 AE2、JEI、EMI、Mekanism 或其他外部模组打包进去。
+
+更精确的能力边界与测试版本见[支持矩阵](docs/product/support-matrix.md)和[已知限制](docs/product/limitations.md)。
+
+### 安装
+
+1. 安装 Minecraft 1.21.1、NeoForge、Java 21 与 Applied Energistics 2。
+2. 若要使用通用聚合样板扫描，请安装 JEI，或同时安装 EMI 与 TooManyRecipeViewers。
+3. 把 AE 全样板 JAR 同时放入客户端与服务端的 `mods` 文件夹。
+4. 再按整合包需求添加机器模组和 AE 附属；它们都不是本模组的强制依赖。
+
+## Development / 开发
 
 ```bash
 ./gradlew test
@@ -69,8 +188,16 @@ Applied Mekanistics 与 AE2 JEI Integration 后，Mekanism 气体及统一 Chemi
 ./gradlew clean check build
 ```
 
-完整说明从 [文档索引](docs/index.md) 开始；[当前支持矩阵](docs/product/support-matrix.md) 和 [已知限制](docs/product/limitations.md) 描述当前能力边界，后续计划见 [实施路线图](docs/roadmap.md)。
+The CI matrix covers unit tests, real client startup smoke tests, and no-GUI GameTests across minimal AE2, JEI, EMI/TMRV, machine-mod, provider-add-on, packaging, and Mekanism-add-on profiles. Test fixtures are downloaded at pinned versions during CI and are not bundled into the release JAR.
 
-## 许可证
+CI 会执行单元测试、真实客户端启动冒烟测试，以及最小 AE2、JEI、EMI/TMRV、机器模组、供应器附属、打包合成和 Mekanism 附属等多组无界面 GameTest；测试依赖在流水线中按固定版本下载，不会进入发布 JAR。
 
-本项目自有代码使用 MIT License。私有路由引擎中移植的 Thunderbolt Core 代码和源自 AE2 Lightning Tech 的单方块宿主代码按 LGPL-3.0 保留；天枢控制器模型与贴图按 CC BY-NC-SA 3.0 保留。完整来源见 [NOTICE.md](NOTICE.md) 与 [许可和素材政策](docs/development/licensing-and-assets.md)。
+Start with the [documentation index](docs/index.md). Architecture decisions, environment setup, testing strategy, release steps, troubleshooting, and the project roadmap are maintained under [`docs/`](docs/).
+
+完整文档从[文档索引](docs/index.md)开始；架构决策、开发环境、测试策略、发布流程、排障说明和路线图均维护在 [`docs/`](docs/) 中。
+
+## License / 许可证
+
+Original AE All Pattern code is released under the [MIT License](LICENSE). The bundled routing-core portions derived from Thunderbolt Core and the single-block host code derived from AE2 Lightning Tech retain LGPL-3.0 notices. The Tianshu controller model and textures retain CC BY-NC-SA 3.0 terms. See [NOTICE.md](NOTICE.md) and the [licensing and assets policy](docs/development/licensing-and-assets.md) for full attribution.
+
+AE 全样板自有代码使用 [MIT License](LICENSE)。内置路由核心中移植自 Thunderbolt Core 的部分，以及源自 AE2 Lightning Tech 的单方块宿主代码，保留 LGPL-3.0 声明；天枢控制器模型与贴图保留 CC BY-NC-SA 3.0 条款。完整来源与署名见 [NOTICE.md](NOTICE.md) 和[许可与素材政策](docs/development/licensing-and-assets.md)。

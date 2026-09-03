@@ -22,7 +22,7 @@ public record AggregatePatternOptions(
         boolean skipDurabilityConsumingRecipes) {
     public static final AggregatePatternOptions DEFAULT =
             new AggregatePatternOptions(
-                    false, false, true, true, false, false, true,
+                    false, true, true, true, false, true, true,
                     false, false, false, false, false, true);
 
     /** Compatibility constructor; newly introduced probability safeguards default to enabled. */
@@ -93,7 +93,7 @@ public record AggregatePatternOptions(
     public static final Codec<AggregatePatternOptions> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.BOOL.optionalFieldOf("split_same_items", false)
                     .forGetter(AggregatePatternOptions::splitSameItems),
-            Codec.BOOL.optionalFieldOf("ignore_output_components", false)
+            Codec.BOOL.optionalFieldOf("ignore_output_components", true)
                     .forGetter(AggregatePatternOptions::ignoreOutputComponents),
             Codec.BOOL.optionalFieldOf("skip_probabilistic_main_output", true)
                     .forGetter(AggregatePatternOptions::skipProbabilisticMainOutput),
@@ -101,7 +101,7 @@ public record AggregatePatternOptions(
                     .forGetter(AggregatePatternOptions::ignoreProbabilisticByproducts),
             Codec.BOOL.optionalFieldOf("remove_processing_catalysts", false)
                     .forGetter(AggregatePatternOptions::removeProcessingCatalysts),
-            Codec.BOOL.optionalFieldOf("allow_item_substitutions", false)
+            Codec.BOOL.optionalFieldOf("allow_item_substitutions", true)
                     .forGetter(AggregatePatternOptions::allowItemSubstitutions),
             Codec.BOOL.optionalFieldOf("allow_fluid_substitutions", true)
                     .forGetter(AggregatePatternOptions::allowFluidSubstitutions),

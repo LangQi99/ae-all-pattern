@@ -6,6 +6,7 @@
 - Raised the single Aggregate Pattern recipe limit to 1,048,576 while retaining bounded network-transfer and server-storage pages.
 - Existing aggregate catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client and are replaced under the same server-library UUID.
 - Recipe selections now discard deleted IDs and automatically store the smaller of the enabled-ID and disabled-ID sets after catalog changes.
+- Item substitution and output-component ignoring are now enabled by default; aggregate management uses compact AE-style side tabs and one combined input/output search field.
 
 ## 0.2.1 - 2026-09-03
 

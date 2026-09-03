@@ -30,6 +30,7 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternOptions;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternRef;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelection;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu;
+import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSearch;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.binding.BindingSavedData;
@@ -824,8 +825,8 @@ public final class CoreGameTests {
         helper.assertValueEqual(expanded.size(), 1, "native chest aggregate recipe was not published");
         EncodedCraftingPattern defaults = expanded.getFirst().getDefinition().toStack()
                 .get(AEComponents.ENCODED_CRAFTING_PATTERN);
-        helper.assertTrue(defaults != null && !defaults.canSubstitute() && defaults.canSubstituteFluids(),
-                "default AE2 substitution flags were not item-off/fluid-on");
+        helper.assertTrue(defaults != null && defaults.canSubstitute() && defaults.canSubstituteFluids(),
+                "default AE2 substitution flags were not item-on/fluid-on");
 
         aggregate.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(),
                 new AggregatePatternOptions(false, false, true, true, false, true, false));
@@ -1406,6 +1407,35 @@ public final class CoreGameTests {
                 List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
                 List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(output)))),
                 1);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateUnifiedSearchMatchesInputsAndOutputsWithoutDuplicates(GameTestHelper helper) {
+        AggregateRecipe iron = new AggregateRecipe(
+                "search-iron",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "search/iron"),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.RAW_IRON)))),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT)))),
+                1);
+        AggregateRecipe same = new AggregateRecipe(
+                "search-same",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "search/same"),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
+                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
+                1);
+
+        helper.assertValueEqual(
+                AggregatePatternSearch.filterAny(List.of(iron, same), "=minecraft:raw_iron", 10)
+                        .getFirst().patternId(),
+                "search-iron", "unified search did not match a pattern input");
+        helper.assertValueEqual(
+                AggregatePatternSearch.filterAny(List.of(iron, same), "=minecraft:iron_ingot", 10)
+                        .getFirst().patternId(),
+                "search-iron", "unified search did not match a pattern output");
+        helper.assertValueEqual(
+                AggregatePatternSearch.filterAny(List.of(iron, same), "=minecraft:cobblestone", 10).size(),
+                1, "unified search duplicated a recipe that matched both sides");
+        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)

@@ -9,11 +9,11 @@ class AggregatePatternOptionsTest {
     @Test
     void probabilitySafeguardsAreEnabledByDefault() {
         assertFalse(AggregatePatternOptions.DEFAULT.splitSameItems());
-        assertFalse(AggregatePatternOptions.DEFAULT.ignoreOutputComponents());
+        assertTrue(AggregatePatternOptions.DEFAULT.ignoreOutputComponents());
         assertTrue(AggregatePatternOptions.DEFAULT.skipProbabilisticMainOutput());
         assertTrue(AggregatePatternOptions.DEFAULT.ignoreProbabilisticByproducts());
         assertFalse(AggregatePatternOptions.DEFAULT.removeProcessingCatalysts());
-        assertFalse(AggregatePatternOptions.DEFAULT.allowItemSubstitutions());
+        assertTrue(AggregatePatternOptions.DEFAULT.allowItemSubstitutions());
         assertTrue(AggregatePatternOptions.DEFAULT.allowFluidSubstitutions());
         assertFalse(AggregatePatternOptions.DEFAULT.removeInputFluids());
         assertFalse(AggregatePatternOptions.DEFAULT.removeOutputFluids());

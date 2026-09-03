@@ -164,5 +164,5 @@
   "gui.aeallpattern.aggregate_selection.search_by_output": "搜产物",
   "gui.aeallpattern.aggregate_selection.search_by_output.tooltip": "只在每个样板的输出产物中匹配搜索内容，不会修改样板",
   "gui.aeallpattern.aggregate_selection.search_no_results": "无匹配样板",
-  "gui.aeallpattern.aggregate_selection.search_hint": "搜索样板…"
+  "gui.aeallpattern.aggregate_selection.search_hint": "搜索原料或产物…"
 }

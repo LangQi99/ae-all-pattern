@@ -3,6 +3,7 @@ package io.github.langqi99.aeallpattern.client;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.client.gui.Icon;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternRef;
@@ -32,54 +33,52 @@ import org.jetbrains.annotations.NotNull;
  * the patterns tab toggles published child patterns without changing their original order.
  */
 public final class AggregatePatternSelectionScreen extends AbstractContainerScreen<AggregatePatternSelectionMenu> {
-    private static final int COLUMNS = 11;
+    private static final int DEFAULT_COLUMNS = 11;
+    private static final int MIN_COLUMNS = 8;
+    private static final int MAX_COLUMNS = 12;
+    private static final int MIN_VISIBLE_ROWS = 4;
+    private static final int MAX_VISIBLE_ROWS = 6;
+    private static final float SCREEN_WIDTH_RATIO = 0.55F;
+    private static final float SCREEN_HEIGHT_RATIO = 0.80F;
+    // Grid starts 8 px from the left; after its final cell we keep the scrollbar
+    // and an AE-like 9 px right inset instead of the old fixed-layout dead space.
+    private static final int NON_GRID_WIDTH = 24;
     private static final int SLOT_SIZE = 26;
     private static final int SLOT_PITCH = 28;
     private static final int GRID_LEFT = 8;
-    private static final int MAIN_TAB_TOP = 27;
-    private static final int MAIN_TAB_WIDTH = 88;
-    private static final int MAIN_TAB_HEIGHT = 20;
-    private static final int SEARCH_TOP = 52;
-    private static final int GRID_TOP = 76;
+    private static final int SIDE_TAB_WIDTH = 22;
+    private static final int SIDE_TAB_HEIGHT = 24;
+    private static final int SEARCH_TOP = 30;
+    private static final int GRID_TOP = 54;
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int SCROLLBAR_GAP = 2;
     private static final int RIGHT_PADDING = 12;
     private static final int BOTTOM_AREA = 32;
-    private static final int VISIBLE_ROWS = 6;
     private static final float ICON_SCALE = 0.75F;
     private static final int INPUT_ICON_XY = 2;
     private static final int OUTPUT_ICON_XY = 12;
-    private static final int SEARCH_BOX_WIDTH = 148;
     private static final int SEARCH_BOX_HEIGHT = 16;
-    private static final int MODE_TAB_WIDTH = 58;
-    private static final int MODE_TAB_HEIGHT = 16;
     private static final int ALL_BUTTON_WIDTH = 66;
     private static final int ALL_BUTTON_HEIGHT = 18;
 
-    private static final int SELECTED_FILL = 0xFFD2E8EA;
-    private static final int SELECTED_FILL_HOVER = 0xFFE2F3F4;
-    private static final int SELECTED_OUTLINE = 0xFF3E929B;
-    private static final int UNSELECTED_FILL = 0xFFBFBFCB;
-    private static final int UNSELECTED_FILL_HOVER = 0xFFD2D2DC;
-    private static final int UNSELECTED_OUTLINE = 0xFF8A8A98;
-    private static final int PANEL_BG = 0xFFD8D8E2;
-    private static final int PANEL_BORDER = 0xFF4B4B61;
-    private static final int PANEL_INNER = 0xFFF2F2F7;
-    private static final int SCROLLBAR_TRACK = 0xFFB8B8C3;
-    private static final int SCROLLBAR_THUMB = 0xFF777789;
-    private static final int TAB_ACTIVE_FILL = 0xFF6B5B8E;
-    private static final int TAB_ACTIVE_TEXT = 0xFFFFFFFF;
-    private static final int TAB_INACTIVE_FILL = 0xFFE4E4EC;
-    private static final int TAB_INACTIVE_TEXT = 0xFF4B4B61;
+    private static final int SELECTED_FILL = 0xFFC7DFE2;
+    private static final int SELECTED_FILL_HOVER = 0xFFD9EEF0;
+    private static final int SELECTED_OUTLINE = 0xFF2F929D;
+    private static final int UNSELECTED_FILL = 0xFFADB1C2;
+    private static final int UNSELECTED_FILL_HOVER = 0xFFC2C5D2;
+    private static final int UNSELECTED_OUTLINE = 0xFF77798B;
+    private static final int PANEL_BG = 0xFFC9CAD4;
+    private static final int PANEL_BORDER = 0xFF454559;
+    private static final int PANEL_INNER = 0xFFF0F0F5;
+    private static final int SCROLLBAR_TRACK = 0xFFA7A9B8;
+    private static final int SCROLLBAR_THUMB = 0xFF686A7D;
+    private static final int SEARCH_FILL = 0xFFAEB3C7;
+    private static final int SEARCH_OUTLINE = 0xFF686A7D;
 
     private Button allButton;
     private EditBox searchBox;
     private final List<AggregateConfigOptionButton> optionButtons = new ArrayList<>();
-    private int modeTabInputX;
-    private int modeTabOutputX;
     private boolean settingsPage = true;
-    /** True searches the outputs of each entry, false searches the inputs. */
-    private boolean searchOutputs = true;
     private boolean searchDirty;
     private long lastSearchAt;
     private UUID pendingRequestId;
@@ -88,31 +87,35 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private int pendingPageCount;
     private int scrollOffset;
     private boolean draggingScrollbar;
+    private int columns = DEFAULT_COLUMNS;
+    private int visibleRows = MIN_VISIBLE_ROWS;
 
     public AggregatePatternSelectionScreen(
             AggregatePatternSelectionMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = 354;
-        imageHeight = GRID_TOP + VISIBLE_ROWS * SLOT_PITCH - 1 + BOTTOM_AREA;
+        imageHeight = GRID_TOP + visibleRows * SLOT_PITCH - 1 + BOTTOM_AREA;
         titleLabelX = 30;
         titleLabelY = 10;
     }
 
     @Override
     protected void init() {
+        updateAdaptiveDimensions();
         super.init();
         scrollOffset = 0;
-        int boxX = leftPos + imageWidth - RIGHT_PADDING - SEARCH_BOX_WIDTH;
-        modeTabOutputX = boxX - 4 - MODE_TAB_WIDTH;
-        modeTabInputX = modeTabOutputX - MODE_TAB_WIDTH;
+        int boxX = leftPos + 14;
         searchBox = addRenderableWidget(new EditBox(
                 font,
                 boxX,
                 topPos + SEARCH_TOP,
-                SEARCH_BOX_WIDTH,
+                imageWidth - 28,
                 SEARCH_BOX_HEIGHT,
                 Component.translatable("gui.aeallpattern.aggregate_selection.search_hint")));
         searchBox.setMaxLength(64);
+        searchBox.setBordered(false);
+        searchBox.setTextColor(0xFF303044);
+        searchBox.setHint(Component.translatable("gui.aeallpattern.aggregate_selection.search_hint"));
         searchBox.setResponder(text -> {
             searchDirty = true;
             scrollOffset = 0;
@@ -131,71 +134,87 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private void addConfigOptions() {
-        addOption(12, 57, 164,
+        int optionGap = 2;
+        int optionWidth = (imageWidth - 24 - optionGap) / 2;
+        int rightX = 12 + optionWidth + optionGap;
+        addOption(12, 35, optionWidth,
                 "gui.aeallpattern.aggregate_config.split_same_items",
                 "gui.aeallpattern.aggregate_config.split_same_items.tooltip",
                 () -> menu.getOptions().splitSameItems(),
                 AggregatePatternConfigMenu.TOGGLE_SPLIT_SAME_ITEMS);
-        addOption(178, 57, 164,
+        addOption(rightX, 35, optionWidth,
                 "gui.aeallpattern.aggregate_config.ignore_output_nbt",
                 "gui.aeallpattern.aggregate_config.ignore_output_nbt.tooltip",
                 () -> menu.getOptions().ignoreOutputComponents(),
                 AggregatePatternConfigMenu.TOGGLE_IGNORE_OUTPUT_COMPONENTS);
-        addOption(12, 82, 164,
+        addOption(12, 53, optionWidth,
                 "gui.aeallpattern.aggregate_config.skip_probabilistic_main",
                 "gui.aeallpattern.aggregate_config.skip_probabilistic_main.tooltip",
                 () -> menu.getOptions().skipProbabilisticMainOutput(),
                 AggregatePatternConfigMenu.TOGGLE_SKIP_PROBABILISTIC_MAIN_OUTPUT);
-        addOption(178, 82, 164,
+        addOption(rightX, 53, optionWidth,
                 "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts",
                 "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts.tooltip",
                 () -> menu.getOptions().ignoreProbabilisticByproducts(),
                 AggregatePatternConfigMenu.TOGGLE_IGNORE_PROBABILISTIC_BYPRODUCTS);
-        addOption(12, 107, 164,
+        addOption(12, 71, optionWidth,
                 "gui.aeallpattern.aggregate_config.allow_item_substitutions",
                 "gui.aeallpattern.aggregate_config.allow_item_substitutions.tooltip",
                 () -> menu.getOptions().allowItemSubstitutions(),
                 AggregatePatternConfigMenu.TOGGLE_ALLOW_ITEM_SUBSTITUTIONS);
-        addOption(178, 107, 164,
+        addOption(rightX, 71, optionWidth,
                 "gui.aeallpattern.aggregate_config.allow_fluid_substitutions",
                 "gui.aeallpattern.aggregate_config.allow_fluid_substitutions.tooltip",
                 () -> menu.getOptions().allowFluidSubstitutions(),
                 AggregatePatternConfigMenu.TOGGLE_ALLOW_FLUID_SUBSTITUTIONS);
-        addOption(12, 132, 164,
+        addOption(12, 89, optionWidth,
                 "gui.aeallpattern.aggregate_config.remove_input_fluids",
                 "gui.aeallpattern.aggregate_config.remove_input_fluids.tooltip",
                 () -> menu.getOptions().removeInputFluids(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_INPUT_FLUIDS);
-        addOption(178, 132, 164,
+        addOption(rightX, 89, optionWidth,
                 "gui.aeallpattern.aggregate_config.remove_output_fluids",
                 "gui.aeallpattern.aggregate_config.remove_output_fluids.tooltip",
                 () -> menu.getOptions().removeOutputFluids(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_OUTPUT_FLUIDS);
-        addOption(12, 157, 164,
+        addOption(12, 107, optionWidth,
                 "gui.aeallpattern.aggregate_config.remove_input_chemicals",
                 "gui.aeallpattern.aggregate_config.remove_input_chemicals.tooltip",
                 () -> menu.getOptions().removeInputChemicals(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_INPUT_CHEMICALS);
-        addOption(178, 157, 164,
+        addOption(rightX, 107, optionWidth,
                 "gui.aeallpattern.aggregate_config.remove_output_chemicals",
                 "gui.aeallpattern.aggregate_config.remove_output_chemicals.tooltip",
                 () -> menu.getOptions().removeOutputChemicals(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_OUTPUT_CHEMICALS);
-        addOption(12, 182, 164,
+        addOption(12, 125, optionWidth,
                 "gui.aeallpattern.aggregate_config.remove_processing_catalysts",
                 "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip",
                 () -> menu.getOptions().removeProcessingCatalysts(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_PROCESSING_CATALYSTS);
-        addOption(178, 182, 164,
+        addOption(rightX, 125, optionWidth,
                 "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs",
                 "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs.tooltip",
                 () -> menu.getOptions().swapFirstAndLastInputs(),
                 AggregatePatternConfigMenu.TOGGLE_SWAP_FIRST_AND_LAST_INPUTS);
-        addOption(12, 207, 164,
+        addOption(12, 143, optionWidth,
                 "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes",
                 "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes.tooltip",
                 () -> menu.getOptions().skipDurabilityConsumingRecipes(),
                 AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES);
+    }
+
+    /** Uses a bounded share of the screen instead of growing to nearly full-screen. */
+    private void updateAdaptiveDimensions() {
+        int targetWidth = Math.round(width * SCREEN_WIDTH_RATIO);
+        columns = Math.clamp((targetWidth - NON_GRID_WIDTH) / SLOT_PITCH, MIN_COLUMNS, MAX_COLUMNS);
+        int targetHeight = Math.round(height * SCREEN_HEIGHT_RATIO);
+        visibleRows = Math.clamp(
+                (targetHeight - GRID_TOP - BOTTOM_AREA + 1) / SLOT_PITCH,
+                MIN_VISIBLE_ROWS,
+                MAX_VISIBLE_ROWS);
+        imageWidth = NON_GRID_WIDTH + columns * SLOT_PITCH;
+        imageHeight = GRID_TOP + visibleRows * SLOT_PITCH - 1 + BOTTOM_AREA;
     }
 
     private void addOption(
@@ -273,8 +292,8 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         scrollOffset = Math.clamp(scrollOffset, 0, maxScroll);
     }
 
-    private static int visibleSlots() {
-        return COLUMNS * VISIBLE_ROWS;
+    private int visibleSlots() {
+        return columns * visibleRows;
     }
 
     @Override
@@ -302,16 +321,6 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                 return true;
             }
         }
-        if (!settingsPage && button == 0) {
-            if (inModeTab(mouseX, mouseY, modeTabInputX)) {
-                setSearchOutputs(false);
-                return true;
-            }
-            if (inModeTab(mouseX, mouseY, modeTabOutputX)) {
-                setSearchOutputs(true);
-                return true;
-            }
-        }
         if (!settingsPage && button == 0 && inScrollbarArea(mouseX, mouseY)) {
             draggingScrollbar = true;
             scrollToMouse(mouseY);
@@ -330,20 +339,11 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void setSearchOutputs(boolean searchOutputs) {
-        if (this.searchOutputs != searchOutputs) {
-            this.searchOutputs = searchOutputs;
-            searchDirty = true;
-            scrollOffset = 0;
-            clampScroll();
-        }
-    }
-
     private boolean inMainTab(double mouseX, double mouseY, int index) {
-        int x = leftPos + 12 + index * MAIN_TAB_WIDTH;
-        int y = topPos + MAIN_TAB_TOP;
-        return mouseX >= x && mouseX < x + MAIN_TAB_WIDTH
-                && mouseY >= y && mouseY < y + MAIN_TAB_HEIGHT;
+        int x = leftPos - SIDE_TAB_WIDTH;
+        int y = topPos + 7 + index * SIDE_TAB_HEIGHT;
+        return mouseX >= x && mouseX < x + SIDE_TAB_WIDTH
+                && mouseY >= y && mouseY < y + SIDE_TAB_HEIGHT;
     }
 
     @Override
@@ -364,7 +364,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         pendingPages.clear();
         pendingPageCount = 0;
         PacketDistributor.sendToServer(new AggregateSearchPayload(
-                pendingRequestId, searchBox.getValue(), searchOutputs));
+                pendingRequestId, searchBox.getValue(), true));
     }
 
     /** Called on the render thread when a search result page arrives. */
@@ -387,12 +387,6 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         searchPending = false;
         scrollOffset = 0;
         clampScroll();
-    }
-
-    private boolean inModeTab(double mouseX, double mouseY, int tabX) {
-        int tabY = topPos + SEARCH_TOP;
-        return mouseX >= tabX && mouseX < tabX + MODE_TAB_WIDTH
-                && mouseY >= tabY && mouseY < tabY + MODE_TAB_HEIGHT;
     }
 
     @Override
@@ -441,10 +435,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (settingsPage || menu.entries().size() <= visibleSlots()) {
             return false;
         }
-        int trackX = leftPos + GRID_LEFT + COLUMNS * SLOT_PITCH - 1 + SCROLLBAR_GAP;
+        int trackX = leftPos + GRID_LEFT + columns * SLOT_PITCH - 1 + SCROLLBAR_GAP;
         int trackY = topPos + GRID_TOP;
         return mouseX >= trackX && mouseX < trackX + SCROLLBAR_WIDTH
-                && mouseY >= trackY && mouseY < trackY + VISIBLE_ROWS * SLOT_PITCH - 1;
+                && mouseY >= trackY && mouseY < trackY + visibleRows * SLOT_PITCH - 1;
     }
 
     /** Maps a mouse Y position to a scroll offset so the thumb follows the cursor while dragging. */
@@ -454,7 +448,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             return;
         }
         int trackY = topPos + GRID_TOP;
-        int trackHeight = VISIBLE_ROWS * SLOT_PITCH - 1;
+        int trackHeight = visibleRows * SLOT_PITCH - 1;
         int thumbHeight = Math.max(12, trackHeight * visibleSlots() / total);
         int maxScroll = total - visibleSlots();
         double relative = (mouseY - trackY - thumbHeight / 2.0) / Math.max(1.0, trackHeight - thumbHeight);
@@ -463,15 +457,15 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private int slotIndexAt(double mouseX, double mouseY) {
-        int gridRight = leftPos + GRID_LEFT + COLUMNS * SLOT_PITCH - 1;
-        int gridBottom = topPos + GRID_TOP + VISIBLE_ROWS * SLOT_PITCH - 1;
+        int gridRight = leftPos + GRID_LEFT + columns * SLOT_PITCH - 1;
+        int gridBottom = topPos + GRID_TOP + visibleRows * SLOT_PITCH - 1;
         if (mouseX < leftPos + GRID_LEFT || mouseX > gridRight
                 || mouseY < topPos + GRID_TOP || mouseY > gridBottom) {
             return -1;
         }
         int col = (int) ((mouseX - leftPos - GRID_LEFT) / SLOT_PITCH);
         int row = (int) ((mouseY - topPos - GRID_TOP) / SLOT_PITCH);
-        if (col < 0 || col >= COLUMNS || row < 0 || row >= VISIBLE_ROWS) {
+        if (col < 0 || col >= columns || row < 0 || row >= visibleRows) {
             return -1;
         }
         int cellX = leftPos + GRID_LEFT + col * SLOT_PITCH;
@@ -479,7 +473,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (mouseX > cellX + SLOT_SIZE || mouseY > cellY + SLOT_SIZE) {
             return -1;
         }
-        return row * COLUMNS + col;
+        return row * columns + col;
     }
 
     private int visibleOrderIndex(int slotIndex) {
@@ -490,14 +484,13 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     @Override
     public void render(@NotNull GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        renderMainTabs(graphics);
+        renderMainTabs(graphics, mouseX, mouseY);
         if (!settingsPage) {
             renderGrid(graphics, mouseX, mouseY);
             renderScrollbar(graphics, menu.entries().size());
-            renderModeTabs(graphics);
             updateAllButton();
-            renderHoveredTooltip(graphics, mouseX, mouseY);
         }
+        renderHoveredTooltip(graphics, mouseX, mouseY);
     }
 
     private void renderGrid(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -518,8 +511,8 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             if (entryIndex >= entries.size()) {
                 break;
             }
-            int col = slotIndex % COLUMNS;
-            int row = slotIndex / COLUMNS;
+            int col = slotIndex % columns;
+            int row = slotIndex / columns;
             int cellX = leftPos + GRID_LEFT + col * SLOT_PITCH;
             int cellY = topPos + GRID_TOP + row * SLOT_PITCH;
             AggregatePatternSelectionMenu.Entry entry = entries.get(entryIndex);
@@ -565,9 +558,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (total <= visibleSlots()) {
             return;
         }
-        int trackX = leftPos + GRID_LEFT + COLUMNS * SLOT_PITCH - 1 + SCROLLBAR_GAP;
+        int trackX = leftPos + GRID_LEFT + columns * SLOT_PITCH - 1 + SCROLLBAR_GAP;
         int trackY = topPos + GRID_TOP;
-        int trackHeight = VISIBLE_ROWS * SLOT_PITCH - 1;
+        int trackHeight = visibleRows * SLOT_PITCH - 1;
         graphics.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + trackHeight, SCROLLBAR_TRACK);
         int thumbHeight = Math.max(12, trackHeight * visibleSlots() / total);
         int maxScroll = total - visibleSlots();
@@ -575,47 +568,22 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbHeight, SCROLLBAR_THUMB);
     }
 
-    private void renderMainTabs(GuiGraphics graphics) {
-        renderMainTab(
-                graphics,
-                leftPos + 12,
-                Component.translatable("gui.aeallpattern.aggregate_management.settings_tab"),
-                settingsPage);
-        renderMainTab(
-                graphics,
-                leftPos + 12 + MAIN_TAB_WIDTH,
-                Component.translatable("gui.aeallpattern.aggregate_management.patterns_tab"),
-                !settingsPage);
+    private void renderMainTabs(GuiGraphics graphics, int mouseX, int mouseY) {
+        renderMainTab(graphics, 0, Icon.COG, settingsPage, mouseX, mouseY);
+        renderMainTab(graphics, 1, Icon.PATTERN_ACCESS_SHOW, !settingsPage, mouseX, mouseY);
     }
 
-    private void renderMainTab(GuiGraphics graphics, int x, Component label, boolean active) {
-        int y = topPos + MAIN_TAB_TOP;
-        graphics.fill(x, y, x + MAIN_TAB_WIDTH, y + MAIN_TAB_HEIGHT,
-                active ? TAB_ACTIVE_FILL : TAB_INACTIVE_FILL);
-        graphics.renderOutline(x, y, MAIN_TAB_WIDTH, MAIN_TAB_HEIGHT, PANEL_BORDER);
-        graphics.drawCenteredString(
-                font, label, x + MAIN_TAB_WIDTH / 2, y + (MAIN_TAB_HEIGHT - 8) / 2,
-                active ? TAB_ACTIVE_TEXT : TAB_INACTIVE_TEXT);
-    }
-
-    /** Search scope buttons: choose which half of each pattern is matched. */
-    private void renderModeTabs(GuiGraphics graphics) {
-        renderModeTab(graphics, modeTabInputX,
-                Component.translatable("gui.aeallpattern.aggregate_selection.search_by_input"),
-                !searchOutputs);
-        renderModeTab(graphics, modeTabOutputX,
-                Component.translatable("gui.aeallpattern.aggregate_selection.search_by_output"),
-                searchOutputs);
-    }
-
-    private void renderModeTab(GuiGraphics graphics, int x, Component label, boolean active) {
-        int y = topPos + SEARCH_TOP;
-        graphics.fill(x, y, x + MODE_TAB_WIDTH, y + MODE_TAB_HEIGHT,
-                active ? TAB_ACTIVE_FILL : TAB_INACTIVE_FILL);
-        graphics.renderOutline(x, y, MODE_TAB_WIDTH, MODE_TAB_HEIGHT, PANEL_BORDER);
-        graphics.drawCenteredString(
-                font, label, x + MODE_TAB_WIDTH / 2, y + (MODE_TAB_HEIGHT - 8) / 2,
-                active ? TAB_ACTIVE_TEXT : TAB_INACTIVE_TEXT);
+    private void renderMainTab(
+            GuiGraphics graphics, int index, Icon icon, boolean active, int mouseX, int mouseY) {
+        int x = leftPos - SIDE_TAB_WIDTH;
+        int y = topPos + 7 + index * SIDE_TAB_HEIGHT;
+        Icon background = active
+                ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
+                : inMainTab(mouseX, mouseY, index)
+                        ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                        : Icon.TOOLBAR_BUTTON_BACKGROUND;
+        background.getBlitter().dest(x, y, SIDE_TAB_WIDTH, SIDE_TAB_HEIGHT).blit(graphics);
+        icon.getBlitter().dest(x + 2, y + 3, 18, 18).blit(graphics);
     }
 
     private void updateAllButton() {
@@ -628,20 +596,25 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private void renderHoveredTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (inModeTab(mouseX, mouseY, modeTabInputX)) {
+        if (inMainTab(mouseX, mouseY, 0)) {
             graphics.renderTooltip(
                     font,
-                    Component.translatable("gui.aeallpattern.aggregate_selection.search_by_input.tooltip"),
+                    Component.translatable("gui.aeallpattern.aggregate_management.settings_tab"),
                     mouseX,
                     mouseY);
             return;
         }
-        if (inModeTab(mouseX, mouseY, modeTabOutputX)) {
+        if (inMainTab(mouseX, mouseY, 1)) {
             graphics.renderTooltip(
                     font,
-                    Component.translatable("gui.aeallpattern.aggregate_selection.search_by_output.tooltip"),
+                    Component.translatable("gui.aeallpattern.aggregate_management.patterns_tab"),
                     mouseX,
                     mouseY);
+            return;
+        }
+        // The settings page owns its widget tooltips. Pattern cells only exist on the
+        // selection page, even though their coordinates overlap the settings controls.
+        if (settingsPage) {
             return;
         }
         int slotIndex = slotIndexAt(mouseX, mouseY);
@@ -707,12 +680,14 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PANEL_BG);
         graphics.renderOutline(leftPos, topPos, imageWidth, imageHeight, PANEL_BORDER);
         graphics.renderOutline(leftPos + 3, topPos + 3, imageWidth - 6, imageHeight - 6, PANEL_INNER);
-        int separatorY = topPos + MAIN_TAB_TOP + MAIN_TAB_HEIGHT + 2;
-        graphics.fill(leftPos + 8, separatorY, leftPos + imageWidth - 8, separatorY + 1, SCROLLBAR_THUMB);
         if (!settingsPage) {
-            int searchSeparatorY = topPos + SEARCH_TOP + SEARCH_BOX_HEIGHT + 2;
-            graphics.fill(leftPos + 8, searchSeparatorY, leftPos + imageWidth - 8, searchSeparatorY + 1,
-                    SCROLLBAR_THUMB);
+            int searchX = leftPos + 10;
+            int searchY = topPos + SEARCH_TOP - 2;
+            graphics.fill(searchX, searchY, searchX + imageWidth - 20,
+                    searchY + SEARCH_BOX_HEIGHT + 4, SEARCH_FILL);
+            graphics.renderOutline(searchX, searchY, imageWidth - 20,
+                    SEARCH_BOX_HEIGHT + 4, searchBox != null && searchBox.isFocused()
+                            ? SELECTED_OUTLINE : SEARCH_OUTLINE);
         }
 
         ItemStack machine = machineStack();

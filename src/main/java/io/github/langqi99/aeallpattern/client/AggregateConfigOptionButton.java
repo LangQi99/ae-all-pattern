@@ -45,7 +45,12 @@ public final class AggregateConfigOptionButton extends AbstractWidget {
         Component state = Component.translatable(value
                 ? "gui.aeallpattern.aggregate_config.enabled"
                 : "gui.aeallpattern.aggregate_config.disabled");
-        graphics.drawString(font, label, getX() + 20, getY() + 4, color, false);
+        int labelWidth = Math.max(0, width - 30 - font.width(state));
+        String fullLabel = label.getString();
+        String visibleLabel = font.width(fullLabel) <= labelWidth
+                ? fullLabel
+                : font.plainSubstrByWidth(fullLabel, Math.max(0, labelWidth - font.width("…"))) + "…";
+        graphics.drawString(font, visibleLabel, getX() + 20, getY() + 4, color, false);
         graphics.drawString(font, state, getX() + width - 5 - font.width(state), getY() + 4, color, false);
     }
 

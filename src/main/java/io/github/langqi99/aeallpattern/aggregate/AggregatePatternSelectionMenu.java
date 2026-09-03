@@ -135,8 +135,9 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
                 .orElseGet(List::of);
         // Search runs over the complete recipe list with no cap: the user wants to search
         // every stored pattern, not just the initially synced subset.
-        List<Entry> filtered = AggregatePatternSearch.filter(
-                recipes, searchText, searchOutputs, Integer.MAX_VALUE);
+        // The management screen follows AE terminal search: one field matches both sides of
+        // the pattern. Keep the packet flag for protocol compatibility with 0.2.1 clients.
+        List<Entry> filtered = AggregatePatternSearch.filterAny(recipes, searchText, Integer.MAX_VALUE);
         this.entries = List.copyOf(filtered);
         this.filteredView = !searchText.isBlank();
         int pageCount = Math.max(1, (filtered.size() + AggregateSearchResultPayload.MAX_ENTRIES_PER_PAGE - 1)

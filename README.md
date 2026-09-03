@@ -40,7 +40,7 @@ The Linker is a real AE node: it uses one channel and 2 AE/t. The Binder and Gen
 
 ### Aggregate Pattern controls
 
-Each Aggregate Pattern keeps its own settings. The management screen also lets you search the complete catalog by input or output and publish only the recipes you want.
+Each Aggregate Pattern keeps its own settings. The AE-style management screen searches inputs and outputs together and lets you publish only the recipes you want.
 
 Recipe checkboxes are stored on the physical item as recipe IDs only. The item automatically keeps whichever list is shorter—enabled recipes or disabled recipes. After a catalog refresh, removed IDs are discarded; newly added recipes follow the previous majority default and the surviving choices keep their meaning.
 
@@ -50,9 +50,9 @@ Recipe checkboxes are stored on the physical item as recipe IDs only. The item a
 | Skip chance-based byproducts | Keeps probabilistic secondary results out of the pattern outputs | On |
 | Skip durability-consuming recipes | Excludes recipes that damage an input tool; returned containers and unchanged catalysts remain valid | On |
 | Split identical items | Expands an amount of `n` into `n` independent input slots of one item each | Off |
-| Ignore output NBT/components | Matches the base output item during AE planning | Off |
+| Ignore output NBT/components | Matches the base output item during AE planning | On |
 | Remove processing catalysts | Removes inputs identified as reusable processing catalysts | Off |
-| Item/fluid substitution | Uses AE2's native ingredient and contained-fluid substitution rules | Item: Off · Fluid: On |
+| Item/fluid substitution | Uses AE2's native ingredient and contained-fluid substitution rules | On |
 | Remove fluids or chemicals | Independently removes fluid/chemical inputs or outputs from processing patterns | Off |
 | Swap first/last inputs | Reverses the first and last processing inputs for order-sensitive subnet setups | Off |
 
@@ -125,7 +125,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 ### 聚合样板配置
 
-每张聚合样板独立保存自己的设置。管理界面还可以搜索全部子样板，并只发布玩家真正需要的配方。
+每张聚合样板独立保存自己的设置。AE 风格的管理界面会同时搜索输入与产物，并只发布玩家真正需要的配方。
 
 配方勾选状态只在实体物品中保存配方 ID，并自动在“已启用列表”和“已禁用列表”中选择较短的一边。目录刷新后，已删除的 ID 会被清理，新增配方按原有的多数默认状态处理，其余勾选语义保持不变。
 
@@ -135,9 +135,9 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 | 不编码概率副产物 | 概率副产物不再标记为样板产物 | 开启 |
 | 不编码耐久消耗配方 | 输入工具每次执行都会损失耐久时跳过；返还容器和不消耗的催化剂不受影响 | 开启 |
 | 分裂同种物品 | 数量为 `n` 的同类输入展开成 `n` 个数量为 1 的独立输入槽 | 关闭 |
-| 忽略产物 NBT/组件 | AE 规划时只匹配产物的基础物品类型 | 关闭 |
+| 忽略产物 NBT/组件 | AE 规划时只匹配产物的基础物品类型 | 开启 |
 | 移除处理配方催化剂 | 从处理样板输入中移除识别为可重复使用的催化剂 | 关闭 |
-| 物品/流体替换 | 使用 AE2 原生原料替换与容器流体替换 | 物品：关闭 · 流体：开启 |
+| 物品/流体替换 | 使用 AE2 原生原料替换与容器流体替换 | 开启 |
 | 删除流体或化学品 | 分别删除处理样板的流体/化学品输入或输出 | 关闭 |
 | 输入材料首尾互换 | 交换处理样板的第一个和最后一个输入，适配重视输入顺序的子网机器 | 关闭 |
 

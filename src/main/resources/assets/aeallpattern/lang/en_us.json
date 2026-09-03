@@ -164,5 +164,5 @@
   "gui.aeallpattern.aggregate_selection.search_by_output": "Find outputs",
   "gui.aeallpattern.aggregate_selection.search_by_output.tooltip": "Match search text against each pattern's output products; this does not modify the pattern",
   "gui.aeallpattern.aggregate_selection.search_no_results": "No matching patterns",
-  "gui.aeallpattern.aggregate_selection.search_hint": "Search patterns…"
+  "gui.aeallpattern.aggregate_selection.search_hint": "Search inputs or outputs…"
 }

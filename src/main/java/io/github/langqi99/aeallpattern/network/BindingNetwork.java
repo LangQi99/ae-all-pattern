@@ -36,7 +36,11 @@ public final class BindingNetwork {
                             && player.containerMenu
                                     instanceof io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu menu) {
                         menu.applySearch(
-                                player, payload.searchText(), payload.searchOutputs(), payload.requestId());
+                                player,
+                                payload.searchText(),
+                                payload.searchOutputs(),
+                                payload.resultPageIndex(),
+                                payload.requestId());
                     }
                 }));
         registrar.playToClient(

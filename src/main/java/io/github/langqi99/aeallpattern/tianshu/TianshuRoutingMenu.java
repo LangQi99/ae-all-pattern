@@ -18,7 +18,7 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
     private final TianshuPatternSelectorBlockEntity router;
     private int aggregatePriority = -1;
     private int pathPreference;
-    private int preferenceFlags = 26;
+    private int preferenceFlags = 90;
     private int preferenceOrder = CraftingRoutePolicy.DEFAULT_PREFERENCE_ORDER;
 
     public TianshuRoutingMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -80,7 +80,8 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
                 unpackDirection(preferenceFlags, 2),
                 (preferenceFlags & 16) != 0,
                 preferenceOrder,
-                (preferenceFlags & 32) != 0);
+                (preferenceFlags & 32) != 0,
+                (preferenceFlags & 64) != 0);
     }
 
     /** Applies immediately on the client and persists authoritatively on the server. */
@@ -125,7 +126,8 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
         return packDirection(policy.stockSurplusPreference(), 0)
                 | packDirection(policy.yieldPreference(), 2)
                 | (policy.preferFast() ? 16 : 0)
-                | (policy.allowByproductOrders() ? 32 : 0);
+                | (policy.allowByproductOrders() ? 32 : 0)
+                | (policy.allowAmplifyingCycles() ? 64 : 0);
     }
 
     private static int packDirection(int direction, int shift) {
@@ -141,6 +143,6 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
         return new CraftingRoutePolicy(
                 value.aggregatePriority(), true, value.pathPreference(), value.stockSurplusPreference(),
                 value.yieldPreference(), value.preferFast(), value.preferenceOrder(),
-                value.allowByproductOrders());
+                value.allowByproductOrders(), value.allowAmplifyingCycles());
     }
 }

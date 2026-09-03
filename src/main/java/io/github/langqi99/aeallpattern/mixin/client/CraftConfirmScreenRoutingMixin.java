@@ -33,7 +33,7 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
     @Unique
     private static final int AEALLPATTERN_PANEL_WIDTH = 184;
     @Unique
-    private static final int AEALLPATTERN_PANEL_HEIGHT = 137;
+    private static final int AEALLPATTERN_PANEL_HEIGHT = 154;
 
     @Unique
     private RoutingOptionButton aeallpattern$routeButton;
@@ -47,6 +47,8 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
     private RoutingTooltipArea aeallpattern$feasibilityHelp;
     @Unique
     private RoutingQualificationButton aeallpattern$byproductOrders;
+    @Unique
+    private RoutingQualificationButton aeallpattern$amplifyingCycles;
     @Unique
     private boolean aeallpattern$expanded;
     @Unique
@@ -115,9 +117,17 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
                 () -> aeallpattern$policy().allowByproductOrders(),
                 enabled -> aeallpattern$update(aeallpattern$policy().withByproductOrders(enabled))));
 
-        aeallpattern$editor = addRenderableWidget(new RoutingPolicyEditor(
+        aeallpattern$amplifyingCycles = addRenderableWidget(new RoutingQualificationButton(
                 panelX + 4,
                 panelY + 54,
+                AEALLPATTERN_PANEL_WIDTH - 8,
+                "gui.aeallpattern.routing.amplifying_cycles",
+                () -> aeallpattern$policy().allowAmplifyingCycles(),
+                enabled -> aeallpattern$update(aeallpattern$policy().withAmplifyingCycles(enabled))));
+
+        aeallpattern$editor = addRenderableWidget(new RoutingPolicyEditor(
+                panelX + 4,
+                panelY + 71,
                 AEALLPATTERN_PANEL_WIDTH - 8,
                 this::aeallpattern$policy,
                 this::aeallpattern$update));
@@ -137,6 +147,7 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
         aeallpattern$priorityField.visible = showPanel;
         aeallpattern$feasibilityHelp.visible = showPanel;
         aeallpattern$byproductOrders.visible = showPanel;
+        aeallpattern$amplifyingCycles.visible = showPanel;
         aeallpattern$editor.visible = showPanel;
         if (!showPanel) {
             aeallpattern$priorityField.setFocused(false);
@@ -162,8 +173,10 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
         aeallpattern$feasibilityHelp.setY(panelY + 20);
         aeallpattern$byproductOrders.setX(panelX + 4);
         aeallpattern$byproductOrders.setY(panelY + 37);
+        aeallpattern$amplifyingCycles.setX(panelX + 4);
+        aeallpattern$amplifyingCycles.setY(panelY + 54);
         aeallpattern$editor.setX(panelX + 4);
-        aeallpattern$editor.setY(panelY + 54);
+        aeallpattern$editor.setY(panelY + 71);
     }
 
     @Override
@@ -188,10 +201,12 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
             aeallpattern$priorityField.render(graphics, mouseX, mouseY, partialTick);
             aeallpattern$feasibilityHelp.render(graphics, mouseX, mouseY, partialTick);
             aeallpattern$byproductOrders.render(graphics, mouseX, mouseY, partialTick);
+            aeallpattern$amplifyingCycles.render(graphics, mouseX, mouseY, partialTick);
             aeallpattern$editor.render(graphics, mouseX, mouseY, partialTick);
 
             if (!aeallpattern$renderTooltip(graphics, mouseX, mouseY, aeallpattern$editor)
                     && !aeallpattern$renderTooltip(graphics, mouseX, mouseY, aeallpattern$byproductOrders)
+                    && !aeallpattern$renderTooltip(graphics, mouseX, mouseY, aeallpattern$amplifyingCycles)
                     && !aeallpattern$renderTooltip(graphics, mouseX, mouseY, aeallpattern$feasibilityHelp)) {
                 aeallpattern$renderTooltip(graphics, mouseX, mouseY, aeallpattern$priorityField);
             }
@@ -276,6 +291,10 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
             if (aeallpattern$byproductOrders.visible
                     && aeallpattern$byproductOrders.isMouseOver(mouseX, mouseY)) {
                 return aeallpattern$byproductOrders.mouseClicked(mouseX, mouseY, button);
+            }
+            if (aeallpattern$amplifyingCycles.visible
+                    && aeallpattern$amplifyingCycles.isMouseOver(mouseX, mouseY)) {
+                return aeallpattern$amplifyingCycles.mouseClicked(mouseX, mouseY, button);
             }
             if (aeallpattern$priorityField.visible
                     && aeallpattern$priorityField.isMouseOver(mouseX, mouseY)) {

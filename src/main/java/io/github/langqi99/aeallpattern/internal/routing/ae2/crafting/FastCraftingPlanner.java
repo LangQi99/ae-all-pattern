@@ -1,6 +1,7 @@
 package io.github.langqi99.aeallpattern.internal.routing.ae2.crafting;
 
 import java.util.*;
+import java.util.function.LongFunction;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -20,6 +21,7 @@ import appeng.crafting.inv.CraftingSimulationState;
 import appeng.me.service.CraftingService;
 
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.BoundedCombinations;
+import io.github.langqi99.aeallpattern.internal.routing.core.planner.AmplifyingCycleCompiler;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.CraftGraph;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.CraftInput;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.CraftOutput;
@@ -28,6 +30,8 @@ import io.github.langqi99.aeallpattern.internal.routing.core.planner.CraftPlan;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.CraftPlannerV2;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.PlanningResult;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.ReusableStockUsageKey;
+import io.github.langqi99.aeallpattern.internal.routing.core.planner.ReusableStockSource;
+import io.github.langqi99.aeallpattern.internal.routing.core.planner.OrdinaryStockAlias;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.DurabilityChain;
 import io.github.langqi99.aeallpattern.internal.routing.core.planner.Sat;
 
@@ -260,6 +264,10 @@ public final class FastCraftingPlanner {
         private final Set<AEKey> emittable = new HashSet<>();
         private final Map<CraftPattern<AEKey>, List<CraftOutput<AEKey>>> secondaryRoutes =
                 new IdentityHashMap<>();
+    }
+
+    /** Marks network stock that may seed a self-amplifying recipe before later consumption. */
+    private record AmplifyingCycleSeedScope(AEKey key) implements OrdinaryStockAlias {
     }
 
     private static boolean noNonEmittableMissing(CraftPlan<AEKey> plan, Set<AEKey> emittable) {
@@ -512,9 +520,15 @@ public final class FastCraftingPlanner {
                 // Keep the best (lowest rank-sum) up to FUZZY_NONCYCLE_STEPS combinations; when the
                 // product is within budget this emits all of them, otherwise it greedily keeps the front.
                 ProviderAvailability providers = providerAvailability(craftingService, details);
+                boolean allowAmplifyingCycles = routePolicy != null
+                        && routePolicy.allowAmplifyingCycles();
+                long amplifyingSeedStock = allowAmplifyingCycles
+                        ? usableStock(reusableSeedSnapshot, key, reservedStock)
+                        : 0L;
                 emitBestCombinations(
                         builder, seen, queue, key, outAmount, byproducts, slotOptions, details,
-                        providers, secondaryRoute ? byproducts : List.of(), secondaryRoutes);
+                        providers, secondaryRoute ? byproducts : List.of(), secondaryRoutes,
+                        allowAmplifyingCycles, amplifyingSeedStock);
                 registeredForKey++;
             }
             if (registeredForKey > 1) {
@@ -853,7 +867,9 @@ public final class FastCraftingPlanner {
                                          List<List<SlotChoice>> slotOptions, IPatternDetails source,
                                          ProviderAvailability providers,
                                          List<CraftOutput<AEKey>> secondaryWarningOutputs,
-                                         Map<CraftPattern<AEKey>, List<CraftOutput<AEKey>>> secondaryRoutes) {
+                                         Map<CraftPattern<AEKey>, List<CraftOutput<AEKey>>> secondaryRoutes,
+                                         boolean allowAmplifyingCycles,
+                                         long amplifyingSeedStock) {
         for (List<SlotChoice> selectedSlots
                 : BoundedCombinations.bestFirst(slotOptions, (int) FUZZY_NONCYCLE_STEPS)) {
             List<CraftInput<AEKey>> coreInputs = new ArrayList<>();
@@ -880,11 +896,29 @@ public final class FastCraftingPlanner {
             CraftPattern<AEKey> pattern = new CraftPattern<>(
                     key, outputAmount, coreInputs, combo, source,
                     providers.idle(), providers.total());
+            var scope = new AmplifyingCycleSeedScope(key);
+            var seedSource = new ReusableStockSource(scope, scope);
+            var compiled = compileAmplifyingCycleIfEnabled(
+                    pattern, allowAmplifyingCycles,
+                    amount -> CraftInput.returnedFrom(key, amount, seedSource));
+            if (compiled != null) {
+                pattern = compiled.pattern();
+                builder.reusableStock(scope, key, amplifyingSeedStock);
+                builder.reusableStockRoute(seedSource, key, List.of(key));
+            }
             builder.pattern(pattern);
             if (!secondaryWarningOutputs.isEmpty()) {
                 secondaryRoutes.put(pattern, List.copyOf(secondaryWarningOutputs));
             }
         }
+    }
+
+    /** Central policy gate for self-amplifying recipes; package-visible for adapter contract tests. */
+    static <K> AmplifyingCycleCompiler.Compiled<K> compileAmplifyingCycleIfEnabled(
+            CraftPattern<K> pattern,
+            boolean enabled,
+            LongFunction<CraftInput<K>> seedFactory) {
+        return enabled ? AmplifyingCycleCompiler.compile(pattern, seedFactory) : null;
     }
 
     private static ProviderAvailability providerAvailability(
@@ -1042,6 +1076,20 @@ public final class FastCraftingPlanner {
                 chain.chargeFromStock(e.getValue(), usedItems::add);
             }
         }
+        Map<AEKey, Long> amplifyingSeedUsage = new HashMap<>();
+        for (Map.Entry<ReusableStockUsageKey<AEKey>, Long> entry : plan.usedReusableStock().entrySet()) {
+            if (entry.getKey().storageScope() instanceof OrdinaryStockAlias) {
+                amplifyingSeedUsage.merge(entry.getKey().actualKey(), entry.getValue(), Math::max);
+            }
+        }
+        // The same physical stack may first seed the gain loop and then be consumed by a downstream
+        // recipe. In that case usedStock already charges it; only add any larger seed reserve.
+        amplifyingSeedUsage.forEach((key, seedAmount) -> {
+            long alreadyCharged = plan.usedStock().getOrDefault(key, 0L);
+            if (seedAmount > alreadyCharged) {
+                usedItems.add(key, seedAmount - alreadyCharged);
+            }
+        });
 
         // AE2 extracts fuzzy-slot stock before it decides how much of the remainder must be crafted.
         // Preserve that observable behavior: charge any still-unused accepted stock up to the slot's

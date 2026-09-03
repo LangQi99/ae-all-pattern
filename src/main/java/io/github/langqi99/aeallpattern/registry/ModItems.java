@@ -33,6 +33,12 @@ public final class ModItems {
     public static final DeferredItem<AggregatePatternItem> AGGREGATE_PATTERN = ITEMS.registerItem(
             "aggregate_pattern", AggregatePatternItem::new, new Item.Properties().stacksTo(1));
 
+    /**
+     * Development-only registry stress fixture. Normal launches leave the property unset, so
+     * release builds register no fixture items at all.
+     */
+    public static final int STRESS_ITEM_COUNT = registerStressItems();
+
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN_TAB = TABS.register("main", () ->
             CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.aeallpattern"))
@@ -48,7 +54,21 @@ public final class ModItems {
     private ModItems() {
     }
 
+    private static int registerStressItems() {
+        int count = Math.clamp(Integer.getInteger("aeallpattern.stressItemCount", 0), 0, 20_000);
+        for (int index = 0; index < count; index++) {
+            String name = "stress_item_%05d".formatted(index);
+            int displayNumber = index + 1;
+            ITEMS.registerItem(name, properties -> new StressTestItem(properties, displayNumber),
+                    new Item.Properties());
+        }
+        return count;
+    }
+
     public static void register(IEventBus modBus) {
+        if (STRESS_ITEM_COUNT > 0) {
+            AeAllPattern.LOGGER.warn("Registering {} development stress-test items", STRESS_ITEM_COUNT);
+        }
         ITEMS.register(modBus);
         TABS.register(modBus);
     }

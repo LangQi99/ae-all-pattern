@@ -40,7 +40,7 @@ The Linker is a real AE node: it uses one channel and 2 AE/t. The Binder and Gen
 
 ### Aggregate Pattern controls
 
-Each Aggregate Pattern keeps its own settings. The AE-style management screen searches inputs and outputs together and lets you publish only the recipes you want.
+Each Aggregate Pattern keeps its own settings. The AE-style management screen searches inputs and outputs together and lets you publish only the recipes you want. Large catalogs use server-backed pages of 1,024 recipes by default, without limiting search or bulk selection to the current page.
 
 Recipe checkboxes are stored on the physical item as recipe IDs only. The item automatically keeps whichever list is shorter—enabled recipes or disabled recipes. After a catalog refresh, removed IDs are discarded; newly added recipes follow the previous majority default and the surviving choices keep their meaning.
 
@@ -68,6 +68,8 @@ When a Router is online on the same ME network, the crafting confirmation screen
 - fewer waits / more immediately available machines.
 
 The default Aggregate Pattern priority is `-1`, so a player's explicitly encoded patterns at priority `0` remain preferred. Router defaults are stored on the block, while a single order can temporarily override and recalculate them in the confirmation screen. Secondary outputs cannot trigger an expensive recipe by themselves unless **Independent byproduct orders** is explicitly enabled.
+
+The default-on **Amplifying cycles** qualification recognizes direct gain loops such as `A + D -> 2 A`. It reserves a real `A` as the startup seed, plans against the net `+1 A` produced per operation, and repeats the recipe only until downstream demand is covered. It fails closed when the seed is absent or the loop has no positive gain, and can be disabled globally on the Router or temporarily for one order.
 
 The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tech are not dependencies. If either is installed, its ordinary CPUs continue to use that installed mod's own behavior; AE All Pattern routing applies only while an online Tianshu Router is present.
 
@@ -125,7 +127,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 ### 聚合样板配置
 
-每张聚合样板独立保存自己的设置。AE 风格的管理界面会同时搜索输入与产物，并只发布玩家真正需要的配方。
+每张聚合样板独立保存自己的设置。AE 风格的管理界面会同时搜索输入与产物，并只发布玩家真正需要的配方。大型目录默认按每页 1024 个样板由服务端分页加载，但搜索和批量选择仍作用于完整目录。
 
 配方勾选状态只在实体物品中保存配方 ID，并自动在“已启用列表”和“已禁用列表”中选择较短的一边。目录刷新后，已删除的 ID 会被清理，新增配方按原有的多数默认状态处理，其余勾选语义保持不变。
 
@@ -153,6 +155,8 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 - 等待更少，优先选择有空闲设备的路线。
 
 聚合样板默认优先级为 `-1`，因此玩家手动编码、优先级为 `0` 的普通样板始终优先。方块界面保存全局默认偏好，下单界面则允许临时覆盖并实时重新计算。默认情况下副产物只能随主产物生产，不能单独触发一整套昂贵配方；只有主动开启**副产物可独立下单**后，副产物才与主产物拥有相同的下单资格。
+
+默认开启的**循环增殖**资格开关会识别 `A + D → 2A` 这类直接增殖回路：先保留一个真实的 `A` 作为启动种子，再按每次净增加 `1A` 计算执行次数，直到满足后续步骤。没有启动种子或回路没有正增殖时会安全地判定不可行；也可以在路由器中全局关闭，或在单次下单时临时关闭。
 
 路由引擎已经完整内置，本模组不依赖 Thunderbolt 或 AE2 Lightning Tech。即使玩家安装了它们，普通闪电科技 CPU 仍由玩家安装的对应版本自行管理；只有网络中存在在线的天枢路由器时，AE 全样板才会应用自己的路由逻辑。
 
@@ -192,9 +196,9 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 ./gradlew clean check build
 ```
 
-The CI matrix covers unit tests, real client startup smoke tests, a two-process save/reopen persistence test, and no-GUI GameTests across minimal AE2, JEI, EMI/TMRV, machine-mod, provider-add-on, packaging, and Mekanism-add-on profiles. Test fixtures are downloaded at pinned versions during CI and are not bundled into the release JAR.
+The CI matrix covers unit tests, four dedicated amplifying-cycle gates, real client startup smoke tests, a two-process save/reopen persistence test, and no-GUI GameTests across minimal AE2, JEI, EMI/TMRV, machine-mod, provider-add-on, packaging, and Mekanism-add-on profiles. Test fixtures are downloaded at pinned versions during CI and are not bundled into the release JAR.
 
-CI 会执行单元测试、真实客户端启动冒烟测试、跨两个独立游戏进程的存档重开测试，以及最小 AE2、JEI、EMI/TMRV、机器模组、供应器附属、打包合成和 Mekanism 附属等多组无界面 GameTest；测试依赖在流水线中按固定版本下载，不会进入发布 JAR。
+CI 会执行单元测试、四组独立的循环增殖门禁、真实客户端启动冒烟测试、跨两个独立游戏进程的存档重开测试，以及最小 AE2、JEI、EMI/TMRV、机器模组、供应器附属、打包合成和 Mekanism 附属等多组无界面 GameTest；测试依赖在流水线中按固定版本下载，不会进入发布 JAR。
 
 Start with the [documentation index](docs/index.md). Architecture decisions, environment setup, testing strategy, release steps, troubleshooting, and the project roadmap are maintained under [`docs/`](docs/).
 

@@ -45,19 +45,27 @@ public final class AggregatePatternSearch {
     /** Filters by inputs and outputs together, matching AE terminal search behavior. */
     public static List<AggregatePatternSelectionMenu.Entry> filterAny(
             List<AggregateRecipe> recipes, String searchText, int limit) {
+        return AggregatePatternSelectionMenu.entriesFromRecipes(
+                filterRecipesAny(recipes, searchText, limit));
+    }
+
+    /** Returns matching recipes without converting them, allowing server-side UI paging. */
+    public static List<AggregateRecipe> filterRecipesAny(
+            List<AggregateRecipe> recipes, String searchText, int limit) {
+        int safeLimit = Math.max(0, limit);
         if (searchText == null || searchText.isBlank()) {
-            return AggregatePatternSelectionMenu.entriesFromRecipes(recipes);
+            return recipes.subList(0, Math.min(safeLimit, recipes.size()));
         }
-        List<AggregateRecipe> matched = new ArrayList<>(Math.min(limit, recipes.size()));
+        List<AggregateRecipe> matched = new ArrayList<>(Math.min(safeLimit, recipes.size()));
         for (AggregateRecipe recipe : recipes) {
-            if (matched.size() >= limit) {
+            if (matched.size() >= safeLimit) {
                 break;
             }
             if (matchesRecipe(recipe, searchText, false) || matchesRecipe(recipe, searchText, true)) {
                 matched.add(recipe);
             }
         }
-        return AggregatePatternSelectionMenu.entriesFromRecipes(matched);
+        return List.copyOf(matched);
     }
 
     /** True when any input (or output, per mode) stack of the recipe matches the query. */

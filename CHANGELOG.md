@@ -7,6 +7,9 @@
 - Existing aggregate catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client and are replaced under the same server-library UUID.
 - Recipe selections now discard deleted IDs and automatically store the smaller of the enabled-ID and disabled-ID sets after catalog changes.
 - Item substitution and output-component ignoring are now enabled by default; aggregate management uses compact AE-style side tabs and one combined input/output search field.
+- Aggregate selection now has server-backed previous/next controls; each UI page loads 1,024 recipes by default while search and bulk selection still cover the complete catalog.
+- Added a default-on Tianshu Router qualification for direct self-amplifying recipes such as `A + D -> 2 A`; planning reserves a real startup seed, schedules net growth, and rejects zero-seed or non-growing loops.
+- Added four dedicated amplifying-cycle CI gates covering recipe classification, closed-form demand planning, the AE adapter policy gate, and policy migration/persistence.
 
 ## 0.2.1 - 2026-09-03
 

@@ -1,7 +1,7 @@
 {
   "$schema": "schema.json",
   "includes": ["common/common.json"],
-  "generatedBackground": {"width": 176, "height": 145},
+  "generatedBackground": {"width": 176, "height": 162},
   "text": {
     "dialog_title": {"text": {"translate": "gui.ae2.Priority"}, "position": {"left": 8, "top": 6}},
     "priority_insertion_hint": {"text": {"translate": "gui.ae2.PriorityInsertionHint"}, "position": {"left": 8, "top": 98}},

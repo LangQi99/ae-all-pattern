@@ -41,6 +41,10 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            def stressItemCount = providers.gradleProperty('stress_item_count')
+            if (stressItemCount.isPresent()) {
+                systemProperty 'aeallpattern.stressItemCount', stressItemCount.get()
+            }
             if (providers.gradleProperty('client_smoke_test')
                     .map { it.toBoolean() }
                     .getOrElse(false)) {
@@ -244,7 +248,7 @@ tasks.named('test', Test).configure {
 def registerTaggedTest = { String taskName, List<String> tags ->
     tasks.register(taskName, Test) {
         group = 'verification'
-        description = "Runs ${tags.join('/')} recipe-viewer integration tests"
+        description = "Runs tests tagged ${tags.join('/')}"
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath
         useJUnitPlatform {
@@ -255,6 +259,10 @@ def registerTaggedTest = { String taskName, List<String> tags ->
 
 registerTaggedTest('testJeiIntegration', ['jei', 'recipe-viewer'])
 registerTaggedTest('testEmiIntegration', ['emi', 'recipe-viewer'])
+registerTaggedTest('testAmplifyingCycleCompiler', ['amplifying-cycle-compiler'])
+registerTaggedTest('testAmplifyingCyclePlanning', ['amplifying-cycle-planning'])
+registerTaggedTest('testAmplifyingCycleAdapter', ['amplifying-cycle-adapter'])
+registerTaggedTest('testAmplifyingCyclePolicy', ['amplifying-cycle-policy'])
 
 tasks.named('jar', Jar).configure {
     from(rootProject.file('LICENSE')) {

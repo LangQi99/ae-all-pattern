@@ -61,7 +61,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
 
     @Unique
     @GuiSync(44)
-    public int aeallpattern$preferenceFlags = 26;
+    public int aeallpattern$preferenceFlags = 90;
 
     @Unique
     @GuiSync(45)
@@ -157,7 +157,8 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
                 aeallpattern$unpackDirection(aeallpattern$preferenceFlags, 2),
                 (aeallpattern$preferenceFlags & 16) != 0,
                 aeallpattern$preferenceOrder,
-                (aeallpattern$preferenceFlags & 32) != 0);
+                (aeallpattern$preferenceFlags & 32) != 0,
+                (aeallpattern$preferenceFlags & 64) != 0);
     }
 
     @Override
@@ -209,7 +210,8 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
         aeallpattern$preferenceFlags = aeallpattern$packDirection(policy.stockSurplusPreference(), 0)
                 | aeallpattern$packDirection(policy.yieldPreference(), 2)
                 | (policy.preferFast() ? 16 : 0)
-                | (policy.allowByproductOrders() ? 32 : 0);
+                | (policy.allowByproductOrders() ? 32 : 0)
+                | (policy.allowAmplifyingCycles() ? 64 : 0);
         aeallpattern$preferenceOrder = policy.preferenceOrder();
     }
 
@@ -229,7 +231,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
         return new CraftingRoutePolicy(
                 value.aggregatePriority(), true, value.pathPreference(),
                 value.stockSurplusPreference(), value.yieldPreference(), value.preferFast(),
-                value.preferenceOrder(), value.allowByproductOrders());
+                value.preferenceOrder(), value.allowByproductOrders(), value.allowAmplifyingCycles());
     }
 
     @Unique

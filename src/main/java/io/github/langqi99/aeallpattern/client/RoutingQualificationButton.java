@@ -15,12 +15,20 @@ import org.jetbrains.annotations.NotNull;
 
 /** Fixed-position recipe-qualification switch shown beneath mandatory feasibility. */
 public final class RoutingQualificationButton extends AbstractWidget implements ITooltip {
+    private final String translationPrefix;
     private final Supplier<Boolean> enabled;
     private final Consumer<Boolean> change;
 
     public RoutingQualificationButton(
             int x, int y, int width, Supplier<Boolean> enabled, Consumer<Boolean> change) {
-        super(x, y, width, 14, Component.translatable("gui.aeallpattern.routing.byproduct_orders"));
+        this(x, y, width, "gui.aeallpattern.routing.byproduct_orders", enabled, change);
+    }
+
+    public RoutingQualificationButton(
+            int x, int y, int width, String translationPrefix,
+            Supplier<Boolean> enabled, Consumer<Boolean> change) {
+        super(x, y, width, 14, Component.translatable(translationPrefix));
+        this.translationPrefix = translationPrefix;
         this.enabled = enabled;
         this.change = change;
     }
@@ -35,7 +43,7 @@ public final class RoutingQualificationButton extends AbstractWidget implements 
                 .getBlitter().dest(getX() + 1, getY() - 1).blit(graphics);
 
         var font = Minecraft.getInstance().font;
-        Component label = Component.translatable("gui.aeallpattern.routing.byproduct_orders_short");
+        Component label = Component.translatable(translationPrefix + "_short");
         Component state = Component.translatable(value
                 ? "gui.aeallpattern.routing.qualification_on"
                 : "gui.aeallpattern.routing.qualification_off");
@@ -53,11 +61,10 @@ public final class RoutingQualificationButton extends AbstractWidget implements 
     @Override
     public List<Component> getTooltipMessage() {
         return List.of(
-                Component.translatable("gui.aeallpattern.routing.byproduct_orders"),
-                Component.translatable("gui.aeallpattern.routing.byproduct_orders_details"),
-                Component.translatable(enabled.get()
-                        ? "gui.aeallpattern.routing.byproduct_orders_enabled"
-                        : "gui.aeallpattern.routing.byproduct_orders_disabled"));
+                Component.translatable(translationPrefix),
+                Component.translatable(translationPrefix + "_details"),
+                Component.translatable(translationPrefix
+                        + (enabled.get() ? "_enabled" : "_disabled")));
     }
 
     @Override

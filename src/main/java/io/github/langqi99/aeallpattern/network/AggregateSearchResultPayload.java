@@ -18,7 +18,15 @@ import org.jetbrains.annotations.NotNull;
  * them by request id and page index. Each page stays well below the protocol packet limit.
  */
 public record AggregateSearchResultPayload(
-        UUID requestId, int pageIndex, int pageCount, List<Entry> entries)
+        UUID requestId,
+        int chunkIndex,
+        int chunkCount,
+        int resultPageIndex,
+        int resultPageCount,
+        int totalResults,
+        int selectedResults,
+        List<Entry> entries,
+        List<Boolean> enabledStates)
         implements CustomPacketPayload {
     public static final int MAX_ENTRIES_PER_PAGE = 64;
     private static final int MAX_STACKS_PER_LIST = 81;
@@ -30,38 +38,62 @@ public record AggregateSearchResultPayload(
 
     public AggregateSearchResultPayload {
         entries = List.copyOf(entries);
-        if (pageIndex < 0 || pageCount < 1 || pageIndex >= pageCount
-                || entries.size() > MAX_ENTRIES_PER_PAGE) {
+        enabledStates = List.copyOf(enabledStates);
+        if (chunkIndex < 0 || chunkCount < 1 || chunkIndex >= chunkCount
+                || resultPageIndex < 0 || resultPageCount < 1 || resultPageIndex >= resultPageCount
+                || totalResults < 0 || selectedResults < 0 || selectedResults > totalResults
+                || entries.size() > MAX_ENTRIES_PER_PAGE || enabledStates.size() != entries.size()) {
             throw new IllegalArgumentException("invalid aggregate search result page");
         }
     }
 
     private static void encode(RegistryFriendlyByteBuf buffer, AggregateSearchResultPayload payload) {
         buffer.writeUUID(payload.requestId());
-        buffer.writeVarInt(payload.pageIndex());
-        buffer.writeVarInt(payload.pageCount());
+        buffer.writeVarInt(payload.chunkIndex());
+        buffer.writeVarInt(payload.chunkCount());
+        buffer.writeVarInt(payload.resultPageIndex());
+        buffer.writeVarInt(payload.resultPageCount());
+        buffer.writeVarInt(payload.totalResults());
+        buffer.writeVarInt(payload.selectedResults());
         buffer.writeVarInt(payload.entries().size());
-        for (Entry entry : payload.entries()) {
+        for (int index = 0; index < payload.entries().size(); index++) {
+            Entry entry = payload.entries().get(index);
             buffer.writeUtf(entry.patternId(), AggregatePatternSelection.MAX_ID_LENGTH);
             writeStacks(buffer, entry.inputs());
             writeStacks(buffer, entry.outputs());
+            buffer.writeBoolean(payload.enabledStates().get(index));
         }
     }
 
     private static AggregateSearchResultPayload decode(RegistryFriendlyByteBuf buffer) {
         UUID requestId = buffer.readUUID();
-        int pageIndex = buffer.readVarInt();
-        int pageCount = buffer.readVarInt();
+        int chunkIndex = buffer.readVarInt();
+        int chunkCount = buffer.readVarInt();
+        int resultPageIndex = buffer.readVarInt();
+        int resultPageCount = buffer.readVarInt();
+        int totalResults = buffer.readVarInt();
+        int selectedResults = buffer.readVarInt();
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_ENTRIES_PER_PAGE) {
             throw new IllegalArgumentException("invalid search result entry count: " + count);
         }
         List<Entry> entries = new ArrayList<>(count);
+        List<Boolean> enabledStates = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             String patternId = buffer.readUtf(AggregatePatternSelection.MAX_ID_LENGTH);
             entries.add(new Entry(patternId, readStacks(buffer), readStacks(buffer)));
+            enabledStates.add(buffer.readBoolean());
         }
-        return new AggregateSearchResultPayload(requestId, pageIndex, pageCount, entries);
+        return new AggregateSearchResultPayload(
+                requestId,
+                chunkIndex,
+                chunkCount,
+                resultPageIndex,
+                resultPageCount,
+                totalResults,
+                selectedResults,
+                entries,
+                enabledStates);
     }
 
     private static void writeStacks(RegistryFriendlyByteBuf buffer, List<GenericStack> stacks) {

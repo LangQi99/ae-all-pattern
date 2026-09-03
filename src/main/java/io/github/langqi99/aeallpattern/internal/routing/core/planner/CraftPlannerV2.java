@@ -3289,7 +3289,14 @@ public final class CraftPlannerV2<K> {
         for (CraftPattern<K> pattern : patternsByOutput.getOrDefault(key, List.of())) {
             for (CraftInput<K> input : pattern.inputs()) {
                 if (isSelfReturnedSeed(pattern, input)) {
-                    required = Math.max(required, input.amount());
+                    if (input.reusableStockSource() != null
+                            && input.reusableStockSource().storageScope() instanceof OrdinaryStockAlias) {
+                        continue;
+                    }
+                    long hostAvailable = input.reusableStockSource() == null
+                            ? 0L
+                            : graph.reusableStock(input.reusableStockSource(), input.key());
+                    required = Math.max(required, Math.max(0L, input.amount() - hostAvailable));
                 }
             }
         }

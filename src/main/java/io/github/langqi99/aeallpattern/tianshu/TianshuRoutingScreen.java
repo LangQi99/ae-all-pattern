@@ -20,6 +20,7 @@ public final class TianshuRoutingScreen extends AEBaseScreen<TianshuRoutingMenu>
     private boolean changingPriority;
     private RoutingPolicyEditor routingEditor;
     private RoutingQualificationButton byproductOrders;
+    private RoutingQualificationButton amplifyingCycles;
 
     public TianshuRoutingScreen(
             TianshuRoutingMenu menu,
@@ -60,9 +61,16 @@ public final class TianshuRoutingScreen extends AEBaseScreen<TianshuRoutingMenu>
                 160,
                 () -> menu.getPolicy().allowByproductOrders(),
                 enabled -> menu.updatePolicy(menu.getPolicy().withByproductOrders(enabled))));
-        routingEditor = addRenderableWidget(new RoutingPolicyEditor(
+        amplifyingCycles = addRenderableWidget(new RoutingQualificationButton(
                 leftPos + 8,
                 topPos + 69,
+                160,
+                "gui.aeallpattern.routing.amplifying_cycles",
+                () -> menu.getPolicy().allowAmplifyingCycles(),
+                enabled -> menu.updatePolicy(menu.getPolicy().withAmplifyingCycles(enabled))));
+        routingEditor = addRenderableWidget(new RoutingPolicyEditor(
+                leftPos + 8,
+                topPos + 86,
                 160,
                 menu::getPolicy,
                 menu::updatePolicy));
@@ -145,5 +153,9 @@ public final class TianshuRoutingScreen extends AEBaseScreen<TianshuRoutingMenu>
 
     public RoutingQualificationButton getByproductOrders() {
         return byproductOrders;
+    }
+
+    public RoutingQualificationButton getAmplifyingCycles() {
+        return amplifyingCycles;
     }
 }

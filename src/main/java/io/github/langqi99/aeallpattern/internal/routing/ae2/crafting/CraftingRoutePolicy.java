@@ -14,7 +14,8 @@ public record CraftingRoutePolicy(
         int yieldPreference,
         boolean preferFast,
         int preferenceOrder,
-        boolean allowByproductOrders) {
+        boolean allowByproductOrders,
+        boolean allowAmplifyingCycles) {
     public static final int CRITERION_PATH = 0;
     public static final int CRITERION_STOCK_SURPLUS = 1;
     public static final int CRITERION_HIGH_YIELD = 2;
@@ -24,7 +25,7 @@ public record CraftingRoutePolicy(
     public static final int DEFAULT_PREFERENCE_ORDER = 0x2031;
 
     public static final CraftingRoutePolicy DEFAULT =
-            new CraftingRoutePolicy(-1, true, -1, 1, 1, true, DEFAULT_PREFERENCE_ORDER, false);
+            new CraftingRoutePolicy(-1, true, -1, 1, 1, true, DEFAULT_PREFERENCE_ORDER, false, true);
 
     public static final int MIN_PRIORITY = -32;
     public static final int MAX_PRIORITY = 32;
@@ -54,7 +55,8 @@ public record CraftingRoutePolicy(
                 preferHighYield ? 1 : 0,
                 preferFast,
                 preferenceOrder,
-                false);
+                false,
+                true);
     }
 
     /** Compatibility constructor for policies created before byproduct ordering was configurable. */
@@ -68,19 +70,34 @@ public record CraftingRoutePolicy(
             int preferenceOrder) {
         this(
                 aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference,
-                yieldPreference, preferFast, preferenceOrder, false);
+                yieldPreference, preferFast, preferenceOrder, false, true);
+    }
+
+    /** Compatibility constructor for policies created before amplifying cycles were configurable. */
+    public CraftingRoutePolicy(
+            int aggregatePriority,
+            boolean requireFeasible,
+            int pathPreference,
+            int stockSurplusPreference,
+            int yieldPreference,
+            boolean preferFast,
+            int preferenceOrder,
+            boolean allowByproductOrders) {
+        this(
+                aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference,
+                yieldPreference, preferFast, preferenceOrder, allowByproductOrders, true);
     }
 
     public CraftingRoutePolicy withAggregatePriority(int value) {
         return new CraftingRoutePolicy(
                 value, requireFeasible, pathPreference, stockSurplusPreference, yieldPreference, preferFast,
-                preferenceOrder, allowByproductOrders);
+                preferenceOrder, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withPathPreference(int value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, value, stockSurplusPreference, yieldPreference, preferFast,
-                preferenceOrder, allowByproductOrders);
+                preferenceOrder, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withStockSurplus(boolean value) {
@@ -90,7 +107,7 @@ public record CraftingRoutePolicy(
     public CraftingRoutePolicy withStockSurplusPreference(int value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, pathPreference, value, yieldPreference, preferFast,
-                preferenceOrder, allowByproductOrders);
+                preferenceOrder, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withHighYield(boolean value) {
@@ -100,25 +117,31 @@ public record CraftingRoutePolicy(
     public CraftingRoutePolicy withYieldPreference(int value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference, value, preferFast,
-                preferenceOrder, allowByproductOrders);
+                preferenceOrder, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withFast(boolean value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference, yieldPreference, value,
-                preferenceOrder, allowByproductOrders);
+                preferenceOrder, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withPreferenceOrder(int value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference, yieldPreference, preferFast,
-                value, allowByproductOrders);
+                value, allowByproductOrders, allowAmplifyingCycles);
     }
 
     public CraftingRoutePolicy withByproductOrders(boolean value) {
         return new CraftingRoutePolicy(
                 aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference, yieldPreference, preferFast,
-                preferenceOrder, value);
+                preferenceOrder, value, allowAmplifyingCycles);
+    }
+
+    public CraftingRoutePolicy withAmplifyingCycles(boolean value) {
+        return new CraftingRoutePolicy(
+                aggregatePriority, requireFeasible, pathPreference, stockSurplusPreference, yieldPreference, preferFast,
+                preferenceOrder, allowByproductOrders, value);
     }
 
     /** True only for the positive (more) direction; retained for source compatibility. */
@@ -159,7 +182,8 @@ public record CraftingRoutePolicy(
     public String serialize() {
         return aggregatePriority + "," + (requireFeasible ? 1 : 0) + "," + pathPreference + ","
                 + stockSurplusPreference + "," + yieldPreference + ","
-                + (preferFast ? 1 : 0) + "," + preferenceOrder + "," + (allowByproductOrders ? 1 : 0);
+                + (preferFast ? 1 : 0) + "," + preferenceOrder + "," + (allowByproductOrders ? 1 : 0)
+                + "," + (allowAmplifyingCycles ? 1 : 0);
     }
 
     public static CraftingRoutePolicy deserialize(String serialized) {
@@ -167,7 +191,7 @@ public record CraftingRoutePolicy(
             return DEFAULT;
         }
         String[] values = serialized.split(",", -1);
-        if (values.length != 6 && values.length != 7 && values.length != 8) {
+        if (values.length < 6 || values.length > 9) {
             return DEFAULT;
         }
         try {
@@ -179,7 +203,8 @@ public record CraftingRoutePolicy(
                     Integer.parseInt(values[4]),
                     values[5].equals("1"),
                     values.length >= 7 ? Integer.parseInt(values[6]) : DEFAULT_PREFERENCE_ORDER,
-                    values.length == 8 && values[7].equals("1"));
+                    values.length >= 8 && values[7].equals("1"),
+                    values.length < 9 || values[8].equals("1"));
         } catch (NumberFormatException ignored) {
             return DEFAULT;
         }

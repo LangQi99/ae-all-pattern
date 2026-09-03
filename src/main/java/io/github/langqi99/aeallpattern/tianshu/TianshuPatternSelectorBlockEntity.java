@@ -94,6 +94,7 @@ public final class TianshuPatternSelectorBlockEntity extends AENetworkedBlockEnt
         policyTag.putBoolean("PreferFast", routingPolicy.preferFast());
         policyTag.putInt("PreferenceOrder", routingPolicy.preferenceOrder());
         policyTag.putBoolean("AllowByproductOrders", routingPolicy.allowByproductOrders());
+        policyTag.putBoolean("AllowAmplifyingCycles", routingPolicy.allowAmplifyingCycles());
         tag.put(ROUTING_POLICY_TAG, policyTag);
     }
 
@@ -112,7 +113,9 @@ public final class TianshuPatternSelectorBlockEntity extends AENetworkedBlockEnt
                     policyTag.contains("PreferenceOrder")
                             ? policyTag.getInt("PreferenceOrder")
                             : CraftingRoutePolicy.DEFAULT_PREFERENCE_ORDER,
-                    policyTag.getBoolean("AllowByproductOrders"));
+                    policyTag.getBoolean("AllowByproductOrders"),
+                    !policyTag.contains("AllowAmplifyingCycles")
+                            || policyTag.getBoolean("AllowAmplifyingCycles"));
         } else {
             routingPolicy = CraftingRoutePolicy.DEFAULT;
         }

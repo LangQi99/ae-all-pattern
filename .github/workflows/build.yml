@@ -43,6 +43,41 @@ jobs:
             build/test-results/**
           if-no-files-found: ignore
 
+  amplifying-cycles:
+    name: Amplifying cycles · ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: recipe recognition and rejection
+            task: testAmplifyingCycleCompiler
+          - name: demand planning and resources
+            task: testAmplifyingCyclePlanning
+          - name: AE adapter policy gate
+            task: testAmplifyingCycleAdapter
+          - name: defaults migration and persistence codec
+            task: testAmplifyingCyclePolicy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run ${{ matrix.name }} tests
+        run: ./gradlew ${{ matrix.task }} --stacktrace
+      - name: Upload amplifying-cycle failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amplifying-cycles-${{ matrix.task }}-${{ github.run_id }}
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore
+
   viewer-unit-tests:
     name: ${{ matrix.name }} scanner unit tests
     runs-on: ubuntu-latest

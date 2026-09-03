@@ -1,6 +1,7 @@
 package io.github.langqi99.aeallpattern.gametest;
 
 import appeng.api.networking.GridFlags;
+import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.IGridNode;
@@ -11,6 +12,8 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 import appeng.api.ids.AEComponents;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
@@ -47,6 +50,7 @@ import io.github.langqi99.aeallpattern.registry.ModItems;
 import io.github.langqi99.aeallpattern.tianshu.TianshuPatternSelectorBlock;
 import io.github.langqi99.aeallpattern.tianshu.TianshuPatternSelectorBlockEntity;
 import io.github.langqi99.aeallpattern.tianshu.TianshuRoutingPolicies;
+import io.github.langqi99.aeallpattern.tianshu.TianshuRoutingMenu;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.ByproductPlanWarnings;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicy;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicyContext;
@@ -73,6 +77,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -224,6 +229,22 @@ public final class CoreGameTests {
             helper.assertTrue(
                     helper.getBlockState(selectorPos).getValue(TianshuPatternSelectorBlock.ACTIVE),
                     "online Tianshu router did not switch to its active model");
+            helper.assertTrue(selector.getRoutingPolicy().allowAmplifyingCycles(),
+                    "new Tianshu router did not enable amplifying cycles by default");
+            var player = helper.makeMockPlayer(GameType.CREATIVE);
+            player.setPos(selector.getBlockPos().getCenter());
+            TianshuRoutingMenu menu = new TianshuRoutingMenu(
+                    1, player.getInventory(), selector);
+            menu.updatePolicy(menu.getPolicy().withAmplifyingCycles(false));
+            helper.assertTrue(!selector.getRoutingPolicy().allowAmplifyingCycles(),
+                    "Tianshu menu did not apply the disabled amplifying-cycle option to the router");
+            var saved = selector.saveWithFullMetadata(helper.getLevel().registryAccess());
+            BlockEntity restored = BlockEntity.loadStatic(
+                    selector.getBlockPos(), helper.getBlockState(selectorPos), saved,
+                    helper.getLevel().registryAccess());
+            helper.assertTrue(restored instanceof TianshuPatternSelectorBlockEntity restoredRouter
+                            && !restoredRouter.getRoutingPolicy().allowAmplifyingCycles(),
+                    "Tianshu amplifying-cycle option did not survive block entity persistence");
             helper.succeed();
         });
     }
@@ -305,6 +326,187 @@ public final class CoreGameTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void amplifyingCyclePlansAThousandItemIntermediateOnRealAeService(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            IPatternDetails gain = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 1), stack(Items.COBBLESTONE, 1)),
+                    List.of(stack(Items.REDSTONE, 2)));
+            IPatternDetails finish = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 1_000)),
+                    List.of(stack(Items.EMERALD, 1)));
+            ICraftingService service = getService(
+                    List.of(gain, finish), router,
+                    Map.of(AEItemKey.of(Items.REDSTONE), 1L, AEItemKey.of(Items.COBBLESTONE), 999L));
+            Future<ICraftingPlan> future = beginCalculation(
+                    service, helper, requester(router), AEItemKey.of(Items.EMERALD), 1,
+                    CraftingRoutePolicy.DEFAULT.withAmplifyingCycles(true));
+
+            awaitPlan(helper, future, plan -> {
+                helper.assertTrue(plan.missingItems().isEmpty(),
+                        "enabled amplifying cycle reported missing inputs: " + plan.missingItems());
+                helper.assertValueEqual(plan.patternTimes().getOrDefault(gain, 0L), 999L,
+                        "AE service did not schedule the net-growth recipe 999 times");
+                helper.assertValueEqual(plan.patternTimes().getOrDefault(finish, 0L), 1L,
+                        "AE service did not schedule the final recipe once");
+                helper.succeed();
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void amplifyingCycleCannotBootstrapWithoutARealSeedOnRealAeService(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            IPatternDetails gain = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 1), stack(Items.COBBLESTONE, 1)),
+                    List.of(stack(Items.REDSTONE, 2)));
+            IPatternDetails finish = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 1_000)),
+                    List.of(stack(Items.EMERALD, 1)));
+            ICraftingService service = getService(
+                    List.of(gain, finish), router,
+                    Map.of(AEItemKey.of(Items.COBBLESTONE), 1_000L));
+            Future<ICraftingPlan> future = beginCalculation(
+                    service, helper, requester(router), AEItemKey.of(Items.EMERALD), 1,
+                    CraftingRoutePolicy.DEFAULT.withAmplifyingCycles(true));
+
+            awaitPlan(helper, future, plan -> {
+                helper.assertTrue(plan.simulation(),
+                        "seedless amplifying cycle was returned as an executable plan");
+                helper.assertTrue(plan.missingItems().get(AEItemKey.of(Items.REDSTONE)) >= 1,
+                        "seedless amplifying cycle did not report its missing startup seed");
+                helper.succeed();
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void disabledAmplifyingCycleDoesNotRewriteTheAeRecipeGraph(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            IPatternDetails gain = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 1), stack(Items.COBBLESTONE, 1)),
+                    List.of(stack(Items.REDSTONE, 2)));
+            IPatternDetails finish = processingPattern(
+                    helper,
+                    List.of(stack(Items.REDSTONE, 10)),
+                    List.of(stack(Items.EMERALD, 1)));
+            ICraftingService service = getService(
+                    List.of(gain, finish), router,
+                    Map.of(AEItemKey.of(Items.REDSTONE), 1L, AEItemKey.of(Items.COBBLESTONE), 9L));
+            Future<ICraftingPlan> future = beginCalculation(
+                    service, helper, requester(router), AEItemKey.of(Items.EMERALD), 1,
+                    CraftingRoutePolicy.DEFAULT.withAmplifyingCycles(false));
+
+            awaitPlan(helper, future, plan -> {
+                helper.assertValueEqual(plan.patternTimes().getOrDefault(gain, 0L), 0L,
+                        "disabled amplifying-cycle option still scheduled the gain recipe");
+                helper.assertTrue(plan.missingItems().get(AEItemKey.of(Items.REDSTONE)) > 0,
+                        "disabled amplifying-cycle option unexpectedly produced a feasible plan");
+                helper.succeed();
+            }, 0);
+        });
+    }
+
+    private static void withPoweredRouter(
+            GameTestHelper helper, Consumer<TianshuPatternSelectorBlockEntity> test) {
+        BlockPos routerPos = new BlockPos(1, 1, 1);
+        helper.setBlock(routerPos, ModBlocks.TIANSHU_PATTERN_SELECTOR.get());
+        helper.setBlock(routerPos.south(), AEBlocks.CREATIVE_ENERGY_CELL.block());
+        helper.runAfterDelay(10, () -> {
+            TianshuPatternSelectorBlockEntity router = Objects.requireNonNull(
+                    helper.getBlockEntity(routerPos), "Tianshu router block entity was not created");
+            helper.assertTrue(router.isRouterOnline(), "powered Tianshu router did not come online");
+            test.accept(router);
+        });
+    }
+
+    private static GenericStack stack(net.minecraft.world.item.Item item, long amount) {
+        return new GenericStack(AEItemKey.of(item), amount);
+    }
+
+    private static IPatternDetails processingPattern(
+            GameTestHelper helper, List<GenericStack> inputs, List<GenericStack> outputs) {
+        ItemStack encoded = PatternDetailsHelper.encodeProcessingPattern(inputs, outputs);
+        return Objects.requireNonNull(
+                PatternDetailsHelper.decodePattern(encoded, helper.getLevel()),
+                "test processing pattern could not be decoded");
+    }
+
+    private static ICraftingSimulationRequester requester(TianshuPatternSelectorBlockEntity router) {
+        return new ICraftingSimulationRequester() {
+            @Override
+            public IActionSource getActionSource() {
+                return IActionSource.ofMachine(router);
+            }
+
+            @Override
+            public IGridNode getGridNode() {
+                return router.getMainNode().getNode();
+            }
+        };
+    }
+
+    private static ICraftingService getService(
+            List<IPatternDetails> details,
+            TianshuPatternSelectorBlockEntity router,
+            Map<appeng.api.stacks.AEKey, Long> initialStock) {
+        ICraftingProvider provider = new ICraftingProvider() {
+            @Override
+            public List<IPatternDetails> getAvailablePatterns() {
+                return details;
+            }
+
+            @Override
+            public boolean pushPattern(IPatternDetails pattern, KeyCounter[] inputHolders) {
+                return false;
+            }
+
+            @Override
+            public boolean isBusy() {
+                return false;
+            }
+        };
+        var grid = Objects.requireNonNull(router.getGrid());
+        ICraftingService service = grid.getCraftingService();
+        service.addGlobalCraftingProvider(provider);
+
+        KeyCounter contents = new KeyCounter();
+        initialStock.forEach(contents::set);
+        MEStorage storage = new MEStorage() {
+            @Override
+            public long extract(
+                    appeng.api.stacks.AEKey key,
+                    long amount,
+                    Actionable mode,
+                    IActionSource source) {
+                long extracted = Math.min(amount, contents.get(key));
+                if (mode == Actionable.MODULATE) {
+                    contents.remove(key, extracted);
+                }
+                return extracted;
+            }
+
+            @Override
+            public void getAvailableStacks(KeyCounter out) {
+                out.addAll(contents);
+            }
+
+            @Override
+            public Component getDescription() {
+                return Component.literal("amplifying-cycle GameTest storage");
+            }
+        };
+        IStorageProvider storageProvider = mounts -> mounts.mount(storage);
+        grid.getStorageService().addGlobalStorageProvider(storageProvider);
+        grid.getStorageService().invalidateCache();
+        return service;
+    }
+
     private static @NotNull ICraftingService getService(IPatternDetails details, TianshuPatternSelectorBlockEntity router) {
         ICraftingProvider provider = new ICraftingProvider() {
             @Override
@@ -337,8 +539,19 @@ public final class CoreGameTests {
             GameTestHelper helper,
             ICraftingSimulationRequester requester,
             CraftingRoutePolicy policy) {
+        return beginCalculation(
+                service, helper, requester, AEItemKey.of(Items.EMERALD), 1, policy);
+    }
+
+    private static Future<ICraftingPlan> beginCalculation(
+            ICraftingService service,
+            GameTestHelper helper,
+            ICraftingSimulationRequester requester,
+            appeng.api.stacks.AEKey output,
+            long amount,
+            CraftingRoutePolicy policy) {
         return CraftingRoutePolicyContext.withPolicy(policy, () -> service.beginCraftingCalculation(
-                        helper.getLevel(), requester, AEItemKey.of(Items.EMERALD), 1,
+                        helper.getLevel(), requester, output, amount,
                         CalculationStrategy.REPORT_MISSING_ITEMS));
     }
 
@@ -351,7 +564,7 @@ public final class CoreGameTests {
             try {
                 success.accept(future.get());
             } catch (Exception error) {
-                helper.fail("byproduct route calculation failed: " + error);
+                helper.fail("crafting route calculation failed: " + error);
             }
             return;
         }
@@ -1435,6 +1648,34 @@ public final class CoreGameTests {
         helper.assertValueEqual(
                 AggregatePatternSearch.filterAny(List.of(iron, same), "=minecraft:cobblestone", 10).size(),
                 1, "unified search duplicated a recipe that matched both sides");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateSelectionUsesBoundedUiPages(GameTestHelper helper) {
+        int pageSize = AggregatePatternSelectionMenu.uiPageSize();
+        List<AggregateRecipe> recipes = new ArrayList<>(pageSize + 1);
+        GenericStack input = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)));
+        GenericStack output = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.STONE)));
+        for (int index = 0; index <= pageSize; index++) {
+            recipes.add(new AggregateRecipe(
+                    "page-" + index,
+                    ResourceLocation.fromNamespaceAndPath("aeallpattern", "page/" + index),
+                    List.of(input),
+                    List.of(output),
+                    1));
+        }
+
+        helper.assertValueEqual(AggregatePatternSelectionMenu.pageCount(recipes.size()), 2,
+                "one entry beyond the UI page size did not create a second page");
+        helper.assertValueEqual(AggregatePatternSelectionMenu.entriesFromRecipes(recipes, 0).size(), pageSize,
+                "the first UI page did not contain the configured 1024-entry default");
+        helper.assertValueEqual(AggregatePatternSelectionMenu.entriesFromRecipes(recipes, 1).size(), 1,
+                "the final UI page did not contain the remaining entry");
+        helper.assertValueEqual(
+                AggregatePatternSelectionMenu.entriesFromRecipes(recipes, 1).getFirst().patternId(),
+                "page-" + pageSize,
+                "the second UI page started at the wrong recipe");
         helper.succeed();
     }
 

@@ -4,7 +4,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.Icon;
-import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternRef;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu;
@@ -60,6 +59,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private static final int SEARCH_BOX_HEIGHT = 16;
     private static final int ALL_BUTTON_WIDTH = 66;
     private static final int ALL_BUTTON_HEIGHT = 18;
+    private static final int PAGE_BUTTON_SIZE = 18;
+    private static final int PAGE_LABEL_WIDTH = 48;
+    private static final int PAGE_CONTROL_GAP = 2;
 
     private static final int SELECTED_FILL = 0xFFC7DFE2;
     private static final int SELECTED_FILL_HOVER = 0xFFD9EEF0;
@@ -76,6 +78,8 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private static final int SEARCH_OUTLINE = 0xFF686A7D;
 
     private Button allButton;
+    private Button previousPageButton;
+    private Button nextPageButton;
     private EditBox searchBox;
     private final List<AggregateConfigOptionButton> optionButtons = new ArrayList<>();
     private boolean settingsPage = true;
@@ -84,7 +88,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private UUID pendingRequestId;
     private boolean searchPending;
     private final Map<Integer, List<AggregatePatternSelectionMenu.Entry>> pendingPages = new HashMap<>();
-    private int pendingPageCount;
+    private final Map<Integer, List<Boolean>> pendingEnabledStates = new HashMap<>();
+    private int currentResultPage;
+    private int resultPageCount = 1;
+    private boolean initialPageRequested;
     private int scrollOffset;
     private boolean draggingScrollbar;
     private int columns = DEFAULT_COLUMNS;
@@ -101,8 +108,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
 
     @Override
     protected void init() {
+        String retainedSearch = searchBox == null ? "" : searchBox.getValue();
         updateAdaptiveDimensions();
         super.init();
+        optionButtons.clear();
         scrollOffset = 0;
         int boxX = leftPos + 14;
         searchBox = addRenderableWidget(new EditBox(
@@ -116,8 +125,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         searchBox.setBordered(false);
         searchBox.setTextColor(0xFF303044);
         searchBox.setHint(Component.translatable("gui.aeallpattern.aggregate_selection.search_hint"));
+        searchBox.setValue(retainedSearch);
         searchBox.setResponder(text -> {
             searchDirty = true;
+            currentResultPage = 0;
             scrollOffset = 0;
             clampScroll();
         });
@@ -127,10 +138,27 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                         button -> onAllButtonClick())
                 .bounds(leftPos + 8, buttonY, ALL_BUTTON_WIDTH, ALL_BUTTON_HEIGHT)
                 .build());
+        int pageX = leftPos + pageControlsStartX();
+        previousPageButton = addRenderableWidget(Button.builder(
+                        Component.literal("‹"), button -> requestResultPage(currentResultPage - 1))
+                .bounds(pageX, buttonY, PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE)
+                .build());
+        nextPageButton = addRenderableWidget(Button.builder(
+                        Component.literal("›"), button -> requestResultPage(currentResultPage + 1))
+                .bounds(pageX + PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP,
+                        buttonY,
+                        PAGE_BUTTON_SIZE,
+                        PAGE_BUTTON_SIZE)
+                .build());
         addConfigOptions();
         updatePageVisibility();
         updateAllButton();
+        updatePageButtons();
         clampScroll();
+        if (!initialPageRequested) {
+            initialPageRequested = true;
+            requestResultPage(0);
+        }
     }
 
     private void addConfigOptions() {
@@ -263,6 +291,12 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (allButton != null) {
             allButton.visible = !settingsPage;
         }
+        if (previousPageButton != null) {
+            previousPageButton.visible = !settingsPage && resultPageCount > 1;
+        }
+        if (nextPageButton != null) {
+            nextPageButton.visible = !settingsPage && resultPageCount > 1;
+        }
         optionButtons.forEach(button -> button.visible = settingsPage);
     }
 
@@ -354,17 +388,21 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                 && System.currentTimeMillis() - lastSearchAt > 250) {
             searchDirty = false;
             lastSearchAt = System.currentTimeMillis();
-            sendSearch();
+            requestResultPage(0);
         }
     }
 
-    private void sendSearch() {
+    private void requestResultPage(int pageIndex) {
+        if (searchBox == null) {
+            return;
+        }
         pendingRequestId = UUID.randomUUID();
         searchPending = true;
         pendingPages.clear();
-        pendingPageCount = 0;
+        pendingEnabledStates.clear();
+        updatePageButtons();
         PacketDistributor.sendToServer(new AggregateSearchPayload(
-                pendingRequestId, searchBox.getValue(), true));
+                pendingRequestId, searchBox.getValue(), true, Math.max(0, pageIndex)));
     }
 
     /** Called on the render thread when a search result page arrives. */
@@ -373,19 +411,30 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (!payload.requestId().equals(pendingRequestId)) {
             return; // stale response from an earlier query
         }
-        pendingPages.put(payload.pageIndex(), payload.entries());
-        if (pendingPages.size() < payload.pageCount()) {
+        pendingPages.put(payload.chunkIndex(), payload.entries());
+        pendingEnabledStates.put(payload.chunkIndex(), payload.enabledStates());
+        if (pendingPages.size() < payload.chunkCount()) {
             return;
         }
-        List<AggregatePatternSelectionMenu.Entry> flat = new ArrayList<>(payload.pageCount() * 64);
-        for (int index = 0; index < payload.pageCount(); index++) {
+        List<AggregatePatternSelectionMenu.Entry> flat = new ArrayList<>(payload.chunkCount() * 64);
+        List<Boolean> enabledStates = new ArrayList<>(payload.chunkCount() * 64);
+        for (int index = 0; index < payload.chunkCount(); index++) {
             flat.addAll(pendingPages.get(index));
+            enabledStates.addAll(pendingEnabledStates.get(index));
         }
         pendingPages.clear();
-        pendingPageCount = 0;
-        menu.updateEntries(flat, searchBox != null && !searchBox.getValue().isBlank());
+        pendingEnabledStates.clear();
+        currentResultPage = payload.resultPageIndex();
+        resultPageCount = payload.resultPageCount();
+        menu.updateEntries(
+                flat,
+                enabledStates,
+                searchBox != null && !searchBox.getValue().isBlank(),
+                payload.totalResults(),
+                payload.selectedResults());
         searchPending = false;
         scrollOffset = 0;
+        updatePageButtons();
         clampScroll();
     }
 
@@ -489,6 +538,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             renderGrid(graphics, mouseX, mouseY);
             renderScrollbar(graphics, menu.entries().size());
             updateAllButton();
+            updatePageButtons();
         }
         renderHoveredTooltip(graphics, mouseX, mouseY);
     }
@@ -591,7 +641,26 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             allButton.setMessage(Component.translatable(menu.isAllSelected()
                     ? "gui.aeallpattern.aggregate_selection.deselect_all"
                     : "gui.aeallpattern.aggregate_selection.select_all"));
-            allButton.active = !searchDirty && !searchPending && !menu.entries().isEmpty();
+            allButton.active = !searchDirty && !searchPending && menu.totalRecipeCount() > 0;
+        }
+    }
+
+    private int pageControlsStartX() {
+        int controlsWidth = PAGE_BUTTON_SIZE * 2 + PAGE_LABEL_WIDTH + PAGE_CONTROL_GAP * 2;
+        return imageWidth - 8 - controlsWidth;
+    }
+
+    private void updatePageButtons() {
+        boolean visible = !settingsPage && resultPageCount > 1;
+        if (previousPageButton != null) {
+            previousPageButton.visible = visible;
+            previousPageButton.active = !searchDirty && !searchPending && currentResultPage > 0;
+        }
+        if (nextPageButton != null) {
+            nextPageButton.visible = visible;
+            nextPageButton.active = !searchDirty
+                    && !searchPending
+                    && currentResultPage + 1 < resultPageCount;
         }
     }
 
@@ -713,34 +782,27 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
 
         String count = Component.translatable(
                         "gui.aeallpattern.aggregate_selection.selected_count",
-                        menu.selectedCount(), menu.entries().size())
+                        menu.selectedCount(), menu.totalRecipeCount())
                 .getString();
         int countX = allButton != null
                 ? (allButton.getX() - leftPos + allButton.getWidth() + 8)
-                : (imageWidth - 8 - font.width(count));
-        graphics.drawString(font, count, Math.max(100, countX), imageHeight - 18, 0xFF67677A, false);
+                : 82;
+        boolean showPagination = resultPageCount > 1;
+        int countRight = showPagination ? pageControlsStartX() - 4 : imageWidth - 8;
+        int countWidth = Math.max(0, countRight - countX);
+        String visibleCount = font.plainSubstrByWidth(count, countWidth);
+        graphics.drawString(font, visibleCount, countX, imageHeight - 18, 0xFF67677A, false);
 
-        int total = totalRecipeCount();
-        if (total > menu.entries().size()) {
-            Component truncated = Component.translatable(
-                    "gui.aeallpattern.aggregate_selection.truncated", menu.entries().size());
-            String text = font.plainSubstrByWidth(truncated.getString(), imageWidth - 16);
-            graphics.drawString(
+        if (showPagination) {
+            String page = (currentResultPage + 1) + " / " + resultPageCount;
+            int pageLabelX = pageControlsStartX() + PAGE_BUTTON_SIZE + PAGE_CONTROL_GAP;
+            graphics.drawCenteredString(
                     font,
-                    text,
-                    imageWidth - 8 - font.width(text),
-                    imageHeight - 30,
-                    0xFF8A6FA8,
-                    false);
+                    page,
+                    pageLabelX + PAGE_LABEL_WIDTH / 2,
+                    imageHeight - 18,
+                    0xFF4B4B61);
         }
-    }
-
-    private int totalRecipeCount() {
-        AggregatePatternRef ref = menu.stack().get(ModDataComponents.AGGREGATE_PATTERN.get());
-        return ref == null ? menu.entries().size()
-                : AggregateMetadataView.find(ref.libraryId())
-                        .map(AggregateMetadataView.Entry::recipeCount)
-                        .orElse(menu.entries().size());
     }
 
     private ItemStack machineStack() {

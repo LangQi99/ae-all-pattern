@@ -8,6 +8,7 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
 import io.github.langqi99.aeallpattern.aggregate.AggregateInputSlot;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternKind;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
+import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.compat.jei.AeAllPatternJeiPlugin;
 import io.github.langqi99.aeallpattern.network.GenerateAggregatePayload;
@@ -213,21 +214,15 @@ public final class ClientJeiAggregateScanner {
                 ? RecipeTypes.CRAFTING.getUid()
                 : RecipeTypes.STONECUTTING.getUid();
         Thread worker = new Thread(() -> {
-            int recipeLimit = AggregatePatternData.configuredRecipeLimit();
             List<AggregateRecipe> result = new ArrayList<>();
             Set<String> seen = new HashSet<>();
             int index = 0;
-            boolean truncated = false;
             int[] lastNotify = {0};
             try {
                 if (kind == AggregatePatternKind.CRAFTING) {
                     List<RecipeHolder<CraftingRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.CRAFTING);
                     for (RecipeHolder<CraftingRecipe> holder : recipes) {
-                        if (result.size() >= recipeLimit) {
-                            truncated = true;
-                            break;
-                        }
                         scanVanillaCrafting(holder, registryAccess, categoryId, result, seen);
                         index++;
                         if (index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
@@ -239,10 +234,6 @@ public final class ClientJeiAggregateScanner {
                     List<RecipeHolder<StonecutterRecipe>> recipes =
                             manager.getAllRecipesFor(RecipeType.STONECUTTING);
                     for (RecipeHolder<StonecutterRecipe> holder : recipes) {
-                        if (result.size() >= recipeLimit) {
-                            truncated = true;
-                            break;
-                        }
                         scanVanillaStonecutting(holder, registryAccess, categoryId, result, seen);
                         index++;
                         if (index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
@@ -255,14 +246,9 @@ public final class ClientJeiAggregateScanner {
                 io.github.langqi99.aeallpattern.AeAllPattern.LOGGER.debug(
                         "vanilla recipe scan aborted after {} recipes", index, error);
             }
-            final boolean wasTruncated = truncated;
             final List<AggregateRecipe> frozen = List.copyOf(result);
             net.minecraft.client.Minecraft.getInstance().execute(() -> {
-                if (wasTruncated) {
-                    show("message.aeallpattern.generator.truncated",
-                            String.valueOf(recipeLimit), String.valueOf(frozen.size()));
-                }
-                upload(frozen, pos, machineKey, catalystId);
+                uploadNextBatch(frozen, pos, machineKey, catalystId);
             });
         }, "aeallpattern-vanilla-scan");
         worker.setDaemon(true);
@@ -384,20 +370,33 @@ public final class ClientJeiAggregateScanner {
     }
 
     /** Shared paged upload for both the JEI job and the vanilla worker path. */
-    private static void upload(
+    public static void uploadNextBatch(
             List<AggregateRecipe> recipes, BlockPos pos, String machineKey, ResourceLocation catalystId) {
         if (recipes.isEmpty()) {
             show("message.aeallpattern.generator.no_item_recipes");
             return;
         }
+        int batchSize = AggregatePatternData.configuredRecipeLimit();
+        int batchCount = Math.ceilDiv(recipes.size(), batchSize);
+        String seriesHash = AggregatePatternLibrary.seriesHash(recipes);
+        int batchIndex = batchCount == 1 ? 0 : AggregateMetadataView.nextMissingBatch(
+                catalystId, seriesHash, batchSize, batchCount);
+        if (batchIndex >= batchCount) {
+            show("message.aeallpattern.generator.series_complete", batchCount);
+            return;
+        }
+        int from = batchIndex * batchSize;
+        int to = Math.min(recipes.size(), from + batchSize);
+        List<AggregateRecipe> batch = List.copyOf(recipes.subList(from, to));
         UUID uploadId = UUID.randomUUID();
         // Split by estimated bytes so a page never exceeds the protocol packet limit,
         // and never by a fixed recipe count alone.
-        List<List<AggregateRecipe>> pages = createPages(recipes);
+        List<List<AggregateRecipe>> pages = createPages(batch);
         for (int pageIndex = 0; pageIndex < pages.size(); pageIndex++) {
             PacketDistributor.sendToServer(new GenerateAggregatePayload(
-                    uploadId, pos, catalystId, machineKey, pageIndex, pages.size(),
-                    recipes.size(), pages.get(pageIndex)));
+                    uploadId, pos, catalystId, machineKey, seriesHash, batchSize, batchIndex,
+                    batchCount, recipes.size(), pageIndex, pages.size(),
+                    batch.size(), pages.get(pageIndex)));
         }
     }
 
@@ -435,7 +434,6 @@ public final class ClientJeiAggregateScanner {
         private final BlockPos pos;
         private final String machineKey;
         private final ResourceLocation catalystId;
-        private final int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         private final List<AggregateRecipe> destination = new ArrayList<>();
         private final Set<String> seen = new HashSet<>();
         private int index;
@@ -466,7 +464,7 @@ public final class ClientJeiAggregateScanner {
         /** Processes recipes until the time budget is spent; true when the scan is complete. */
         boolean step() {
             long deadline = System.nanoTime() + ClientJeiAggregateScanner.SCAN_BUDGET_NANOS;
-            while (index < categoryRecipes.size() && destination.size() < recipeLimit) {
+            while (index < categoryRecipes.size()) {
                 try {
                     scanOne(categoryRecipes.get(index), index);
                 } catch (RuntimeException error) {
@@ -485,15 +483,11 @@ public final class ClientJeiAggregateScanner {
                         String.valueOf(Math.min(index, categoryRecipes.size())),
                         String.valueOf(categoryRecipes.size()));
             }
-            return index >= categoryRecipes.size() || destination.size() >= recipeLimit;
+            return index >= categoryRecipes.size();
         }
 
         private void finish() {
-            if (destination.size() >= recipeLimit) {
-                show("message.aeallpattern.generator.truncated",
-                        String.valueOf(recipeLimit), String.valueOf(destination.size()));
-            }
-            upload(destination, pos, machineKey, catalystId);
+            uploadNextBatch(destination, pos, machineKey, catalystId);
         }
 
         @SuppressWarnings({"unchecked"})

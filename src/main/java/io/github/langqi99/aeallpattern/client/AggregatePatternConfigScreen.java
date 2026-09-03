@@ -19,7 +19,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
             Component title) {
         super(menu, inventory, title);
         imageWidth = 354;
-        imageHeight = 168;
+        imageHeight = 186;
         titleLabelX = 34;
         titleLabelY = 10;
     }
@@ -77,11 +77,21 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
                 "gui.aeallpattern.aggregate_config.remove_output_chemicals.tooltip",
                 () -> menu.getOptions().removeOutputChemicals(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_OUTPUT_CHEMICALS);
-        addOption(12, 128, 330,
+        addOption(12, 128, 164,
                 "gui.aeallpattern.aggregate_config.remove_processing_catalysts",
                 "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip",
                 () -> menu.getOptions().removeProcessingCatalysts(),
                 AggregatePatternConfigMenu.TOGGLE_REMOVE_PROCESSING_CATALYSTS);
+        addOption(178, 128, 164,
+                "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs",
+                "gui.aeallpattern.aggregate_config.swap_first_and_last_inputs.tooltip",
+                () -> menu.getOptions().swapFirstAndLastInputs(),
+                AggregatePatternConfigMenu.TOGGLE_SWAP_FIRST_AND_LAST_INPUTS);
+        addOption(12, 146, 164,
+                "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes",
+                "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes.tooltip",
+                () -> menu.getOptions().skipDurabilityConsumingRecipes(),
+                AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES);
     }
 
     private void addOption(
@@ -132,7 +142,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
                         ? "gui.aeallpattern.linker_config.hint"
                         : "gui.aeallpattern.aggregate_config.hint"),
                 12,
-                152,
+                170,
                 0xFF67677A,
                 false);
     }

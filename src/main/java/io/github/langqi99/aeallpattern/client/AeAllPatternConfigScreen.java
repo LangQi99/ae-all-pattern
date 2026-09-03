@@ -57,7 +57,7 @@ public final class AeAllPatternConfigScreen {
                         AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt())
                 .setDefaultValue(16384)
                 .setMin(1)
-                .setMax(Integer.MAX_VALUE)
+                .setMax(16384)
                 .setTooltip(Component.translatable("config.aeallpattern.aggregate_recipe_limit.tooltip"))
                 .setSaveConsumer(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT::set)
                 .build());

@@ -17,16 +17,18 @@ public record AggregatePatternOptions(
         boolean removeInputFluids,
         boolean removeOutputFluids,
         boolean removeInputChemicals,
-        boolean removeOutputChemicals) {
+        boolean removeOutputChemicals,
+        boolean swapFirstAndLastInputs,
+        boolean skipDurabilityConsumingRecipes) {
     public static final AggregatePatternOptions DEFAULT =
             new AggregatePatternOptions(
                     false, false, true, true, false, false, true,
-                    false, false, false, false);
+                    false, false, false, false, false, true);
 
     /** Compatibility constructor; newly introduced probability safeguards default to enabled. */
     public AggregatePatternOptions(boolean splitSameItems, boolean ignoreOutputComponents) {
         this(splitSameItems, ignoreOutputComponents, true, true, false, false, true,
-                false, false, false, false);
+                false, false, false, false, false, true);
     }
 
     /** Compatibility constructor for patterns saved before catalyst filtering was added. */
@@ -37,7 +39,7 @@ public record AggregatePatternOptions(
             boolean ignoreProbabilisticByproducts) {
         this(splitSameItems, ignoreOutputComponents, skipProbabilisticMainOutput,
                 ignoreProbabilisticByproducts, false, false, true,
-                false, false, false, false);
+                false, false, false, false, false, true);
     }
 
     /** Compatibility constructor for patterns saved before AE2 substitution controls were added. */
@@ -49,7 +51,7 @@ public record AggregatePatternOptions(
             boolean removeProcessingCatalysts) {
         this(splitSameItems, ignoreOutputComponents, skipProbabilisticMainOutput,
                 ignoreProbabilisticByproducts, removeProcessingCatalysts, false, true,
-                false, false, false, false);
+                false, false, false, false, false, true);
     }
 
     /** Compatibility constructor for patterns saved before fluid and chemical filters were added. */
@@ -64,8 +66,30 @@ public record AggregatePatternOptions(
         this(splitSameItems, ignoreOutputComponents, skipProbabilisticMainOutput,
                 ignoreProbabilisticByproducts, removeProcessingCatalysts,
                 allowItemSubstitutions, allowFluidSubstitutions,
-                false, false, false, false);
+                false, false, false, false, false, true);
     }
+
+    /** Compatibility constructor for patterns saved before durability-recipe filtering was added. */
+    public AggregatePatternOptions(
+            boolean splitSameItems,
+            boolean ignoreOutputComponents,
+            boolean skipProbabilisticMainOutput,
+            boolean ignoreProbabilisticByproducts,
+            boolean removeProcessingCatalysts,
+            boolean allowItemSubstitutions,
+            boolean allowFluidSubstitutions,
+            boolean removeInputFluids,
+            boolean removeOutputFluids,
+            boolean removeInputChemicals,
+            boolean removeOutputChemicals,
+            boolean swapFirstAndLastInputs) {
+        this(splitSameItems, ignoreOutputComponents, skipProbabilisticMainOutput,
+                ignoreProbabilisticByproducts, removeProcessingCatalysts,
+                allowItemSubstitutions, allowFluidSubstitutions,
+                removeInputFluids, removeOutputFluids, removeInputChemicals,
+                removeOutputChemicals, swapFirstAndLastInputs, true);
+    }
+
     public static final Codec<AggregatePatternOptions> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.BOOL.optionalFieldOf("split_same_items", false)
                     .forGetter(AggregatePatternOptions::splitSameItems),
@@ -88,7 +112,11 @@ public record AggregatePatternOptions(
             Codec.BOOL.optionalFieldOf("remove_input_chemicals", false)
                     .forGetter(AggregatePatternOptions::removeInputChemicals),
             Codec.BOOL.optionalFieldOf("remove_output_chemicals", false)
-                    .forGetter(AggregatePatternOptions::removeOutputChemicals)
+                    .forGetter(AggregatePatternOptions::removeOutputChemicals),
+            Codec.BOOL.optionalFieldOf("swap_first_and_last_inputs", false)
+                    .forGetter(AggregatePatternOptions::swapFirstAndLastInputs),
+            Codec.BOOL.optionalFieldOf("skip_durability_consuming_recipes", true)
+                    .forGetter(AggregatePatternOptions::skipDurabilityConsumingRecipes)
     ).apply(instance, AggregatePatternOptions::new));
     public static final StreamCodec<RegistryFriendlyByteBuf, AggregatePatternOptions> STREAM_CODEC = StreamCodec.of(
             (buffer, options) -> buffer.writeVarInt(options.flags()),
@@ -105,7 +133,9 @@ public record AggregatePatternOptions(
                 | (removeInputFluids ? 128 : 0)
                 | (removeOutputFluids ? 256 : 0)
                 | (removeInputChemicals ? 512 : 0)
-                | (removeOutputChemicals ? 1024 : 0);
+                | (removeOutputChemicals ? 1024 : 0)
+                | (swapFirstAndLastInputs ? 2048 : 0)
+                | (skipDurabilityConsumingRecipes ? 4096 : 0);
     }
 
     public static AggregatePatternOptions fromFlags(int flags) {
@@ -120,6 +150,8 @@ public record AggregatePatternOptions(
                 (flags & 128) != 0,
                 (flags & 256) != 0,
                 (flags & 512) != 0,
-                (flags & 1024) != 0);
+                (flags & 1024) != 0,
+                (flags & 2048) != 0,
+                (flags & 4096) != 0);
     }
 }

@@ -4,8 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelection;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("emi")
 class EmiAggregateScannerTest {
     @Test
     void shortPatternIdsRemainReadable() {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
  * A machine is often a catalyst for more than one recipe viewer category, and picking the wrong
  * one generates patterns that have nothing to do with the machine.
  */
+@Tag("jei")
 class JeiCategorySelectionTest {
     private static ResourceLocation id(String value) {
         return ResourceLocation.parse(value);

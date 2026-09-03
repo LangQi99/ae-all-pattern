@@ -36,7 +36,8 @@ public final class AggregateGenerationService {
         if (!validTarget(payload, player)) {
             return;
         }
-        if (payload.totalRecipeCount() > AggregatePatternData.configuredRecipeLimit()) {
+        if (payload.batchSize() > AggregatePatternData.configuredRecipeLimit()
+                || payload.totalRecipeCount() > AggregatePatternData.configuredRecipeLimit()) {
             return;
         }
 
@@ -55,8 +56,23 @@ public final class AggregateGenerationService {
             return;
         }
         var library = AggregatePatternLibrary.get(Objects.requireNonNull(player.getServer()));
-        var ref = library.put(
-                player.getServer(), payload.catalystId(), payload.machineTranslationKey(), recipes);
+        if (payload.batchCount() > 1 && library.findBatch(payload.catalystId(), payload.seriesHash(),
+                payload.batchSize(), payload.batchIndex()).isPresent()) {
+            AggregateMetadataSyncService.send(player);
+            int next = library.nextMissingBatch(payload.catalystId(), payload.seriesHash(),
+                    payload.batchSize(), payload.batchCount());
+            player.displayClientMessage(Component.translatable(
+                    next >= payload.batchCount()
+                            ? "message.aeallpattern.generator.series_complete"
+                            : "message.aeallpattern.generator.progress_updated",
+                    next >= payload.batchCount() ? payload.batchCount() : next + 1), true);
+            return;
+        }
+        var ref = payload.batchCount() == 1
+                ? library.put(player.getServer(), payload.catalystId(), payload.machineTranslationKey(), recipes)
+                : library.putBatch(player.getServer(), payload.catalystId(), payload.machineTranslationKey(), recipes,
+                        payload.seriesHash(), payload.batchSize(), payload.batchIndex(), payload.batchCount(),
+                        payload.totalCatalogRecipeCount());
         AggregateMetadataSyncService.sendToOnlinePlayers(player.getServer());
 
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
@@ -67,9 +83,7 @@ public final class AggregateGenerationService {
         player.level().playSound(
                 null, payload.machinePos(), SoundEvents.EXPERIENCE_ORB_PICKUP,
                 SoundSource.PLAYERS, 0.6F, 1.25F);
-        player.displayClientMessage(Component.translatable(
-                "message.aeallpattern.generator.created",
-                Component.translatable(payload.machineTranslationKey()), recipes.size()), true);
+        showCreated(player, payload, recipes.size());
     }
 
     private static boolean validTarget(GenerateAggregatePayload payload, ServerPlayer player) {
@@ -99,6 +113,22 @@ public final class AggregateGenerationService {
                 || player.getOffhandItem().is(ModItems.ALL_PATTERN_GENERATOR.get());
     }
 
+    private static void showCreated(ServerPlayer player, GenerateAggregatePayload payload, int recipeCount) {
+        Component machine = Component.translatable(payload.machineTranslationKey());
+        if (payload.batchCount() <= 1) {
+            player.displayClientMessage(Component.translatable(
+                    "message.aeallpattern.generator.created", machine, recipeCount), true);
+        } else if (payload.batchIndex() + 1 < payload.batchCount()) {
+            player.displayClientMessage(Component.translatable(
+                    "message.aeallpattern.generator.created_part", machine, payload.batchIndex() + 1,
+                    payload.batchCount(), recipeCount, payload.batchIndex() + 2), true);
+        } else {
+            player.displayClientMessage(Component.translatable(
+                    "message.aeallpattern.generator.created_last_part", machine,
+                    payload.batchIndex() + 1, payload.batchCount(), recipeCount), true);
+        }
+    }
+
     private record UploadKey(UUID playerId, UUID uploadId) {
     }
 
@@ -106,6 +136,11 @@ public final class AggregateGenerationService {
         private final BlockPos machinePos;
         private final ResourceLocation catalystId;
         private final String machineKey;
+        private final String seriesHash;
+        private final int batchSize;
+        private final int batchIndex;
+        private final int batchCount;
+        private final int totalCatalogRecipeCount;
         private final int pageCount;
         private final int totalRecipeCount;
         private final Map<Integer, List<AggregateRecipe>> pages = new HashMap<>();
@@ -115,6 +150,11 @@ public final class AggregateGenerationService {
             machinePos = first.machinePos();
             catalystId = first.catalystId();
             machineKey = first.machineTranslationKey();
+            seriesHash = first.seriesHash();
+            batchSize = first.batchSize();
+            batchIndex = first.batchIndex();
+            batchCount = first.batchCount();
+            totalCatalogRecipeCount = first.totalCatalogRecipeCount();
             pageCount = first.pageCount();
             totalRecipeCount = first.totalRecipeCount();
             lastUpdateTick = now;
@@ -124,6 +164,11 @@ public final class AggregateGenerationService {
             return machinePos.equals(page.machinePos())
                     && catalystId.equals(page.catalystId())
                     && machineKey.equals(page.machineTranslationKey())
+                    && seriesHash.equals(page.seriesHash())
+                    && batchSize == page.batchSize()
+                    && batchIndex == page.batchIndex()
+                    && batchCount == page.batchCount()
+                    && totalCatalogRecipeCount == page.totalCatalogRecipeCount()
                     && pageCount == page.pageCount()
                     && totalRecipeCount == page.totalRecipeCount();
         }

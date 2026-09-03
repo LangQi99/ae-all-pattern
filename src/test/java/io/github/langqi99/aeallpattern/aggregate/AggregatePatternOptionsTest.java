@@ -19,13 +19,15 @@ class AggregatePatternOptionsTest {
         assertFalse(AggregatePatternOptions.DEFAULT.removeOutputFluids());
         assertFalse(AggregatePatternOptions.DEFAULT.removeInputChemicals());
         assertFalse(AggregatePatternOptions.DEFAULT.removeOutputChemicals());
+        assertFalse(AggregatePatternOptions.DEFAULT.swapFirstAndLastInputs());
+        assertTrue(AggregatePatternOptions.DEFAULT.skipDurabilityConsumingRecipes());
     }
 
     @Test
-    void flagsRoundTripAllElevenOptions() {
+    void flagsRoundTripAllThirteenOptions() {
         var options = new AggregatePatternOptions(
                 true, false, false, true, true, false, true,
-                true, false, true, false);
+                true, false, true, false, true, false);
         var decoded = AggregatePatternOptions.fromFlags(options.flags());
 
         assertTrue(decoded.splitSameItems());
@@ -39,5 +41,7 @@ class AggregatePatternOptionsTest {
         assertFalse(decoded.removeOutputFluids());
         assertTrue(decoded.removeInputChemicals());
         assertFalse(decoded.removeOutputChemicals());
+        assertTrue(decoded.swapFirstAndLastInputs());
+        assertFalse(decoded.skipDurabilityConsumingRecipes());
     }
 }

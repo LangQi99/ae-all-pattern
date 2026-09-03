@@ -84,9 +84,15 @@ public final class AggregatePatternItem extends Item {
         if (ref == null) {
             return super.getName(stack);
         }
-        String machineKey = AggregateMetadataView.find(ref.libraryId())
-                .map(AggregateMetadataView.Entry::machineTranslationKey)
+        var metadata = AggregateMetadataView.find(ref.libraryId());
+        String machineKey = metadata.map(AggregateMetadataView.Entry::machineTranslationKey)
                 .orElseGet(() -> BuiltInRegistries.BLOCK.get(ref.catalystId()).getDescriptionId());
+        if (metadata.isPresent() && metadata.orElseThrow().batchCount() > 1) {
+            var entry = metadata.orElseThrow();
+            return Component.translatable(
+                    "item.aeallpattern.aggregate_pattern.named_part",
+                    Component.translatable(machineKey), entry.batchIndex() + 1, entry.batchCount());
+        }
         return Component.translatable(
                 "item.aeallpattern.aggregate_pattern.named",
                 Component.translatable(machineKey));
@@ -104,10 +110,20 @@ public final class AggregatePatternItem extends Item {
         }
         var metadata = AggregateMetadataView.find(ref.libraryId());
         if (metadata.isPresent()) {
+            var entry = metadata.orElseThrow();
+            if (entry.batchCount() > 1) {
+                long firstRecipe = (long) entry.batchIndex() * entry.batchSize() + 1;
+                long lastRecipe = firstRecipe + entry.recipeCount() - 1L;
+                tooltip.add(Component.translatable(
+                        "tooltip.aeallpattern.aggregate_pattern.part",
+                        entry.batchIndex() + 1, entry.batchCount(), firstRecipe,
+                        lastRecipe, entry.totalRecipeCount())
+                        .withStyle(ChatFormatting.AQUA));
+            }
             tooltip.add(Component.translatable(
-                    "tooltip.aeallpattern.aggregate_pattern.count", metadata.orElseThrow().recipeCount())
+                    "tooltip.aeallpattern.aggregate_pattern.count", entry.recipeCount())
                     .withStyle(ChatFormatting.GRAY));
-            int total = metadata.orElseThrow().recipeCount();
+            int total = entry.recipeCount();
             int enabled = enabledCount(stack.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get()), total);
             if (enabled >= 0) {
                 tooltip.add(Component.translatable(

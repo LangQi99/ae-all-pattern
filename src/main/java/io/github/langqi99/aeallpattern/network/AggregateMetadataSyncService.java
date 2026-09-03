@@ -29,7 +29,8 @@ public final class AggregateMetadataSyncService {
         var entries = AggregatePatternLibrary.get(Objects.requireNonNull(player.getServer())).entries().stream()
                 .map(entry -> new AggregateMetadataView.Entry(
                         entry.libraryId(), entry.catalystId(), entry.machineTranslationKey(),
-                        entry.contentHash(), entry.recipeCount()))
+                        entry.contentHash(), entry.recipeCount(), entry.seriesHash(), entry.batchSize(),
+                        entry.batchIndex(), entry.batchCount(), entry.totalRecipeCount()))
                 .toList();
         PacketDistributor.sendToPlayer(player, new AggregateMetadataPayload(entries));
     }

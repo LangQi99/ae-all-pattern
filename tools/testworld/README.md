@@ -22,3 +22,16 @@ Manifest-only example:
 ```bash
 python3 tools/testworld/generate.py --output build/testworld/lab-plan.json
 ```
+
+## Video showcase world
+
+`showcase/` contains the reproducible datapack source for the fresh video-demo world. It builds a clean five-part filming route whose Chinese instructions use floating text displays instead of signs. The powered ME network, terminals, router, per-machine pattern providers, vanilla/Create/Mekanism/Industrial Foregoing/Mystical Agriculture/Neo ECO targets, reset controls, starter tools, deterministic configuration pattern, provider-priority comparison, and live amethyst routing comparison are retained, while the main cable run stays outside the camera path.
+
+Copy the files into a new world's `datapacks/aeallpattern_test` directory, start that world, and run:
+
+```text
+/reload
+/function aeallpattern_test:showcase
+```
+
+For local GUI verification against the development server, launch the client with `-Pshowcase_quickplay=true`. This only adds the quick-connect argument when explicitly requested.

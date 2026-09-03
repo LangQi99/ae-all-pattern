@@ -5,7 +5,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.crafting.IPatternDetails;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
-import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
 import io.github.langqi99.aeallpattern.aggregate.AggregateInputSlot;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternKind;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
@@ -90,10 +89,6 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         List<RecipeHolder<?>> holders = recipes(level, recipeType);
         for (RecipeHolder<?> holder : holders.stream()
                 .sorted(Comparator.comparing(candidate -> candidate.id().toString())).toList()) {
-            if (snapshots.size() >= AggregatePatternData.configuredRecipeLimit()) {
-                filtered++;
-                continue;
-            }
             try {
                 Recipe<?> recipe = holder.value();
                 if (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(recipe, "getTier"))) {

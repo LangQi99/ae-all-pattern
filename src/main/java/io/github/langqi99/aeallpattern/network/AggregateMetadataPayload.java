@@ -38,6 +38,11 @@ public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries
             buffer.writeUtf(entry.machineTranslationKey(), 256);
             buffer.writeUtf(entry.contentHash(), 64);
             buffer.writeVarInt(entry.recipeCount());
+            buffer.writeUtf(entry.seriesHash(), 64);
+            buffer.writeVarInt(entry.batchSize());
+            buffer.writeVarInt(entry.batchIndex());
+            buffer.writeVarInt(entry.batchCount());
+            buffer.writeVarInt(entry.totalRecipeCount());
         }
     }
 
@@ -50,7 +55,8 @@ public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries
         for (int index = 0; index < count; index++) {
             entries.add(new AggregateMetadataView.Entry(
                     buffer.readUUID(), buffer.readResourceLocation(), buffer.readUtf(256),
-                    buffer.readUtf(64), buffer.readVarInt()));
+                    buffer.readUtf(64), buffer.readVarInt(), buffer.readUtf(64), buffer.readVarInt(),
+                    buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt()));
         }
         return new AggregateMetadataPayload(entries);
     }

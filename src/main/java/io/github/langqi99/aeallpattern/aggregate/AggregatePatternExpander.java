@@ -389,6 +389,10 @@ public final class AggregatePatternExpander {
         if (delegate == null) {
             return null;
         }
+        if (options.skipDurabilityConsumingRecipes()
+                && (consumesDurability(delegate) || consumesDurability(configuredRecipe))) {
+            return null;
+        }
 
         encoded.set(ModDataComponents.VIRTUAL_PATTERN_ID.get(),
                 virtualPatternId(virtualIdPrefix, options, configuredInputs));
@@ -399,6 +403,48 @@ public final class AggregatePatternExpander {
         }
         return new AggregatePatternDetails(
                 recipe.patternId(), definition, delegate, recipe.processingTicks(), configuredInputs);
+    }
+
+    /**
+     * Uses AE2's resolved remainder semantics, so crafting recipes supplied by other mods are
+     * detected without maintaining a recipe or tool whitelist.
+     */
+    static boolean consumesDurability(IPatternDetails details) {
+        for (IPatternDetails.IInput input : details.getInputs()) {
+            for (GenericStack candidate : input.getPossibleInputs()) {
+                if (isDurabilityLoss(candidate.what(), input.getRemainingKey(candidate.what()))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Processing integrations may expose the damaged tool as an ordinary recipe output. */
+    static boolean consumesDurability(AggregateRecipe recipe) {
+        for (AggregateInputSlot slot : recipe.inputSlots()) {
+            for (GenericStack input : slot.alternatives()) {
+                for (GenericStack output : recipe.outputs()) {
+                    if (isDurabilityLoss(input.what(), output.what())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean isDurabilityLoss(AEKey input, AEKey remainder) {
+        if (!(input instanceof AEItemKey before)
+                || !(remainder instanceof AEItemKey after)
+                || before.getItem() != after.getItem()) {
+            return false;
+        }
+        ItemStack beforeStack = before.getReadOnlyStack();
+        ItemStack afterStack = after.getReadOnlyStack();
+        return beforeStack.isDamageableItem()
+                && afterStack.isDamageableItem()
+                && afterStack.getDamageValue() > beforeStack.getDamageValue();
     }
 
     private static AggregateRecipe configureOutputs(
@@ -466,16 +512,31 @@ public final class AggregatePatternExpander {
                             "split item input count exceeds safety limit " + MAX_SPLIT_ITEM_INPUTS);
                 }
             }
-            return List.copyOf(result);
+            return swapFirstAndLastIfRequested(List.copyOf(result), options);
         }
 
         if (!filtersInputs
+                && !options.swapFirstAndLastInputs()
                 && slots.stream().noneMatch(AggregateInputSlot::hasAlternatives)) {
             return List.of();
         }
-        return slots.stream()
+        List<AggregateInputSlot> resolved = slots.stream()
                 .map(slot -> new AggregateInputSlot(slot.resolve(level), Optional.empty()))
                 .toList();
+        return swapFirstAndLastIfRequested(resolved, options);
+    }
+
+    private static List<AggregateInputSlot> swapFirstAndLastIfRequested(
+            List<AggregateInputSlot> inputs, AggregatePatternOptions options) {
+        if (!options.swapFirstAndLastInputs() || inputs.size() < 2) {
+            return inputs;
+        }
+        List<AggregateInputSlot> reordered = new ArrayList<>(inputs);
+        AggregateInputSlot first = reordered.getFirst();
+        int lastIndex = reordered.size() - 1;
+        reordered.set(0, reordered.get(lastIndex));
+        reordered.set(lastIndex, first);
+        return List.copyOf(reordered);
     }
 
     private static boolean filtersProcessingInputs(AggregatePatternOptions options) {

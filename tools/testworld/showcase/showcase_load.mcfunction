@@ -1,0 +1,2 @@
+scoreboard objectives add aeap_showcase_v12 dummy
+schedule function aeallpattern_test:showcase_join 1s replace

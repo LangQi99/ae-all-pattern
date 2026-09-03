@@ -3,8 +3,10 @@ package io.github.langqi99.aeallpattern.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import net.minecraft.resources.ResourceLocation;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+@Tag("recipe-viewer")
 class ClientRecipeMachineResolverTest {
     @Test
     void mapsEveryPackagedExCrafterToItsExtendedCraftingWorkstation() {

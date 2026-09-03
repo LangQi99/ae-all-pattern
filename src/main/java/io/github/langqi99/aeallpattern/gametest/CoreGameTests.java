@@ -93,6 +93,66 @@ public final class CoreGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
+    public static void ciDependencyProfileIsActuallyLoaded(GameTestHelper helper) {
+        for (String modId : configuredModIds("aeallpattern.expectedTestMods")) {
+            helper.assertTrue(ModList.get().isLoaded(modId),
+                    "CI profile expected mod '" + modId + "' but it was not loaded");
+        }
+        for (String modId : configuredModIds("aeallpattern.forbiddenTestMods")) {
+            helper.assertFalse(ModList.get().isLoaded(modId),
+                    "CI profile forbids mod '" + modId + "' but it was loaded");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void loadedCompatibilityMixinTargetsTransformCleanly(GameTestHelper helper) {
+        Map<String, List<String>> targets = Map.ofEntries(
+                Map.entry("advanced_ae", List.of(
+                        "net.pedroksl.advanced_ae.gui.AdvPatternEncoderMenu",
+                        "net.pedroksl.advanced_ae.common.logic.AdvPatternProviderLogic")),
+                Map.entry("ae2cs", List.of(
+                        "io.github.lounode.ae2cs.common.me.logic.IntegratedInterfaceLogic",
+                        "io.github.lounode.ae2cs.common.me.logic.MirrorPatternProviderLogic")),
+                Map.entry("neoecoae", List.of(
+                        "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity")),
+                Map.entry("extendedae", List.of(
+                        "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern",
+                        "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern$Filter")),
+                Map.entry("extendedae_plus", List.of(
+                        "com.extendedae_plus.content.matrix.PatternCorePlusBlockEntity$Filter",
+                        "com.extendedae_plus.content.matrix.supermatrix.SuperAssemblerMatrixCluster")),
+                Map.entry("ae2lt", List.of(
+                        "com.moakiee.ae2lt.blockentity.MatrixPatternStorageBlockEntity",
+                        "com.moakiee.ae2lt.blockentity.PigmeePatternProviderBlockEntity",
+                        "com.moakiee.ae2lt.logic.OverloadedProviderPatternCatalog")),
+                Map.entry("ae2ltpp", List.of(
+                        "com.moakiee.ae2lt.packaged.patternprovider.StablePatternProviderLogic")),
+                Map.entry("packagedauto", List.of(
+                        "thelm.packagedauto.integration.appeng.blockentity.AEPackagingProviderBlockEntity",
+                        "thelm.packagedauto.inventory.PackagingProviderItemHandler")),
+                Map.entry("useless_mod", List.of(
+                        "com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.AdvancedAlloyFurnaceAeManager")));
+
+        ClassLoader loader = CoreGameTests.class.getClassLoader();
+        for (Map.Entry<String, List<String>> entry : targets.entrySet()) {
+            if (!ModList.get().isLoaded(entry.getKey())) {
+                continue;
+            }
+            for (String className : entry.getValue()) {
+                try {
+                    Class.forName(className, false, loader);
+                } catch (ClassNotFoundException | LinkageError error) {
+                    helper.fail("Compatibility target failed to load for " + entry.getKey()
+                            + ": " + className + " (" + error + ")");
+                    return;
+                }
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void linkerCreatesChannelNode(GameTestHelper helper) {
         BlockPos pos = new BlockPos(0, 1, 0);
         helper.setBlock(pos, ModBlocks.PATTERN_LINKER.get());
@@ -821,6 +881,94 @@ public final class CoreGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateProcessingCanSwapFirstAndLastInputs(GameTestHelper helper) {
+        GenericStack iron = GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT));
+        GenericStack gold = GenericStack.fromItemStack(new ItemStack(Items.GOLD_INGOT));
+        GenericStack diamond = GenericStack.fromItemStack(new ItemStack(Items.DIAMOND));
+        AggregateRecipe recipe = new AggregateRecipe(
+                "processing-input-order-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "processing_input_order_test"),
+                AggregatePatternKind.PROCESSING,
+                List.of(iron, gold, diamond),
+                List.of(
+                        AggregateInputSlot.exact(iron),
+                        AggregateInputSlot.exact(gold),
+                        AggregateInputSlot.exact(diamond)),
+                List.of(GenericStack.fromItemStack(new ItemStack(Items.EMERALD))),
+                1);
+        AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                helper.getLevel().getServer(),
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "processing_input_order_test"),
+                "block.aeallpattern.processing_input_order_test", List.of(recipe));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(),
+                new AggregatePatternOptions(
+                        false, false, true, true, false, false, true,
+                        false, false, false, false, true));
+
+        List<IPatternDetails> expanded = AggregatePatternExpander.expand(aggregate, helper.getLevel());
+        helper.assertValueEqual(expanded.size(), 1, "input-order recipe was not published");
+        IPatternDetails.IInput[] inputs = expanded.getFirst().getInputs();
+        helper.assertValueEqual(inputs.length, 3, "input-order recipe lost an input");
+        helper.assertTrue(inputs[0].isValid(AEItemKey.of(Items.DIAMOND), helper.getLevel()),
+                "last input was not moved to the first slot");
+        helper.assertTrue(inputs[1].isValid(AEItemKey.of(Items.GOLD_INGOT), helper.getLevel()),
+                "middle input changed while swapping the ends");
+        helper.assertTrue(inputs[2].isValid(AEItemKey.of(Items.IRON_INGOT), helper.getLevel()),
+                "first input was not moved to the last slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateDurabilityRecipesAreSkippedByDefault(GameTestHelper helper) {
+        ItemStack intactPickaxe = new ItemStack(Items.IRON_PICKAXE);
+        ItemStack damagedPickaxe = intactPickaxe.copy();
+        damagedPickaxe.setDamageValue(1);
+        GenericStack pickaxe = Objects.requireNonNull(GenericStack.fromItemStack(intactPickaxe));
+        GenericStack damaged = Objects.requireNonNull(GenericStack.fromItemStack(damagedPickaxe));
+        GenericStack diamond = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.DIAMOND)));
+        GenericStack waterBucket = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.WATER_BUCKET)));
+        GenericStack emptyBucket = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.BUCKET)));
+
+        AggregateRecipe durabilityRecipe = new AggregateRecipe(
+                "durability-filter-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "durability_filter_test"),
+                AggregatePatternKind.PROCESSING,
+                List.of(pickaxe),
+                List.of(AggregateInputSlot.exact(pickaxe)),
+                List.of(diamond, damaged),
+                1);
+        AggregateRecipe containerRecipe = new AggregateRecipe(
+                "container-filter-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "container_filter_test"),
+                AggregatePatternKind.PROCESSING,
+                List.of(waterBucket),
+                List.of(AggregateInputSlot.exact(waterBucket)),
+                List.of(diamond, emptyBucket),
+                1);
+        AggregatePatternRef ref = AggregatePatternLibrary.get(helper.getLevel().getServer()).put(
+                helper.getLevel().getServer(),
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "durability_filter_test"),
+                "block.aeallpattern.durability_filter_test",
+                List.of(durabilityRecipe, containerRecipe));
+        ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+
+        List<IPatternDetails> filtered = AggregatePatternExpander.expand(aggregate, helper.getLevel());
+        helper.assertValueEqual(filtered.size(), 1,
+                "default durability filter did not keep only the non-durability container recipe");
+
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(),
+                new AggregatePatternOptions(
+                        false, false, true, true, false, false, true,
+                        false, false, false, false, false, false));
+        helper.assertValueEqual(AggregatePatternExpander.expand(aggregate, helper.getLevel()).size(), 2,
+                "disabling the durability filter did not restore the recipe");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
     public static void aggregateProcessingCatalystsCanBeRemoved(GameTestHelper helper) {
         GenericStack press = Objects.requireNonNull(GenericStack.fromItemStack(AEItems.CALCULATION_PROCESSOR_PRESS.stack()));
         GenericStack iron = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT)));
@@ -969,7 +1117,7 @@ public final class CoreGameTests {
             aggregate.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(),
                     new AggregatePatternOptions(
                             false, false, true, true, false, false, true,
-                            true, true, true, true));
+                            true, true, true, true, false));
 
             List<IPatternDetails> expanded = AggregatePatternExpander.expand(aggregate, helper.getLevel());
             helper.assertValueEqual(expanded.size(), 1,
@@ -1011,6 +1159,52 @@ public final class CoreGameTests {
         helper.assertValueEqual(
                 library.recipes(helper.getLevel().getServer(), ref.libraryId()).orElseThrow().size(),
                 recipes.size(), "paged catalog did not reconstruct all recipes");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateLibraryStoresNumberedBatchesIndependently(GameTestHelper helper) {
+        List<AggregateRecipe> recipes = new ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            String id = String.format("%064x", index + 1);
+            recipes.add(new AggregateRecipe(
+                    id,
+                    ResourceLocation.fromNamespaceAndPath("aeallpattern", "batch_test/" + index),
+                    List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
+                    List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.STONE)))),
+                    1));
+        }
+        var library = AggregatePatternLibrary.get(helper.getLevel().getServer());
+        var catalyst = BuiltInRegistries.BLOCK.getKey(Blocks.SMOKER);
+        String randomSeries = UUID.randomUUID().toString().replace("-", "");
+        String seriesHash = randomSeries + randomSeries;
+        int batchSize = 2;
+        int batchCount = 3;
+
+        AggregatePatternRef first = library.putBatch(
+                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
+                recipes.subList(0, 2), seriesHash, batchSize, 0, batchCount, recipes.size());
+        helper.assertValueEqual(
+                library.nextMissingBatch(catalyst, seriesHash, batchSize, batchCount), 1,
+                "numbered aggregate did not continue with its second part");
+        AggregatePatternRef second = library.putBatch(
+                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
+                recipes.subList(2, 4), seriesHash, batchSize, 1, batchCount, recipes.size());
+        AggregatePatternRef third = library.putBatch(
+                helper.getLevel().getServer(), catalyst, Blocks.SMOKER.getDescriptionId(),
+                recipes.subList(4, 5), seriesHash, batchSize, 2, batchCount, recipes.size());
+
+        helper.assertFalse(first.libraryId().equals(second.libraryId()),
+                "second aggregate part replaced the first part");
+        helper.assertFalse(second.libraryId().equals(third.libraryId()),
+                "last aggregate part replaced an earlier part");
+        helper.assertValueEqual(
+                library.nextMissingBatch(catalyst, seriesHash, batchSize, batchCount), batchCount,
+                "completed aggregate series still reported a missing part");
+        var lastEntry = library.find(third.libraryId()).orElseThrow();
+        helper.assertValueEqual(lastEntry.batchIndex(), 2, "last aggregate part has the wrong number");
+        helper.assertValueEqual(lastEntry.batchCount(), 3, "aggregate part count was not retained");
+        helper.assertValueEqual(lastEntry.totalRecipeCount(), 5, "aggregate total recipe count was not retained");
         helper.succeed();
     }
 
@@ -1735,5 +1929,17 @@ public final class CoreGameTests {
                 adapter.schemaVersion(),
                 helper.getLevel().getGameTime(),
                 helper.getLevel().getGameTime());
+    }
+
+    private static List<String> configuredModIds(String property) {
+        String value = System.getProperty(property, "");
+        if (value.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(value.split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .distinct()
+                .toList();
     }
 }

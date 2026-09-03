@@ -1,41 +1,197 @@
-name: Build
+name: Build and compatibility tests
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ae-all-pattern-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Unit tests and release JAR
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew clean check build --stacktrace
+      - name: Compile, unit test, and verify release contents
+        run: ./gradlew clean check build --stacktrace
+      - name: Upload release JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ae-all-pattern-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-${{ github.run_id }}
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore
 
-  gametest:
+  viewer-unit-tests:
+    name: ${{ matrix.name }} scanner unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        optional-dependencies: [minimal, full]
+        include:
+          - name: JEI
+            task: testJeiIntegration
+            properties: >-
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+          - name: EMI-TMRV
+            task: testEmiIntegration
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=true -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
       - uses: gradle/actions/setup-gradle@v4
-      - if: matrix.optional-dependencies == 'minimal'
-        run: ./gradlew runGameTestServer -Pruntime_jei=false -Pruntime_mekanism=false --stacktrace
-      - if: matrix.optional-dependencies == 'full'
-        run: ./gradlew runGameTestServer --stacktrace
+      - name: Run ${{ matrix.name }}-specific scanner tests
+        run: ./gradlew ${{ matrix.task }} ${{ matrix.properties }} --stacktrace
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-${{ matrix.name }}-failure-${{ github.run_id }}
+          path: |
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore
+
+  gametest:
+    name: No-GUI GameTest · ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal-AE2
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=aeallpattern,ae2
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,mekanism,appmek,create,industrialforegoing,mysticalagriculture,neoecoae,extendedae,advanced_ae,ae2cs,ae2lt,packagedauto
+          - name: JEI-only
+            properties: >-
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=jei,ae2jeiintegration
+              -Pforbidden_test_mods=emi,toomanyrecipeviewers
+          - name: EMI-TMRV-only
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=true -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration
+              -Pforbidden_test_mods=jei
+          - name: Mekanism-JEI
+            properties: >-
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=jei,ae2jeiintegration,mekanism,appmek
+              -Pforbidden_test_mods=emi,toomanyrecipeviewers
+          - name: Mekanism-EMI-TMRV
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=true -Pruntime_mekanism=true
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration,mekanism,appmek
+              -Pforbidden_test_mods=jei
+          - name: Mekanism-factory-addons
+            properties: >-
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=true
+              -Pexpected_test_mods=jei,mekanism,appmek,mekmm,mekanism_extras
+              -Pforbidden_test_mods=emi,toomanyrecipeviewers
+          - name: showcase-tech-JEI
+            properties: >-
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
+              -Pruntime_mystical_agriculture=true -Pruntime_create=true
+              -Pruntime_industrial_foregoing=true -Pruntime_neoecoae=true
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=jei,mekanism,appmek,create,industrialforegoing,mysticalagriculture,neoecoae
+              -Pforbidden_test_mods=emi,toomanyrecipeviewers
+          - name: AE-provider-addons
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=true -Pruntime_packaged_addons=false
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=extendedae,extendedae_plus,advanced_ae,ae2cs,ae2lt,ae2ltpp,thunderbolt,ae2wtlib_api,glodium,geckolib,ae2addonlib
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers
+          - name: PackagedAuto-ExtendedCrafting
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=true
+              -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=packagedauto,packagedexcrafting,extendedcrafting,cucumber
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Download profile mods and run the no-GUI game server
+        run: ./gradlew runGameTestServer ${{ matrix.properties }} --stacktrace
+      - name: Upload GameTest failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gametest-${{ matrix.name }}-failure-${{ github.run_id }}
+          path: |
+            run-gametest/logs/**
+            run-gametest/crash-reports/**
+            build/reports/tests/**
+            build/test-results/**
+          if-no-files-found: ignore

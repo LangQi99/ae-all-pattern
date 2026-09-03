@@ -41,6 +41,16 @@ neoForge {
         client {
             client()
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            if (providers.gradleProperty('showcase_quickplay')
+                    .map { it.toBoolean() }
+                    .getOrElse(false)) {
+                programArguments.addAll '--quickPlayMultiplayer', 'localhost:25565'
+            }
+            if (providers.gradleProperty('showcase_singleplayer')
+                    .map { it.toBoolean() }
+                    .getOrElse(false)) {
+                programArguments.addAll '--quickPlaySingleplayer', 'AE全样板_纯净演示场_0.1.6'
+            }
         }
 
         server {
@@ -51,11 +61,16 @@ neoForge {
 
         gameTestServer {
             type = 'gameTestServer'
+            programArgument '--nogui'
             // Keep dependency-matrix tests away from the playable lab save. A
             // minimal run intentionally omits optional block registries and
             // would otherwise replace those machines with air when saving.
             gameDirectory = file('run-gametest')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'aeallpattern.expectedTestMods',
+                    providers.gradleProperty('expected_test_mods').getOrElse('')
+            systemProperty 'aeallpattern.forbiddenTestMods',
+                    providers.gradleProperty('forbidden_test_mods').getOrElse('')
         }
 
         data {
@@ -156,6 +171,54 @@ dependencies {
         localRuntime "com.blakebr0.mysticalagriculture:MysticalAgriculture:${mystical_agriculture_version}@jar"
     }
 
+    // Large-tech fixtures used by the video showcase. They remain runtime-only:
+    // aggregate scanning must keep working through JEI without linking their APIs.
+    if (project.property('runtime_create').toBoolean()) {
+        localRuntime "maven.modrinth:LNytGWDc:UjX6dr61"
+    }
+    if (project.property('runtime_industrial_foregoing').toBoolean()) {
+        localRuntime "maven.modrinth:1Ro7m06l:7AWtSmd7"
+        localRuntime "maven.modrinth:industrial-foregoing:7otXKx1D"
+    }
+    if (project.property('runtime_neoecoae').toBoolean()) {
+        // Neo ECO 21.1.1 is built against LDLib2 2.2.8. Keep both runtime-only:
+        // the optional compatibility mixin is selected by mod id at launch.
+        localRuntime "maven.modrinth:B1CBVXHX:xmPYPfWU"
+        localRuntime "maven.modrinth:udZtKfzP:gWMhHBje"
+    }
+
+    // Optional AE provider compatibility fixture. These versions are pinned to
+    // known-good 1.21.1 releases so CI detects upstream class/mixin drift instead
+    // of silently skipping provider tests when an addon is absent.
+    if (project.property('runtime_ae_provider_addons').toBoolean()) {
+        localRuntime "curse.maven:glodium-957920:5821676"
+        localRuntime "curse.maven:ae2-wireless-terminals-459929:8450398"
+        localRuntime "curse.maven:ae2-addon-lib-1366135:7222312"
+        localRuntime "curse.maven:geckolib-388172:8350073"
+        localRuntime "curse.maven:thunderbolt-1631756:8638565"
+        localRuntime "curse.maven:extended-ae-892005:8511901"
+        localRuntime "curse.maven:extended-ae-plus-1337639:8701596"
+        localRuntime "curse.maven:advanced-ae-1084104:8564177"
+        localRuntime "curse.maven:ae2-crystal-science-1435174:8498888"
+        localRuntime "curse.maven:ae2-lightning-tech-1527395:8638573"
+        localRuntime "curse.maven:ae2lt-packaged-provider-1572723:8575412"
+    }
+
+    // Packaging integration fixture: PackagedAuto + Extended Crafting bridge.
+    if (project.property('runtime_packaged_addons').toBoolean()) {
+        localRuntime "com.blakebr0.cucumber:Cucumber:${cucumber_version}@jar"
+        localRuntime "curse.maven:extended-crafting-268387:7180800"
+        localRuntime "curse.maven:packaged-auto-308380:7329743"
+        localRuntime "curse.maven:packaged-ex-crafting-322861:8533371"
+    }
+
+    // Mekanism factory addons are tested separately from base Mekanism so a
+    // broken addon alias cannot hide inside the broad full-runtime job.
+    if (project.property('runtime_mekanism_addons').toBoolean()) {
+        localRuntime "curse.maven:mekanism-more-machine-1275257:8724947"
+        localRuntime "curse.maven:mekanism-extras-1026040:8677677"
+    }
+
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -164,6 +227,21 @@ dependencies {
 tasks.named('test', Test).configure {
     useJUnitPlatform()
 }
+
+def registerTaggedTest = { String taskName, List<String> tags ->
+    tasks.register(taskName, Test) {
+        group = 'verification'
+        description = "Runs ${tags.join('/')} recipe-viewer integration tests"
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags(tags as String[])
+        }
+    }
+}
+
+registerTaggedTest('testJeiIntegration', ['jei', 'recipe-viewer'])
+registerTaggedTest('testEmiIntegration', ['emi', 'recipe-viewer'])
 
 tasks.named('jar', Jar).configure {
     from(rootProject.file('LICENSE')) {

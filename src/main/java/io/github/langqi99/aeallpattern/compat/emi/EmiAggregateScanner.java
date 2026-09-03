@@ -10,7 +10,6 @@ import io.github.langqi99.aeallpattern.aggregate.*;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.client.ClientRecipeMachineResolver;
 import io.github.langqi99.aeallpattern.client.ClientJeiAggregateScanner;
-import io.github.langqi99.aeallpattern.network.GenerateAggregatePayload;
 import io.github.langqi99.aeallpattern.recipe.RecipeFingerprint;
 import io.netty.buffer.Unpooled;
 import java.lang.reflect.Method;
@@ -27,7 +26,6 @@ import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
 public final class EmiAggregateScanner {
@@ -52,22 +50,21 @@ public final class EmiAggregateScanner {
         ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
                 categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId);
         if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) return false;
-        int recipeLimit = AggregatePatternData.configuredRecipeLimit();
         List<EmiRecipe> candidates = categories.stream().filter(category -> category.getId().equals(categoryId))
                 .flatMap(c -> manager.getRecipes(c).stream())
-                .limit(recipeLimit * 2L).toList();
+                .toList();
         if (candidates.isEmpty() || !RUNNING.compareAndSet(false, true)) return false;
         var connection = minecraft.getConnection();
         if (connection == null) { RUNNING.set(false); return true; }
         ResourceLocation catalystId = BuiltInRegistries.BLOCK.getKey(block);
         CompletableFuture.runAsync(() -> buildAndSend(machinePos, catalystId, block.getDescriptionId(), candidates,
-                recipeLimit, connection.registryAccess(), connection.getConnectionType()))
+                connection.registryAccess(), connection.getConnectionType()))
                 .whenComplete((ignored, error) -> RUNNING.set(false));
         return true;
     }
 
     private static void buildAndSend(BlockPos pos, ResourceLocation catalystId, String machineName,
-            List<EmiRecipe> candidates, int recipeLimit, RegistryAccess registries, ConnectionType connectionType) {
+            List<EmiRecipe> candidates, RegistryAccess registries, ConnectionType connectionType) {
         List<AggregateRecipe> recipes = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         int rejected = 0;
@@ -87,7 +84,6 @@ public final class EmiAggregateScanner {
                 rejected++;
                 if (firstError == null) firstError = error;
             }
-            if (recipes.size() >= recipeLimit) break;
         }
         AeAllPattern.LOGGER.info(
                 "EMI aggregate scan {}: candidates={}, accepted={}, rejected={}, encodingFailed={}",
@@ -97,14 +93,7 @@ public final class EmiAggregateScanner {
             return;
         }
         Minecraft.getInstance().execute(() -> {
-            UUID uploadId = UUID.randomUUID();
-            int pageCount = Math.ceilDiv(recipes.size(), AggregatePatternLibrary.PAGE_SIZE);
-            for (int page = 0; page < pageCount; page++) {
-                int from = page * AggregatePatternLibrary.PAGE_SIZE;
-                int to = Math.min(recipes.size(), from + AggregatePatternLibrary.PAGE_SIZE);
-                PacketDistributor.sendToServer(new GenerateAggregatePayload(uploadId, pos, catalystId, machineName,
-                        page, pageCount, recipes.size(), recipes.subList(from, to)));
-            }
+            ClientJeiAggregateScanner.uploadNextBatch(recipes, pos, machineName, catalystId);
         });
     }
 

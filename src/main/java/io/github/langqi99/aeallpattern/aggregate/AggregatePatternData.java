@@ -20,8 +20,8 @@ public record AggregatePatternData(
         String machineTranslationKey,
         List<AggregateRecipe> recipes) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
-    /** Absolute serialization limit. New aggregates use the configured, usually smaller limit. */
-    public static final int MAX_RECIPES = Integer.MAX_VALUE;
+    /** Absolute number of recipes stored by one physical aggregate-pattern item. */
+    public static final int MAX_RECIPES = 16384;
 
     private static final Codec<List<AggregateRecipe>> RECIPES_CODEC = AggregateRecipe.CODEC.listOf()
             .validate(recipes -> recipes.isEmpty() || recipes.size() > MAX_RECIPES
@@ -74,7 +74,7 @@ public record AggregatePatternData(
     }
 
     public static int configuredRecipeLimit() {
-        return AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt();
+        return Math.min(MAX_RECIPES, AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt());
     }
 
     private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternData data) {
@@ -92,7 +92,7 @@ public record AggregatePatternData(
         ResourceLocation adapterId = buffer.readResourceLocation();
         String machineKey = buffer.readUtf(256);
         int count = checkedCount(buffer.readVarInt(), 1, MAX_RECIPES, "recipe");
-        List<AggregateRecipe> recipes = new ArrayList<>(Math.min(count, 16384));
+        List<AggregateRecipe> recipes = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             recipes.add(AggregateRecipe.STREAM_CODEC.decode(buffer));
         }

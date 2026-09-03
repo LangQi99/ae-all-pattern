@@ -73,19 +73,35 @@ public final class AllPatternGeneratorItem extends Item {
             show(player, "message.aeallpattern.generator.empty");
             return InteractionResult.FAIL;
         }
+        List<AggregateRecipe> allRecipes = catalog.recipes().stream().map(AggregateRecipe::from).toList();
+        int batchSize = AggregatePatternData.configuredRecipeLimit();
+        int batchCount = Math.ceilDiv(allRecipes.size(), batchSize);
+        String seriesHash = AggregatePatternLibrary.seriesHash(allRecipes);
+        var catalystId = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
+                level.getBlockState(pos).getBlock());
+        var library = AggregatePatternLibrary.get(level.getServer());
+        int batchIndex = batchCount == 1 ? 0
+                : library.nextMissingBatch(catalystId, seriesHash, batchSize, batchCount);
+        if (batchIndex >= batchCount) {
+            show(player, "message.aeallpattern.generator.series_complete", batchCount);
+            return InteractionResult.SUCCESS;
+        }
+        int from = batchIndex * batchSize;
+        int to = Math.min(allRecipes.size(), from + batchSize);
+        List<AggregateRecipe> recipes = List.copyOf(allRecipes.subList(from, to));
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
-        AggregatePatternData data = AggregatePatternData.capture(target, adapter.orElseThrow(), catalog);
-        var ref = AggregatePatternLibrary.get(level.getServer()).put(
-                level.getServer(), net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
-                        level.getBlockState(pos).getBlock()), data.machineTranslationKey(), data.recipes());
+        String machineTranslationKey = target.getBlockState().getBlock().getDescriptionId();
+        var ref = batchCount == 1
+                ? library.put(level.getServer(), catalystId, machineTranslationKey, recipes)
+                : library.putBatch(level.getServer(), catalystId, machineTranslationKey, recipes, seriesHash,
+                        batchSize, batchIndex, batchCount, allRecipes.size());
         aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
         AggregateMetadataSyncService.sendToOnlinePlayers(level.getServer());
         if (!player.addItem(aggregate)) {
             player.drop(aggregate, false);
         }
         level.playSound(null, pos, SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6F, 1.25F);
-        show(player, "message.aeallpattern.generator.created",
-                Component.translatable(data.machineTranslationKey()), data.recipes().size());
+        showCreated(player, machineTranslationKey, recipes.size(), batchIndex, batchCount);
         return InteractionResult.SUCCESS;
     }
 
@@ -98,5 +114,19 @@ public final class AllPatternGeneratorItem extends Item {
 
     private static void show(Player player, String key, Object... args) {
         player.displayClientMessage(Component.translatable(key, args), true);
+    }
+
+    private static void showCreated(
+            Player player, String machineTranslationKey, int recipeCount, int batchIndex, int batchCount) {
+        Component machine = Component.translatable(machineTranslationKey);
+        if (batchCount <= 1) {
+            show(player, "message.aeallpattern.generator.created", machine, recipeCount);
+        } else if (batchIndex + 1 < batchCount) {
+            show(player, "message.aeallpattern.generator.created_part", machine, batchIndex + 1,
+                    batchCount, recipeCount, batchIndex + 2);
+        } else {
+            show(player, "message.aeallpattern.generator.created_last_part", machine,
+                    batchIndex + 1, batchCount, recipeCount);
+        }
     }
 }

@@ -23,11 +23,33 @@ public final class AggregateMetadataView {
         return Optional.ofNullable(ENTRIES.get(libraryId));
     }
 
+    /** Returns the first numbered part not yet known to the client, or {@code batchCount}. */
+    public static int nextMissingBatch(
+            ResourceLocation catalystId, String seriesHash, int batchSize, int batchCount) {
+        for (int batchIndex = 0; batchIndex < batchCount; batchIndex++) {
+            final int wanted = batchIndex;
+            boolean present = ENTRIES.values().stream().anyMatch(entry ->
+                    entry.catalystId().equals(catalystId)
+                            && entry.seriesHash().equals(seriesHash)
+                            && entry.batchSize() == batchSize
+                            && entry.batchIndex() == wanted);
+            if (!present) {
+                return batchIndex;
+            }
+        }
+        return batchCount;
+    }
+
     public record Entry(
             UUID libraryId,
             ResourceLocation catalystId,
             String machineTranslationKey,
             String contentHash,
-            int recipeCount) {
+            int recipeCount,
+            String seriesHash,
+            int batchSize,
+            int batchIndex,
+            int batchCount,
+            int totalRecipeCount) {
     }
 }

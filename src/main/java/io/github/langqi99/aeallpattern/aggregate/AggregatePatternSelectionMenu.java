@@ -60,8 +60,11 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     }
 
     public AggregatePatternSelectionMenu(int id, Inventory inventory, FriendlyByteBuf data) {
-        this(id, inventory, data.readEnum(InteractionHand.class), readEntries(data),
-                AggregatePatternSelection.STREAM_CODEC.decode(data));
+        // Forge 1.20.1 caps the extra open-screen buffer. Recipe entries and the full
+        // selection can both grow beyond that cap, so the opening packet only identifies
+        // the held item. The screen immediately requests its first bounded result page.
+        this(id, inventory, data.readEnum(InteractionHand.class), List.of(),
+                AggregatePatternSelection.ALL_ENABLED);
     }
 
     public AggregatePatternSelectionMenu(
@@ -235,6 +238,13 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             return toggleOption(player, optionIndex);
         }
 
+        // The client only needs an optimistic update for the visible page. Its complete
+        // selection is intentionally not sent in the open-screen packet; the authoritative
+        // copy remains in this server-side menu and every search page includes enabled bits.
+        if (player.level().isClientSide()) {
+            return clickClientEntry(id);
+        }
+
         AggregatePatternSelection updated;
         if (id == SELECT_ALL) {
             updated = filteredView
@@ -262,11 +272,6 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             selectedEntryCount = io.github.langqi99.aeallpattern.util.CompatMath.clamp(selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
         }
 
-        if (player.level().isClientSide()) {
-            selection = updated;
-            return true;
-        }
-
         ItemStack stack = stack();
         if (!isSelectable(stack)) {
             return false;
@@ -288,6 +293,25 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         player.getInventory().setChanged();
         selection = updated;
         broadcastChanges();
+        return true;
+    }
+
+    private boolean clickClientEntry(int id) {
+        if (id == SELECT_ALL || id == DESELECT_ALL) {
+            boolean enabled = id == SELECT_ALL;
+            entryEnabledStates = entries.stream().map(ignored -> enabled).toList();
+            selectedEntryCount = enabled ? totalEntryCount : 0;
+            return true;
+        }
+        if (id < 0 || id >= entries.size()) {
+            return false;
+        }
+        List<Boolean> updatedStates = new ArrayList<>(entryEnabledStates);
+        boolean enabled = !updatedStates.get(id);
+        updatedStates.set(id, enabled);
+        entryEnabledStates = List.copyOf(updatedStates);
+        selectedEntryCount = io.github.langqi99.aeallpattern.util.CompatMath.clamp(
+                selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
         return true;
     }
 
@@ -349,28 +373,4 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         return options(stack());
     }
 
-    private static List<Entry> readEntries(FriendlyByteBuf buffer) {
-        int count = buffer.readVarInt();
-        if (count < 0 || count > MAX_SYNCED_ENTRIES) {
-            throw new IllegalArgumentException("invalid aggregate selection entry count: " + count);
-        }
-        List<Entry> entries = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            String patternId = buffer.readUtf(AggregatePatternSelection.MAX_ID_LENGTH);
-            entries.add(new Entry(patternId, readStacks(buffer), readStacks(buffer)));
-        }
-        return entries;
-    }
-
-    private static List<GenericStack> readStacks(FriendlyByteBuf buffer) {
-        int count = buffer.readVarInt();
-        if (count < 0 || count > MAX_STACKS_PER_LIST) {
-            throw new IllegalArgumentException("invalid aggregate selection stack count: " + count);
-        }
-        List<GenericStack> stacks = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            stacks.add(java.util.Objects.requireNonNull(GenericStack.readBuffer(buffer)));
-        }
-        return stacks;
-    }
 }

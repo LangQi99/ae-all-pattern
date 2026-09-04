@@ -1,6 +1,5 @@
 package io.github.langqi99.aeallpattern.aggregate;
 
-import appeng.api.stacks.GenericStack;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
 import java.util.List;
 import net.minecraft.ChatFormatting;
@@ -45,8 +44,6 @@ public final class AggregatePatternItem extends Item {
         List<AggregateRecipe> recipes = AggregatePatternLibrary.get(player.server)
                 .recipes(player.server, ref.libraryId())
                 .orElseGet(List::of);
-        List<AggregatePatternSelectionMenu.Entry> entries =
-                AggregatePatternSelectionMenu.entriesFromRecipes(recipes);
         final AggregatePatternSelection finalSelection = ModDataComponents
                 .getAggregatePatternSelectionOrDefault(stack)
                 .reconciled(recipes.stream().map(AggregateRecipe::patternId).toList());
@@ -60,20 +57,9 @@ public final class AggregatePatternItem extends Item {
                 player,
                 new SimpleMenuProvider(
                         (id, inventory, ignored) -> new AggregatePatternSelectionMenu(
-                                id, inventory, hand, entries, finalSelection),
+                                id, inventory, hand, List.of(), finalSelection),
                         Component.translatable("gui.aeallpattern.aggregate_management.title")),
-                data -> {
-                    data.writeEnum(hand);
-                    data.writeVarInt(entries.size());
-                    for (AggregatePatternSelectionMenu.Entry entry : entries) {
-                        data.writeUtf(entry.patternId(), AggregatePatternSelection.MAX_ID_LENGTH);
-                        data.writeVarInt(entry.inputs().size());
-                        entry.inputs().forEach(input -> GenericStack.writeBuffer(input, data));
-                        data.writeVarInt(entry.outputs().size());
-                        entry.outputs().forEach(output -> GenericStack.writeBuffer(output, data));
-                    }
-                    AggregatePatternSelection.STREAM_CODEC.encode(data, finalSelection);
-                });
+                data -> data.writeEnum(hand));
     }
 
     @Override

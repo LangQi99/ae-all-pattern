@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 
 
-PACK_FORMAT = 48
+PACK_FORMAT = 15
+MOD_VERSION = "0.2.1"
 NAMESPACE = "aeallpattern_test"
 
 
@@ -51,7 +52,7 @@ def build_commands() -> list[str]:
         "fill -22 4 12 22 4 22 minecraft:cyan_concrete replace",
         "setworldspawn 0 5 -14",
         "forceload add -24 -18 24 24",
-        sign(0, 5, -15, "全样板测试场", "版本 0.1.0", "创造模式 · 和平", "从紫色区域开始"),
+        sign(0, 5, -15, "全样板测试场", f"版本 {MOD_VERSION}", "创造模式 · 和平", "从紫色区域开始"),
         sign(-16, 5, -11, "紫色区域", "AE2 主网络", "链接器 + 合成 CPU", "原料已存入 AE"),
         sign(-16, 5, 3, "橙色区域", "原版熔炉组", "燃料已经放入", "产物自动回收"),
         sign(-16, 5, 11, "青色区域", "通用机械", "单机 + 工厂", "能量立方向上弹出"),
@@ -60,7 +61,8 @@ def build_commands() -> list[str]:
         # AE2 core and a compact 2x2 crafting CPU.
         "setblock 0 5 -5 ae2:controller replace",
         "setblock -1 5 -5 ae2:creative_energy_cell replace",
-        "setblock 1 5 -5 ae2:drive{inv:{item0:{id:\"ae2:item_storage_cell_64k\",count:1}}} replace",
+        "setblock 1 5 -5 ae2:drive replace",
+        "item replace block 1 5 -5 container.0 with ae2:item_storage_cell_64k 1",
         "setblock -1 6 -5 ae2:cable_bus{cable:{id:\"ae2:fluix_glass_cable\"},south:{id:\"ae2:terminal\",enabledKeyTypes:[\"ae2:i\",\"ae2:f\"]}} replace",
         "setblock 0 6 -5 ae2:cable_bus{cable:{id:\"ae2:fluix_glass_cable\"},south:{id:\"ae2:crafting_terminal\",enabledKeyTypes:[\"ae2:i\",\"ae2:f\"]}} replace",
         "setblock 1 6 -5 ae2:cable_bus{cable:{id:\"ae2:fluix_glass_cable\"},south:{id:\"ae2:pattern_encoding_terminal\",enabledKeyTypes:[\"ae2:i\",\"ae2:f\"]}} replace",
@@ -214,7 +216,7 @@ def build_commands() -> list[str]:
         "gamemode creative @a",
         "effect give @a minecraft:night_vision infinite 0 true",
         "schedule function aeallpattern_test:seed 2s replace",
-        "tellraw @a {\"text\":\"全样板 0.1.0 中文测试场已准备完成。请从紫色区域开始测试。\",\"color\":\"light_purple\"}",
+        f"tellraw @a {{\"text\":\"全样板 {MOD_VERSION} 中文测试场已准备完成。请从紫色区域开始测试。\",\"color\":\"light_purple\"}}",
     ])
     return commands
 
@@ -236,26 +238,26 @@ def main() -> None:
     write_json(pack / "pack.mcmeta", {
         "pack": {
             "pack_format": PACK_FORMAT,
-            "description": "AE All Pattern 0.1.0 deterministic test lab",
+            "description": f"AE All Pattern {MOD_VERSION} deterministic test lab for Minecraft 1.20.1",
         }
     })
-    function_path = pack / "data" / NAMESPACE / "function" / "build.mcfunction"
+    function_path = pack / "data" / NAMESPACE / "functions" / "build.mcfunction"
     function_path.parent.mkdir(parents=True, exist_ok=True)
     function_path.write_text("\n".join(build_commands()) + "\n", encoding="utf-8")
-    seed_function_path = pack / "data" / NAMESPACE / "function" / "seed.mcfunction"
+    seed_function_path = pack / "data" / NAMESPACE / "functions" / "seed.mcfunction"
     seed_function_path.write_text(
         "aeallpattern seed-test-materials 0 5 -4\n"
         "tellraw @a {\"text\":\"AE 预存原料已经写入 64K 存储元件。\",\"color\":\"aqua\"}\n",
         encoding="utf-8",
     )
 
-    recipe_dir = pack / "data" / NAMESPACE / "recipe"
+    recipe_dir = pack / "data" / NAMESPACE / "recipes"
     for index in range(1000):
         write_json(recipe_dir / f"stress_{index:04d}.json", {
             "type": "minecraft:smelting",
             "category": "misc",
             "ingredient": {"item": "minecraft:cobblestone"},
-            "result": {"id": "minecraft:stone", "count": 1},
+            "result": "minecraft:stone",
             "experience": 0.0,
             "cookingtime": 20,
         })
@@ -263,14 +265,14 @@ def main() -> None:
         "type": "minecraft:smelting",
         "category": "misc",
         "ingredient": {"item": "minecraft:stone_bricks"},
-        "result": {"id": "minecraft:stone", "count": 1},
+        "result": "minecraft:stone",
         "experience": 0.0,
         "cookingtime": 40,
     })
 
-    guide = """# AE All Pattern 0.1.0 中文测试场
+    guide = f"""# AE All Pattern {MOD_VERSION} 中文测试场
 
-适用版本：Minecraft 1.21.1 / NeoForge 21.1.219 / AE2 19.2.17 / Mekanism 10.7.19 / Mystical Agriculture 8.0.27。
+适用版本：Minecraft 1.20.1 / Forge 47.4.20 / AE2 15.4.10 / Mekanism 10.4.16 / Mystical Agriculture 7.0.18。
 
 ## 第一次使用
 
@@ -311,8 +313,9 @@ def main() -> None:
     write_json(world / "lab-plan.json", {
         "schema": 1,
         "world": world.name,
-        "minecraft": "1.21.1",
-        "mod_version": "0.1.0",
+        "minecraft": "1.20.1",
+        "loader": "forge-47.4.20",
+        "mod_version": MOD_VERSION,
         "function": f"{NAMESPACE}:build",
         "stress_recipes": 1000,
         "writes_region": False,

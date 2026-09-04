@@ -72,6 +72,10 @@ legacyForge {
             server()
             programArgument '--nogui'
             systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+            def serverWorld = providers.gradleProperty('server_world')
+            if (serverWorld.isPresent()) {
+                programArguments.addAll '--universe', 'saves', '--world', serverWorld.get()
+            }
         }
 
         gameTestServer {

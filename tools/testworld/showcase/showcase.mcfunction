@@ -26,7 +26,8 @@ summon minecraft:text_display 0 9 -20 {Tags:["aeap_showcase_text"],billboard:"ce
 # Station 1: compact powered ME network. Terminals face north, toward the filming route.
 setblock 0 5 -15 ae2:controller replace
 setblock -1 5 -15 ae2:creative_energy_cell replace
-setblock 1 5 -15 ae2:drive{inv:{item0:{id:"ae2:item_storage_cell_64k",count:1}}} replace
+setblock 1 5 -15 ae2:drive replace
+item replace block 1 5 -15 container.0 with ae2:item_storage_cell_64k 1
 setblock 3 5 -15 aeallpattern:pattern_linker replace
 setblock 5 5 -15 aeallpattern:tianshu_pattern_selector[facing=north] replace
 setblock -3 5 -15 ae2:pattern_provider replace

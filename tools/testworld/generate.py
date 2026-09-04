@@ -10,7 +10,7 @@ from pathlib import Path
 
 LAB_PLAN = {
     "schema": 1,
-    "minecraft": "1.21.1",
+    "minecraft": "1.20.1",
     "writes_world": False,
     "stations": [
         {

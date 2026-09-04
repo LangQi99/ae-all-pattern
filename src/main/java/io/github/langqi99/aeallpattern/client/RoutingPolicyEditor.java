@@ -68,7 +68,7 @@ public final class RoutingPolicyEditor extends AbstractWidget implements IToolti
             graphics.fill(getX() + 1, slotY, getX() + width - 1, slotY + ROW_HEIGHT - 1, 0x553C174F);
             graphics.renderOutline(getX(), slotY, width, ROW_HEIGHT - 1, 0xFFA85BE0);
 
-            float target = (float) Math.clamp(
+            float target = (float) io.github.langqi99.aeallpattern.util.CompatMath.clamp(
                     dragMouseY - getY() - dragGrabOffset,
                     0,
                     (CraftingRoutePolicy.CRITERION_COUNT - 1) * ROW_HEIGHT);
@@ -103,7 +103,7 @@ public final class RoutingPolicyEditor extends AbstractWidget implements IToolti
 
         drawHandle(graphics, getX() + 4, rowY + 5, dragging ? 0xFFA85BE0 : 0xFFF4F4F7);
         Icon icon = icon(current, criterion);
-        var blitter = icon.getBlitter().dest(getX() + 16, rowY).zOffset(dragging ? 8 : 3);
+        var blitter = icon.getBlitter().dest(getX() + 16, rowY);
         if (!enabled) {
             blitter.opacity(0.45F);
         }
@@ -218,7 +218,7 @@ public final class RoutingPolicyEditor extends AbstractWidget implements IToolti
             return false;
         }
         dragMouseY = mouseY;
-        dragTo = Math.clamp(
+        dragTo = io.github.langqi99.aeallpattern.util.CompatMath.clamp(
                 (int) ((mouseY - getY()) / ROW_HEIGHT), 0, CraftingRoutePolicy.CRITERION_COUNT - 1);
         return true;
     }
@@ -293,15 +293,15 @@ public final class RoutingPolicyEditor extends AbstractWidget implements IToolti
         return switch (criterion) {
             case CraftingRoutePolicy.CRITERION_PATH -> policy.pathPreference() < 0
                     ? Icon.ARROW_LEFT
-                    : policy.pathPreference() > 0 ? Icon.ARROW_RIGHT : Icon.S_CYCLE;
+                    : policy.pathPreference() > 0 ? Icon.ARROW_RIGHT : Icon.SCHEDULING_ROUND_ROBIN;
             case CraftingRoutePolicy.CRITERION_STOCK_SURPLUS -> policy.stockSurplusPreference() > 0
                     ? Icon.FULLNESS_FULL
-                    : policy.stockSurplusPreference() < 0 ? Icon.FULLNESS_EMPTY : Icon.S_CYCLE;
+                    : policy.stockSurplusPreference() < 0 ? Icon.FULLNESS_EMPTY : Icon.SCHEDULING_ROUND_ROBIN;
             case CraftingRoutePolicy.CRITERION_HIGH_YIELD -> policy.yieldPreference() > 0
                     ? Icon.ARROW_UP
-                    : policy.yieldPreference() < 0 ? Icon.ARROW_DOWN : Icon.S_CYCLE;
-            case CraftingRoutePolicy.CRITERION_FAST -> policy.preferFast() ? Icon.COG : Icon.COG_DISABLED;
-            default -> Icon.S_CYCLE;
+                    : policy.yieldPreference() < 0 ? Icon.ARROW_DOWN : Icon.SCHEDULING_ROUND_ROBIN;
+            case CraftingRoutePolicy.CRITERION_FAST -> policy.preferFast() ? Icon.WRENCH : Icon.WRENCH_DISABLED;
+            default -> Icon.SCHEDULING_ROUND_ROBIN;
         };
     }
 

@@ -1,17 +1,13 @@
 package io.github.langqi99.aeallpattern.network;
 
 import appeng.api.stacks.GenericStack;
-import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu.Entry;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 
 /**
  * One bounded page of a search result. A full result is several pages; the client assembles
@@ -26,15 +22,12 @@ public record AggregateSearchResultPayload(
         int totalResults,
         int selectedResults,
         List<Entry> entries,
-        List<Boolean> enabledStates)
-        implements CustomPacketPayload {
+        List<Boolean> enabledStates) {
     public static final int MAX_ENTRIES_PER_PAGE = 64;
     private static final int MAX_STACKS_PER_LIST = 81;
 
-    public static final Type<AggregateSearchResultPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "aggregate_search_result"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregateSearchResultPayload> STREAM_CODEC =
-            StreamCodec.of(AggregateSearchResultPayload::encode, AggregateSearchResultPayload::decode);
+    public static final FriendlyStreamCodec<AggregateSearchResultPayload> STREAM_CODEC =
+            FriendlyStreamCodec.of(AggregateSearchResultPayload::encode, AggregateSearchResultPayload::decode);
 
     public AggregateSearchResultPayload {
         entries = List.copyOf(entries);
@@ -47,7 +40,7 @@ public record AggregateSearchResultPayload(
         }
     }
 
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregateSearchResultPayload payload) {
+    private static void encode(FriendlyByteBuf buffer, AggregateSearchResultPayload payload) {
         buffer.writeUUID(payload.requestId());
         buffer.writeVarInt(payload.chunkIndex());
         buffer.writeVarInt(payload.chunkCount());
@@ -65,7 +58,7 @@ public record AggregateSearchResultPayload(
         }
     }
 
-    private static AggregateSearchResultPayload decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregateSearchResultPayload decode(FriendlyByteBuf buffer) {
         UUID requestId = buffer.readUUID();
         int chunkIndex = buffer.readVarInt();
         int chunkCount = buffer.readVarInt();
@@ -96,25 +89,20 @@ public record AggregateSearchResultPayload(
                 enabledStates);
     }
 
-    private static void writeStacks(RegistryFriendlyByteBuf buffer, List<GenericStack> stacks) {
+    private static void writeStacks(FriendlyByteBuf buffer, List<GenericStack> stacks) {
         buffer.writeVarInt(stacks.size());
-        stacks.forEach(stack -> GenericStack.STREAM_CODEC.encode(buffer, stack));
+        stacks.forEach(stack -> GenericStack.writeBuffer(stack, buffer));
     }
 
-    private static List<GenericStack> readStacks(RegistryFriendlyByteBuf buffer) {
+    private static List<GenericStack> readStacks(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_STACKS_PER_LIST) {
             throw new IllegalArgumentException("invalid search result stack count: " + count);
         }
         List<GenericStack> stacks = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            stacks.add(GenericStack.STREAM_CODEC.decode(buffer));
+            stacks.add(java.util.Objects.requireNonNull(GenericStack.readBuffer(buffer)));
         }
         return stacks;
-    }
-
-    @Override
-    public @NotNull Type<? extends CustomPacketPayload> type() {
-        return TYPE;
     }
 }

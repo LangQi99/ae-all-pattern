@@ -10,28 +10,27 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public final class ModItems {
-    private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(AeAllPattern.MOD_ID);
+    private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, AeAllPattern.MOD_ID);
     private static final DeferredRegister<CreativeModeTab> TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, AeAllPattern.MOD_ID);
 
-    public static final DeferredItem<PatternBinderItem> PATTERN_BINDER = ITEMS.registerItem(
-            "pattern_binder", PatternBinderItem::new, new Item.Properties().stacksTo(1));
-    public static final DeferredItem<BlockItem> PATTERN_LINKER = ITEMS.registerSimpleBlockItem(
-            "pattern_linker", ModBlocks.PATTERN_LINKER, new Item.Properties());
-    public static final DeferredItem<TianshuPatternSelectorItem> TIANSHU_PATTERN_SELECTOR = ITEMS.registerItem(
+    public static final RegistryObject<PatternBinderItem> PATTERN_BINDER = ITEMS.register(
+            "pattern_binder", () -> new PatternBinderItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<BlockItem> PATTERN_LINKER = ITEMS.register(
+            "pattern_linker", () -> new BlockItem(ModBlocks.PATTERN_LINKER.get(), new Item.Properties()));
+    public static final RegistryObject<TianshuPatternSelectorItem> TIANSHU_PATTERN_SELECTOR = ITEMS.register(
             "tianshu_pattern_selector",
-            properties -> new TianshuPatternSelectorItem(ModBlocks.TIANSHU_PATTERN_SELECTOR.get(), properties),
-            new Item.Properties());
-    public static final DeferredItem<AllPatternGeneratorItem> ALL_PATTERN_GENERATOR = ITEMS.registerItem(
-            "all_pattern_generator", AllPatternGeneratorItem::new, new Item.Properties().stacksTo(1));
-    public static final DeferredItem<AggregatePatternItem> AGGREGATE_PATTERN = ITEMS.registerItem(
-            "aggregate_pattern", AggregatePatternItem::new, new Item.Properties().stacksTo(1));
+            () -> new TianshuPatternSelectorItem(ModBlocks.TIANSHU_PATTERN_SELECTOR.get(), new Item.Properties()));
+    public static final RegistryObject<AllPatternGeneratorItem> ALL_PATTERN_GENERATOR = ITEMS.register(
+            "all_pattern_generator", () -> new AllPatternGeneratorItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<AggregatePatternItem> AGGREGATE_PATTERN = ITEMS.register(
+            "aggregate_pattern", () -> new AggregatePatternItem(new Item.Properties().stacksTo(1)));
 
     /**
      * Development-only registry stress fixture. Normal launches leave the property unset, so
@@ -39,7 +38,7 @@ public final class ModItems {
      */
     public static final int STRESS_ITEM_COUNT = registerStressItems();
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN_TAB = TABS.register("main", () ->
+    public static final RegistryObject<CreativeModeTab> MAIN_TAB = TABS.register("main", () ->
             CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.aeallpattern"))
                     .icon(() -> PATTERN_BINDER.get().getDefaultInstance())
@@ -55,12 +54,11 @@ public final class ModItems {
     }
 
     private static int registerStressItems() {
-        int count = Math.clamp(Integer.getInteger("aeallpattern.stressItemCount", 0), 0, 20_000);
+        int count = Math.max(0, Math.min(Integer.getInteger("aeallpattern.stressItemCount", 0), 20_000));
         for (int index = 0; index < count; index++) {
             String name = "stress_item_%05d".formatted(index);
             int displayNumber = index + 1;
-            ITEMS.registerItem(name, properties -> new StressTestItem(properties, displayNumber),
-                    new Item.Properties());
+            ITEMS.register(name, () -> new StressTestItem(new Item.Properties(), displayNumber));
         }
         return count;
     }

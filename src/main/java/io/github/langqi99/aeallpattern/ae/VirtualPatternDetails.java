@@ -1,15 +1,11 @@
 package io.github.langqi99.aeallpattern.ae;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import io.github.langqi99.aeallpattern.binding.BindingPatternKey;
-import java.util.List;
 import java.util.Objects;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
 
 /** Gives otherwise identical encoded patterns a stable binding-specific identity. */
 public final class VirtualPatternDetails implements IPatternDetails {
@@ -36,7 +32,7 @@ public final class VirtualPatternDetails implements IPatternDetails {
     }
 
     @Override
-    public List<GenericStack> getOutputs() {
+    public GenericStack[] getOutputs() {
         return delegate.getOutputs();
     }
 
@@ -48,11 +44,6 @@ public final class VirtualPatternDetails implements IPatternDetails {
     @Override
     public void pushInputsToExternalInventory(KeyCounter[] inputHolder, PatternInputSink sink) {
         delegate.pushInputsToExternalInventory(inputHolder, sink);
-    }
-
-    @Override
-    public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
-        return delegate.getTooltip(level, flags);
     }
 
     @Override

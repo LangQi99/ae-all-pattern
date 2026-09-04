@@ -67,7 +67,7 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
             ScreenStyle style,
             CallbackInfo ci) {
         aeallpattern$routeButton = addToLeftToolbar(new RoutingOptionButton(
-                () -> Icon.COG,
+                () -> Icon.WRENCH,
                 ignored -> aeallpattern$expanded = !aeallpattern$expanded,
                 null,
                 () -> aeallpattern$routingMenu().aeallpattern$isRoutingAvailable()

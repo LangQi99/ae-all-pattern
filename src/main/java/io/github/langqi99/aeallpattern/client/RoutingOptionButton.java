@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 /** Native AE toolbar button for the temporary route-policy popup. */
 public final class RoutingOptionButton extends IconButton {
     private static final ResourceLocation ROUTE_ICON =
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "textures/gui/tianshu_route.png");
+            new ResourceLocation(AeAllPattern.MOD_ID, "textures/gui/tianshu_route.png");
 
     private final Supplier<Icon> icon;
     private final Supplier<List<Component>> tooltip;
@@ -38,12 +38,11 @@ public final class RoutingOptionButton extends IconButton {
     @Override
     public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int hoverOffset = isHovered() ? 1 : 0;
-        Icon background = isHovered()
-                ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : Icon.TOOLBAR_BUTTON_BACKGROUND;
+        Icon background = isHovered() || isFocused()
+                ? Icon.TAB_BUTTON_BACKGROUND_FOCUS
+                : Icon.TOOLBAR_BUTTON_BACKGROUND;
         background.getBlitter()
                 .dest(getX() - 1, getY() + hoverOffset, 18, 20)
-                .zOffset(2)
                 .blit(graphics);
 
         graphics.pose().pushPose();

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class AggregateMetadataViewTest {
     private static final ResourceLocation CATALYST =
-            ResourceLocation.fromNamespaceAndPath("aeallpattern", "batch_test");
+            new ResourceLocation("aeallpattern", "batch_test");
     private static final String SERIES = "a".repeat(64);
 
     @AfterEach
@@ -24,7 +24,8 @@ class AggregateMetadataViewTest {
         int legacyRecipeCount = 18000;
         assertDoesNotThrow(() -> new AggregatePatternLibrary.Entry(
                 UUID.randomUUID(), CATALYST, "block.test", SERIES, legacyRecipeCount,
-                Math.ceilDiv(legacyRecipeCount, AggregatePatternLibrary.PAGE_SIZE),
+                (legacyRecipeCount + AggregatePatternLibrary.PAGE_SIZE - 1)
+                        / AggregatePatternLibrary.PAGE_SIZE,
                 SERIES, legacyRecipeCount, 0, 1, legacyRecipeCount));
     }
 

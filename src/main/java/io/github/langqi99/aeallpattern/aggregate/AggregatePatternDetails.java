@@ -1,7 +1,6 @@
 package io.github.langqi99.aeallpattern.aggregate;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -9,7 +8,6 @@ import appeng.api.stacks.KeyCounter;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.RoutingPatternMetadata;
 import java.util.List;
 import java.util.Objects;
-import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /** A single child processing pattern expanded from an aggregate pattern item. */
@@ -57,7 +55,7 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
     }
 
     @Override
-    public List<GenericStack> getOutputs() {
+    public GenericStack[] getOutputs() {
         return delegate.getOutputs();
     }
 
@@ -73,11 +71,6 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
         } else {
             IPatternDetails.super.pushInputsToExternalInventory(inputHolders, sink);
         }
-    }
-
-    @Override
-    public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
-        return delegate.getTooltip(level, flags);
     }
 
     @Override

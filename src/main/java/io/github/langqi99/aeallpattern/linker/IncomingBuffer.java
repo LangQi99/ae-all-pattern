@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -60,7 +59,7 @@ public final class IncomingBuffer {
         RecipeFingerprint fingerprint = new RecipeFingerprint(
                 binding.adapterId(), patternKey, input.toString(), output.toString(), binding.adapterSchema());
         enqueue(binding, patternKey,
-                new RecipeSnapshot(ResourceLocation.parse("aeallpattern:legacy_buffer"), input, output, fingerprint, processingTicks),
+                new RecipeSnapshot(new ResourceLocation("aeallpattern:legacy_buffer"), input, output, fingerprint, processingTicks),
                 List.of(input), output, processingTicks);
     }
 
@@ -161,7 +160,7 @@ public final class IncomingBuffer {
         workCount.clear();
     }
 
-    public void save(CompoundTag parent, HolderLookup.Provider registries) {
+    public void save(CompoundTag parent) {
         ListTag queueTag = new ListTag();
         for (BufferedInput input : queue) {
             CompoundTag tag = new CompoundTag();
@@ -169,9 +168,9 @@ public final class IncomingBuffer {
             tag.putString("PatternKey", input.patternKey);
             tag.putString("RecipeId", input.recipeId.toString());
             ListTag inputsTag = new ListTag();
-            input.inputs.forEach(stack -> inputsTag.add(stack.save(registries)));
+            input.inputs.forEach(stack -> inputsTag.add(stack.save(new CompoundTag())));
             tag.put("Inputs", inputsTag);
-            tag.put("Output", input.output.save(registries));
+            tag.put("Output", input.output.save(new CompoundTag()));
             tag.putInt("ProcessingTicks", input.processingTicks);
             queueTag.add(tag);
         }
@@ -182,7 +181,7 @@ public final class IncomingBuffer {
             CompoundTag tag = new CompoundTag();
             tag.putUUID("BindingId", craft.bindingId);
             tag.putString("PatternKey", craft.patternKey);
-            tag.put("Output", craft.output.save(registries));
+            tag.put("Output", craft.output.save(new CompoundTag()));
             tag.putLong("ReleaseAt", craft.releaseAt);
             pendingTag.add(tag);
         }
@@ -192,34 +191,34 @@ public final class IncomingBuffer {
         for (RecoveredOutput output : recoveredOutputs) {
             CompoundTag tag = new CompoundTag();
             tag.putUUID("BindingId", output.bindingId);
-            tag.put("Stack", output.stack.save(registries));
+            tag.put("Stack", output.stack.save(new CompoundTag()));
             recoveredTag.add(tag);
         }
         parent.put(RECOVERED_TAG, recoveredTag);
     }
 
-    public void load(CompoundTag parent, HolderLookup.Provider registries) {
+    public void load(CompoundTag parent) {
         clear();
         ListTag queueTag = parent.getList(QUEUE_TAG, Tag.TAG_COMPOUND);
         for (Tag raw : queueTag) {
             CompoundTag tag = (CompoundTag) raw;
             List<ItemStack> inputs = new ArrayList<>();
             for (Tag inputTag : tag.getList("Inputs", Tag.TAG_COMPOUND)) {
-                ItemStack input = parseStack(registries, inputTag);
+                ItemStack input = parseStack(inputTag);
                 if (!input.isEmpty()) {
                     inputs.add(input);
                 }
             }
             if (inputs.isEmpty()) {
-                ItemStack legacyInput = parseStack(registries, tag.get("Input"));
+                ItemStack legacyInput = parseStack(tag.get("Input"));
                 if (!legacyInput.isEmpty()) {
                     inputs.add(legacyInput);
                 }
             }
-            ItemStack output = parseStack(registries, tag.get("Output"));
+            ItemStack output = parseStack(tag.get("Output"));
             ResourceLocation recipeId = ResourceLocation.tryParse(tag.getString("RecipeId"));
             if (recipeId == null) {
-                recipeId = ResourceLocation.parse("aeallpattern:legacy_buffer");
+                recipeId = new ResourceLocation("aeallpattern:legacy_buffer");
             }
             if (!inputs.isEmpty() && !output.isEmpty() && tag.hasUUID("BindingId")) {
                 UUID bindingId = tag.getUUID("BindingId");
@@ -236,7 +235,7 @@ public final class IncomingBuffer {
         ListTag pendingTag = parent.getList(PENDING_TAG, Tag.TAG_COMPOUND);
         for (Tag raw : pendingTag) {
             CompoundTag tag = (CompoundTag) raw;
-            ItemStack output = parseStack(registries, tag.get("Output"));
+            ItemStack output = parseStack(tag.get("Output"));
             if (!output.isEmpty() && tag.hasUUID("BindingId")) {
                 UUID bindingId = tag.getUUID("BindingId");
                 pending.add(new PendingCraft(
@@ -245,7 +244,7 @@ public final class IncomingBuffer {
                         output,
                         tag.getLong("ReleaseAt")));
                 incrementWork(bindingId);
-                ItemStack legacyRecovered = parseStack(registries, tag.get("RecoveredOutput"));
+                ItemStack legacyRecovered = parseStack(tag.get("RecoveredOutput"));
                 if (!legacyRecovered.isEmpty()) {
                     recoveredOutputs.add(new RecoveredOutput(bindingId, legacyRecovered));
                 }
@@ -254,19 +253,19 @@ public final class IncomingBuffer {
         ListTag recoveredTag = parent.getList(RECOVERED_TAG, Tag.TAG_COMPOUND);
         for (Tag raw : recoveredTag) {
             CompoundTag tag = (CompoundTag) raw;
-            ItemStack stack = parseStack(registries, tag.get("Stack"));
+            ItemStack stack = parseStack(tag.get("Stack"));
             if (!stack.isEmpty() && tag.hasUUID("BindingId")) {
                 recoveredOutputs.add(new RecoveredOutput(tag.getUUID("BindingId"), stack));
             }
         }
     }
 
-    private static ItemStack parseStack(HolderLookup.Provider registries, Tag tag) {
-        if (tag == null) {
+    private static ItemStack parseStack(Tag tag) {
+        if (!(tag instanceof CompoundTag compound)) {
             return ItemStack.EMPTY;
         }
         try {
-            return ItemStack.parse(registries, tag).orElse(ItemStack.EMPTY);
+            return ItemStack.of(compound);
         } catch (RuntimeException ignored) {
             return ItemStack.EMPTY;
         }

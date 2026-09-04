@@ -6,8 +6,8 @@ import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.neoforged.fml.ModLoadingContext;
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.client.ConfigScreenHandler;
 
 public final class AeAllPatternConfigScreen {
     private AeAllPatternConfigScreen() {
@@ -15,8 +15,8 @@ public final class AeAllPatternConfigScreen {
 
     public static void register() {
         ModLoadingContext.get().registerExtensionPoint(
-                IConfigScreenFactory.class,
-                () -> (minecraft, parent) -> create(parent));
+                ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory(AeAllPatternConfigScreen::create));
     }
 
     public static Screen create(Screen parent) {
@@ -29,7 +29,7 @@ public final class AeAllPatternConfigScreen {
 
         linker.addEntry(entries.startIntField(
                         Component.translatable("config.aeallpattern.max_binding_distance"),
-                        AeAllPatternCommonConfig.LINKER_MAX_BINDING_DISTANCE.getAsInt())
+                        AeAllPatternCommonConfig.LINKER_MAX_BINDING_DISTANCE.get())
                 .setDefaultValue(0)
                 .setMin(0)
                 .setMax(30_000_000)
@@ -45,7 +45,7 @@ public final class AeAllPatternConfigScreen {
                 .build());
 
         ConfigCategory selection = builder.getOrCreateCategory(Component.translatable("config.aeallpattern.pattern_selection"));
-        selection.addEntry(entries.startIntField(Component.translatable("config.aeallpattern.selection_display_limit"), AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT.getAsInt())
+        selection.addEntry(entries.startIntField(Component.translatable("config.aeallpattern.selection_display_limit"), AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT.get())
                 .setDefaultValue(1024).setMin(1).setMax(16384)
                 .setTooltip(Component.translatable("config.aeallpattern.selection_display_limit.tooltip"))
                 .setSaveConsumer(AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT::set).build());
@@ -54,7 +54,7 @@ public final class AeAllPatternConfigScreen {
                 Component.translatable("config.aeallpattern.aggregate_pattern"));
         aggregate.addEntry(entries.startIntField(
                         Component.translatable("config.aeallpattern.aggregate_recipe_limit"),
-                        AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt())
+                        AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.get())
                 .setDefaultValue(1_048_576)
                 .setMin(1)
                 .setMax(1_048_576)
@@ -63,7 +63,7 @@ public final class AeAllPatternConfigScreen {
                 .build());
         aggregate.addEntry(entries.startIntField(
                         Component.translatable("config.aeallpattern.tag_expansion_limit"),
-                        AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.getAsInt())
+                        AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.get())
                 .setDefaultValue(1024)
                 .setMin(1)
                 .setMax(Integer.MAX_VALUE)

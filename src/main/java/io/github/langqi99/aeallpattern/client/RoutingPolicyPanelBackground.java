@@ -26,7 +26,7 @@ public final class RoutingPolicyPanelBackground extends AbstractWidget {
                 getY() + 6,
                 0xFF303044,
                 false);
-        Icon.PRIORITY.getBlitter().dest(getX() + width - 64, getY() + 2).blit(graphics);
+        Icon.SORT_BY_AMOUNT.getBlitter().dest(getX() + width - 64, getY() + 2).blit(graphics);
 
         graphics.fill(getX() + 4, getY() + 20, getX() + width - 4, getY() + 34, 0xFFC7C7D2);
         graphics.renderOutline(getX() + 4, getY() + 20, width - 8, 14, 0xFF777789);

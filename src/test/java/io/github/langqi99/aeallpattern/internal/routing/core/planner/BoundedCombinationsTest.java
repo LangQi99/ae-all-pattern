@@ -23,7 +23,7 @@ class BoundedCombinationsTest {
         List<List<String>> combos = BoundedCombinations.bestFirst(slots, 32);
         assertEquals(6, combos.size()); // 2 * 3, all kept
         // first combination is the all-best (index 0 in every slot)
-        assertEquals(List.of("a0", "b0"), combos.getFirst());
+        assertEquals(List.of("a0", "b0"), combos.get(0));
     }
 
     @Test
@@ -44,7 +44,7 @@ class BoundedCombinationsTest {
             prev = rank;
         }
         // the cheapest is all-best (rank 0); the next four each differ from it by exactly one step (rank 1)
-        assertEquals(List.of("a0", "b0", "c0", "d0"), combos.getFirst());
+        assertEquals(List.of("a0", "b0", "c0", "d0"), combos.get(0));
         for (int i = 1; i < 5; i++) {
             long rank = combos.get(i).stream().mapToLong(s -> s.charAt(1) - '0').sum();
             assertEquals(1, rank, "the four runners-up are the single-step neighbors of the all-best vector");
@@ -59,7 +59,7 @@ class BoundedCombinationsTest {
         }
         List<List<String>> combos = BoundedCombinations.bestFirst(List.of(big), 32);
         assertEquals(32, combos.size());
-        assertEquals(List.of("x0"), combos.getFirst());
+        assertEquals(List.of("x0"), combos.get(0));
         assertEquals(List.of("x31"), combos.get(31));
     }
 

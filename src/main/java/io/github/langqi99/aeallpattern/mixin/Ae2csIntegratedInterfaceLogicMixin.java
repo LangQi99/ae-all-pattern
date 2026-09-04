@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.stacks.AEKey;
@@ -13,12 +14,14 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Publishes every aggregate child through AE2CS integrated interfaces. */
+@Pseudo
 @Mixin(targets = "io.github.lounode.ae2cs.common.me.logic.IntegratedInterfaceLogic", remap = false)
 public abstract class Ae2csIntegratedInterfaceLogicMixin {
     @Unique private boolean aeallpattern$rerunning;

@@ -6,31 +6,31 @@ import io.github.langqi99.aeallpattern.tianshu.TianshuPatternSelectorBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredBlock;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public final class ModBlocks {
-    private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(AeAllPattern.MOD_ID);
+    private static final DeferredRegister<net.minecraft.world.level.block.Block> BLOCKS =
+            DeferredRegister.create(ForgeRegistries.BLOCKS, AeAllPattern.MOD_ID);
 
-    public static final DeferredBlock<PatternLinkerBlock> PATTERN_LINKER = BLOCKS.registerBlock(
+    public static final RegistryObject<PatternLinkerBlock> PATTERN_LINKER = BLOCKS.register(
             "pattern_linker",
-            PatternLinkerBlock::new,
-            BlockBehaviour.Properties.of()
+            () -> new PatternLinkerBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_PURPLE)
                     .sound(SoundType.METAL)
                     .strength(2.2F, 10.0F)
-                    .requiresCorrectToolForDrops());
+                    .requiresCorrectToolForDrops()));
 
-    public static final DeferredBlock<TianshuPatternSelectorBlock> TIANSHU_PATTERN_SELECTOR = BLOCKS.registerBlock(
+    public static final RegistryObject<TianshuPatternSelectorBlock> TIANSHU_PATTERN_SELECTOR = BLOCKS.register(
             "tianshu_pattern_selector",
-            TianshuPatternSelectorBlock::new,
-            BlockBehaviour.Properties.of()
+            () -> new TianshuPatternSelectorBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_PURPLE)
                     .sound(SoundType.METAL)
                     .strength(5.0F, 12.0F)
                     .lightLevel(state -> state.getValue(TianshuPatternSelectorBlock.ACTIVE) ? 7 : 1)
-                    .requiresCorrectToolForDrops());
+                    .requiresCorrectToolForDrops()));
 
     private ModBlocks() {
     }

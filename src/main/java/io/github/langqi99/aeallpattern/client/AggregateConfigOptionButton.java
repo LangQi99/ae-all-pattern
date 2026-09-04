@@ -37,7 +37,7 @@ public final class AggregateConfigOptionButton extends AbstractWidget {
         graphics.fill(getX(), getY(), getX() + width, getY() + height - 1, background);
         graphics.renderOutline(getX(), getY(), width, height - 1, 0xFF777789);
 
-        (value ? Icon.S_SUBSTITUTION_ENABLED : Icon.S_SUBSTITUTION_DISABLED)
+        (value ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED)
                 .getBlitter().dest(getX() + 1, getY()).blit(graphics);
 
         var font = Minecraft.getInstance().font;

@@ -6,8 +6,8 @@
 2. 检查 `gradle.properties`、mods.toml、README 版本表和更新 JSON 一致。
 3. 运行 `./gradlew clean test check build`；`check` 会验证版本元数据、许可证、图标、贴图和 JAR 不夹带上游类。
 4. 启动无 JEI 专服、完整客户端和发布测试存档。
-5. 核对 `build/libs/aeallpattern-1.21.1-neoforge-0.1.0.jar` 与 SHA-256。
-6. 记录 commit SHA、Java、NeoForge、AE2、Mekanism 与 JEI 版本。
+5. 核对 `build/libs/aeallpattern-1.20.1-forge-0.2.1.jar` 与 SHA-256。
+6. 记录 commit SHA、Java、Forge、AE2、Mekanism 与 JEI 版本。
 
 ## GitHub Release
 

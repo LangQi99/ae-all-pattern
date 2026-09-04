@@ -57,7 +57,7 @@ public final class DurabilityChain<K> {
 
     /** The full tool; doubles as the token-carrying key in the core graph. */
     public K carrier() {
-        return links.getFirst();
+        return links.get(0);
     }
 
     /**

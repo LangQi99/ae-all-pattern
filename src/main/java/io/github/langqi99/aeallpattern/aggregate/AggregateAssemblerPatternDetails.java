@@ -1,18 +1,16 @@
 package io.github.langqi99.aeallpattern.aggregate;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.RoutingPatternMetadata;
-import java.util.List;
 import java.util.Objects;
 import net.minecraft.core.NonNullList;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.level.Level;
 
 /** Keeps AE2's molecular-assembler behavior while giving an aggregate child a unique definition. */
@@ -45,17 +43,17 @@ public final class AggregateAssemblerPatternDetails
     }
 
     @Override
-    public List<GenericStack> getOutputs() {
+    public GenericStack[] getOutputs() {
         return delegate.getOutputs();
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input, Level level) {
+    public ItemStack assemble(Container input, Level level) {
         return delegate.assemble(input, level);
     }
 
     @Override
-    public NonNullList<ItemStack> getRemainingItems(CraftingInput input) {
+    public NonNullList<ItemStack> getRemainingItems(CraftingContainer input) {
         return delegate.getRemainingItems(input);
     }
 
@@ -72,11 +70,6 @@ public final class AggregateAssemblerPatternDetails
     @Override
     public void fillCraftingGrid(KeyCounter[] inputHolders, CraftingGridAccessor grid) {
         delegate.fillCraftingGrid(inputHolders, grid);
-    }
-
-    @Override
-    public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
-        return delegate.getTooltip(level, flags);
     }
 
     @Override

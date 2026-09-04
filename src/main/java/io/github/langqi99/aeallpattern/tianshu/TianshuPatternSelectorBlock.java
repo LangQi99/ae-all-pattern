@@ -1,6 +1,5 @@
 package io.github.langqi99.aeallpattern.tianshu;
 
-import com.mojang.serialization.MapCodec;
 import io.github.langqi99.aeallpattern.registry.ModBlockEntities;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -9,6 +8,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -29,6 +29,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import org.jetbrains.annotations.NotNull;
+import net.minecraftforge.network.NetworkHooks;
 
 /**
  * Single-block controller for Tianshu's order planning and pattern routing.
@@ -37,8 +38,6 @@ import org.jetbrains.annotations.NotNull;
  * executed by the normal AE crafting CPUs built by the player.</p>
  */
 public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
-    public static final MapCodec<TianshuPatternSelectorBlock> CODEC =
-            simpleCodec(TianshuPatternSelectorBlock::new);
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final BooleanProperty ACTIVE = BlockStateProperties.LIT;
 
@@ -50,12 +49,7 @@ public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected @NotNull MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
-    }
-
-    @Override
-    protected @NotNull RenderShape getRenderShape(@NotNull BlockState state) {
+    public @NotNull RenderShape getRenderShape(@NotNull BlockState state) {
         return RenderShape.MODEL;
     }
 
@@ -65,13 +59,13 @@ public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected @NotNull BlockState rotate(BlockState state, Rotation rotation) {
+    public @NotNull BlockState rotate(BlockState state, Rotation rotation) {
         return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    protected @NotNull BlockState mirror(BlockState state, Mirror mirror) {
+    public @NotNull BlockState mirror(BlockState state, Mirror mirror) {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
@@ -97,12 +91,13 @@ public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected @NotNull InteractionResult useWithoutItem(
-            @NotNull BlockState state, Level level, @NotNull BlockPos pos, @NotNull Player player, @NotNull BlockHitResult hit) {
+    public @NotNull InteractionResult use(
+            @NotNull BlockState state, Level level, @NotNull BlockPos pos, @NotNull Player player,
+            @NotNull InteractionHand hand, @NotNull BlockHitResult hit) {
         if (!level.isClientSide()
                 && player instanceof ServerPlayer serverPlayer
                 && level.getBlockEntity(pos) instanceof TianshuPatternSelectorBlockEntity selector) {
-            serverPlayer.openMenu(selector, data -> data.writeBlockPos(pos));
+            NetworkHooks.openScreen(serverPlayer, selector, data -> data.writeBlockPos(pos));
         }
         return InteractionResult.sidedSuccess(level.isClientSide());
     }
@@ -123,7 +118,7 @@ public final class TianshuPatternSelectorBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected void onRemove(
+    public void onRemove(
             BlockState state,
             @NotNull Level level,
             @NotNull BlockPos pos,

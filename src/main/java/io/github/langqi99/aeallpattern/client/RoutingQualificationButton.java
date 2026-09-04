@@ -39,7 +39,7 @@ public final class RoutingQualificationButton extends AbstractWidget implements 
         int background = isHovered() ? 0xFFE7E7EE : value ? 0xFFC7C7D2 : 0xFFB8B8C3;
         graphics.fill(getX(), getY(), getX() + width, getY() + height, background);
         graphics.renderOutline(getX(), getY(), width, height, 0xFF777789);
-        (value ? Icon.S_SUBSTITUTION_ENABLED : Icon.S_SUBSTITUTION_DISABLED)
+        (value ? Icon.SUBSTITUTION_ENABLED : Icon.SUBSTITUTION_DISABLED)
                 .getBlitter().dest(getX() + 1, getY() - 1).blit(graphics);
 
         var font = Minecraft.getInstance().font;

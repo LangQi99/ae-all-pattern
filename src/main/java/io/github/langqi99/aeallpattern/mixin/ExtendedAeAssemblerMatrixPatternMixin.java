@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
@@ -10,12 +11,14 @@ import io.github.langqi99.aeallpattern.util.Reflect;
 import java.util.List;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Expands aggregate patterns stored in ExtendedAE assembler-matrix pattern cores. */
+@Pseudo
 @Mixin(targets = "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern",
         remap = false)
 public abstract class ExtendedAeAssemblerMatrixPatternMixin {

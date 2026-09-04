@@ -15,17 +15,16 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlastFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SmokerBlockEntity;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 public final class VanillaFurnaceAdapter implements MachineAdapter {
-    public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath("minecraft", "furnace");
+    public static final ResourceLocation ID = new ResourceLocation("minecraft", "furnace");
     private static final int MAX_INGREDIENT_VARIANTS = 64;
     private static final int MAX_PATTERNS = 4096;
 
@@ -47,15 +46,15 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
     @Override
     public RecipeCatalog discoverRecipes(ServerLevel level, BlockEntity target, long generation) {
         RecipeType<? extends AbstractCookingRecipe> type = recipeType(target);
-        List<? extends RecipeHolder<? extends AbstractCookingRecipe>> holders = recipes(level, type).stream()
-                .sorted(Comparator.comparing(holder -> holder.id().toString()))
+        List<? extends AbstractCookingRecipe> holders = recipes(level, type).stream()
+                .sorted(Comparator.comparing(recipe -> recipe.getId().toString()))
                 .toList();
         List<RecipeSnapshot> snapshots = new ArrayList<>();
         Set<List<String>> seen = new HashSet<>();
         int filtered = 0;
 
-        for (RecipeHolder<? extends AbstractCookingRecipe> holder : holders) {
-            ItemStack[] variants = holder.value().getIngredients().getFirst().getItems();
+        for (AbstractCookingRecipe recipe : holders) {
+            ItemStack[] variants = recipe.getIngredients().get(0).getItems();
             if (variants.length == 0 || variants.length > MAX_INGREDIENT_VARIANTS) {
                 filtered++;
                 continue;
@@ -67,8 +66,8 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
                     break;
                 }
                 ItemStack input = variant.copyWithCount(Math.max(1, variant.getCount()));
-                ItemStack output = holder.value()
-                        .assemble(new SingleRecipeInput(input), level.registryAccess())
+                ItemStack output = recipe
+                        .assemble(new SimpleContainer(input), level.registryAccess())
                         .copy();
                 if (output.isEmpty()) {
                     filtered++;
@@ -83,12 +82,12 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
                 }
                 RecipeFingerprint fingerprint = new RecipeFingerprint(
                         id().toString(),
-                        holder.id().toString(),
+                        recipe.getId().toString(),
                         normalizedInput,
                         normalizedOutput,
                         schemaVersion());
                 snapshots.add(new RecipeSnapshot(
-                        holder.id(), input, output, fingerprint, holder.value().getCookingTime()));
+                        recipe.getId(), input, output, fingerprint, recipe.getCookingTime()));
             }
         }
 
@@ -98,20 +97,14 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
 
     @Override
     public boolean insert(ServerLevel level, BindingRecord binding, ItemStack stack) {
-        var handler = level.getCapability(
-                Capabilities.ItemHandler.BLOCK,
-                binding.target().pos(),
-                Direction.UP);
+        var handler = ItemHandlerTransfer.find(level, binding.target().pos(), Direction.UP);
         return ItemHandlerTransfer.insertFully(handler, stack);
     }
 
     @Override
     public ItemStack extractAnyOutput(
             ServerLevel level, BindingRecord binding, boolean simulate) {
-        var handler = level.getCapability(
-                Capabilities.ItemHandler.BLOCK,
-                binding.target().pos(),
-                Direction.DOWN);
+        var handler = ItemHandlerTransfer.find(level, binding.target().pos(), Direction.DOWN);
         return ItemHandlerTransfer.extractAny(handler, simulate);
     }
 
@@ -131,7 +124,7 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static List<? extends RecipeHolder<? extends AbstractCookingRecipe>> recipes(
+    private static List<? extends AbstractCookingRecipe> recipes(
             ServerLevel level, RecipeType<? extends AbstractCookingRecipe> type) {
         return (List) level.getRecipeManager().getAllRecipesFor(type);
     }

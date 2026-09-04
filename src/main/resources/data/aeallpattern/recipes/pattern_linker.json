@@ -2,29 +2,26 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "key": {
-    "A": {
-      "item": "ae2:advanced_card"
-    },
-    "C": {
-      "item": "ae2:calculation_processor"
-    },
     "E": {
       "item": "ae2:engineering_processor"
     },
     "F": {
       "item": "ae2:fluix_crystal"
     },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
     "P": {
       "item": "ae2:pattern_provider"
     }
   },
   "pattern": [
-    "AEA",
-    "CPC",
-    "F F"
+    "FEF",
+    "IPI",
+    "FIF"
   ],
   "result": {
     "count": 1,
-    "id": "aeallpattern:tianshu_pattern_selector"
+    "item": "aeallpattern:pattern_linker"
   }
 }

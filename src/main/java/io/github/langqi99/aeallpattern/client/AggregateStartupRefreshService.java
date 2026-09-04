@@ -9,8 +9,8 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.event.TickEvent;
 
 /** Refreshes the catalogs that existed when a client entered the world. */
 public final class AggregateStartupRefreshService {
@@ -25,14 +25,19 @@ public final class AggregateStartupRefreshService {
     private AggregateStartupRefreshService() {
     }
 
-    public static void onClientTick(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null || minecraft.getConnection() == null) {
             return;
         }
+        boolean useEmi = ModList.get().isLoaded("emi")
+                && ModList.get().isLoaded("toomanyrecipeviewers");
         if (++connectedTicks < VIEWER_SETTLE_TICKS
                 || AggregateMetadataView.revision() <= metadataRevisionAtReset
-                || AeAllPatternJeiPlugin.runtime().isEmpty()) {
+                || (!useEmi && AeAllPatternJeiPlugin.runtime().isEmpty())) {
             return;
         }
         if (!initialized) {
@@ -64,7 +69,6 @@ public final class AggregateStartupRefreshService {
             QUEUE.removeFirst();
         }
 
-        boolean useEmi = ModList.get().isLoaded("toomanyrecipeviewers");
         if (QUEUE.isEmpty() || ClientJeiAggregateScanner.isBusy()
                 || (useEmi && EmiAggregateScanner.isBusy())) {
             return;

@@ -1,15 +1,18 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.util.Reflect;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Refreshes AE2CS mirror providers after their target aggregate list is rebuilt. */
+@Pseudo
 @Mixin(targets = "io.github.lounode.ae2cs.common.me.logic.MirrorPatternProviderLogic", remap = false)
 public abstract class Ae2csMirrorPatternProviderLogicMixin {
     @Inject(method = "updatePatterns", at = @At("HEAD"))

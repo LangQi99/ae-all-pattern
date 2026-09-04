@@ -9,8 +9,8 @@ import io.github.langqi99.aeallpattern.recipe.RecipeCatalog;
 import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import java.util.ArrayList;
 
 /** Temporary capture model used before recipes are written into paged server storage. */
@@ -24,9 +24,9 @@ public record AggregatePatternData(
     public static final int MAX_RECIPES = 1_048_576;
 
     private static final Codec<List<AggregateRecipe>> RECIPES_CODEC = AggregateRecipe.CODEC.listOf()
-            .validate(recipes -> recipes.isEmpty() || recipes.size() > MAX_RECIPES
+            .flatXmap(recipes -> recipes.isEmpty() || recipes.size() > MAX_RECIPES
                     ? DataResult.error(() -> "aggregate recipe count must be between 1 and " + MAX_RECIPES)
-                    : DataResult.success(recipes));
+                    : DataResult.success(recipes), DataResult::success);
 
     public static final Codec<AggregatePatternData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.INT.optionalFieldOf("schema_version", CURRENT_SCHEMA_VERSION)
@@ -35,7 +35,7 @@ public record AggregatePatternData(
             Codec.STRING.fieldOf("machine_translation_key").forGetter(AggregatePatternData::machineTranslationKey),
             RECIPES_CODEC.fieldOf("recipes").forGetter(AggregatePatternData::recipes)
     ).apply(instance, AggregatePatternData::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregatePatternData> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<AggregatePatternData> STREAM_CODEC = FriendlyStreamCodec.of(
             AggregatePatternData::encode,
             AggregatePatternData::decode);
 
@@ -68,16 +68,16 @@ public record AggregatePatternData(
             String machineTranslationKey, List<AggregateRecipe> recipes) {
         return new AggregatePatternData(
                 CURRENT_SCHEMA_VERSION,
-                ResourceLocation.fromNamespaceAndPath("aeallpattern", "jei"),
+                new ResourceLocation("aeallpattern", "jei"),
                 machineTranslationKey,
                 recipes.stream().limit(configuredRecipeLimit()).toList());
     }
 
     public static int configuredRecipeLimit() {
-        return Math.min(MAX_RECIPES, AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getAsInt());
+        return Math.min(MAX_RECIPES, AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.get());
     }
 
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternData data) {
+    private static void encode(FriendlyByteBuf buffer, AggregatePatternData data) {
         buffer.writeVarInt(data.schemaVersion());
         buffer.writeResourceLocation(data.adapterId());
         buffer.writeUtf(data.machineTranslationKey(), 256);
@@ -87,7 +87,7 @@ public record AggregatePatternData(
         }
     }
 
-    private static AggregatePatternData decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregatePatternData decode(FriendlyByteBuf buffer) {
         int schema = buffer.readVarInt();
         ResourceLocation adapterId = buffer.readResourceLocation();
         String machineKey = buffer.readUtf(256);

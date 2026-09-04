@@ -1,16 +1,14 @@
 package io.github.langqi99.aeallpattern.aggregate;
 
 import appeng.api.crafting.IPatternDetails;
-import appeng.api.crafting.PatternDetailsTooltip;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
-import java.util.List;
 import net.minecraft.core.NonNullList;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.level.Level;
 
 /**
@@ -63,7 +61,7 @@ public final class AggregatePatternMarkerDetails
     }
 
     @Override
-    public List<GenericStack> getOutputs() {
+    public GenericStack[] getOutputs() {
         return delegate.getOutputs();
     }
 
@@ -78,14 +76,14 @@ public final class AggregatePatternMarkerDetails
     }
 
     @Override
-    public ItemStack assemble(CraftingInput input, Level level) {
+    public ItemStack assemble(Container input, Level level) {
         return delegate instanceof IMolecularAssemblerSupportedPattern assembler
                 ? assembler.assemble(input, level)
                 : ItemStack.EMPTY;
     }
 
     @Override
-    public NonNullList<ItemStack> getRemainingItems(CraftingInput input) {
+    public NonNullList<ItemStack> getRemainingItems(CraftingContainer input) {
         return delegate instanceof IMolecularAssemblerSupportedPattern assembler
                 ? assembler.getRemainingItems(input)
                 : NonNullList.create();
@@ -110,8 +108,4 @@ public final class AggregatePatternMarkerDetails
         }
     }
 
-    @Override
-    public PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
-        return delegate.getTooltip(level, flags);
-    }
 }

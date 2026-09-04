@@ -2437,7 +2437,7 @@ class CraftPlannerV2Test {
         assertEquals(one.itemsProcessed(), billion.itemsProcessed(),
                 "request magnitude must not multiply equivalent branch expansion");
         assertEquals(1_000_000_000L, billion.missing().get("E"));
-        assertEquals(1_000_000_000L, firingsOf(billion, alternatives.getFirst()));
+        assertEquals(1_000_000_000L, firingsOf(billion, alternatives.get(0)));
         for (int i = 1; i < alternatives.size(); i++) {
             assertEquals(0L, firingsOf(billion, alternatives.get(i)));
         }

@@ -2,16 +2,13 @@ package io.github.langqi99.aeallpattern.mixin;
 
 import java.util.List;
 import java.util.Set;
-import net.neoforged.fml.loading.FMLLoader;
+import net.minecraftforge.fml.loading.FMLLoader;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
 public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
     @Override public boolean shouldApplyMixin(String target, String mixin) {
-        if (mixin.endsWith("ClientJeiAggregateScannerMixin")) {
-            return loaded("emi") && loaded("toomanyrecipeviewers");
-        }
         if (mixin.contains("Ae2cs")) {
             return loaded("ae2cs");
         }
@@ -25,7 +22,7 @@ public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
             return loaded("extendedae_plus");
         }
         if (mixin.startsWith("io.github.langqi99.aeallpattern.mixin.ExtendedAe")) {
-            return loaded("extendedae");
+            return loaded("expatternprovider");
         }
         if (mixin.endsWith("PigmeePatternProviderBlockEntityMixin")) {
             return loaded("ae2lt");
@@ -36,6 +33,9 @@ public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
         }
         if (mixin.endsWith("StablePatternProviderLogicMixin")) {
             return loaded("ae2ltpp");
+        }
+        if (mixin.endsWith("OverloadedProviderPatternCatalogMixin")) {
+            return loaded("ae2lt");
         }
         if (mixin.endsWith("AdvancedAlloyFurnaceAeManagerMixin")) {
             return loaded("useless_mod");

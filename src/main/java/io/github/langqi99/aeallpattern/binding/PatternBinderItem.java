@@ -21,6 +21,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.Level;
+import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 /** Server-authoritative two-step binding tool. */
@@ -77,7 +79,7 @@ public final class PatternBinderItem extends Item {
                 GlobalPos.of(level.dimension(), clickedPos.immutable()),
                 BlockEntityFingerprint.of(linker),
                 level.getGameTime());
-        binder.set(ModDataComponents.ANCHOR_SELECTION.get(), selection);
+        ModDataComponents.setAnchorSelection(binder, selection);
         show(player, "message.aeallpattern.binding.anchor_selected",
                 clickedPos.getX(), clickedPos.getY(), clickedPos.getZ());
         return InteractionResult.SUCCESS;
@@ -90,7 +92,7 @@ public final class PatternBinderItem extends Item {
             Player player,
             ItemStack binder,
             BlockEntity targetBlockEntity) {
-        AnchorSelection selection = binder.get(ModDataComponents.ANCHOR_SELECTION.get());
+        AnchorSelection selection = ModDataComponents.getAnchorSelection(binder);
         if (selection == null) {
             show(player, "message.aeallpattern.binding.missing_selection");
             return InteractionResult.FAIL;
@@ -137,7 +139,7 @@ public final class PatternBinderItem extends Item {
         if (decision != BindingDecision.SUCCESS) {
             if (decision == BindingDecision.TOO_FAR) {
                 show(player, "message.aeallpattern.binding.too_far",
-                        AeAllPatternCommonConfig.LINKER_MAX_BINDING_DISTANCE.getAsInt());
+                        AeAllPatternCommonConfig.LINKER_MAX_BINDING_DISTANCE.get());
             } else {
                 show(player, "message.aeallpattern.binding." + decision.name().toLowerCase());
             }
@@ -189,9 +191,9 @@ public final class PatternBinderItem extends Item {
 
     @Override
     public void appendHoverText(
-            @NotNull ItemStack stack, @NotNull TooltipContext context, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
-        AnchorSelection selection = stack.get(ModDataComponents.ANCHOR_SELECTION.get());
+            @NotNull ItemStack stack, @Nullable Level level, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
+        AnchorSelection selection = ModDataComponents.getAnchorSelection(stack);
         if (selection == null) {
             tooltip.add(Component.translatable("tooltip.aeallpattern.pattern_binder.unbound"));
             return;
@@ -206,7 +208,7 @@ public final class PatternBinderItem extends Item {
 
     @Override
     public boolean isFoil(ItemStack stack) {
-        return stack.has(ModDataComponents.ANCHOR_SELECTION.get()) || super.isFoil(stack);
+        return ModDataComponents.hasAnchorSelection(stack) || super.isFoil(stack);
     }
 
     private static void show(Player player, String translationKey, Object... arguments) {

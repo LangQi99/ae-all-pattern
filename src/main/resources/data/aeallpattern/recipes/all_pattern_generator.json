@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "tools",
+  "key": {
+    "A": {
+      "item": "ae2:advanced_card"
+    },
+    "B": {
+      "item": "ae2:blank_pattern"
+    },
+    "C": {
+      "item": "ae2:calculation_processor"
+    },
+    "F": {
+      "item": "ae2:fluix_crystal"
+    },
+    "P": {
+      "item": "aeallpattern:pattern_binder"
+    }
+  },
+  "pattern": [
+    "FCF",
+    "APA",
+    "FBF"
+  ],
+  "result": {
+    "count": 1,
+    "item": "aeallpattern:all_pattern_generator"
+  }
+}

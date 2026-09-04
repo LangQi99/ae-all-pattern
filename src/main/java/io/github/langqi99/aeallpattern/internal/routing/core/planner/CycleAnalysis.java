@@ -269,7 +269,7 @@ final class CycleAnalysis<K> {
                     if (members.contains(byproduct.key())) return Kind.COMPLEX;
                 }
 
-                CraftInput<K> input = internal.getFirst();
+                CraftInput<K> input = internal.get(0);
                 InternalMode thisMode;
                 if (input.returned() && input.uses() == CraftInput.INFINITE_USES
                         && input.remainder() == null) {

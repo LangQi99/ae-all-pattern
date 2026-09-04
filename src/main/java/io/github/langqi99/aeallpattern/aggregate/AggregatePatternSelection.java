@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 
 /**
  * Per-item publication selection for one aggregate pattern.
@@ -30,8 +30,8 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
             Codec.STRING.listOf().optionalFieldOf("ids", List.of()).forGetter(AggregatePatternSelection::ids)
     ).apply(instance, AggregatePatternSelection::new));
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregatePatternSelection> STREAM_CODEC =
-            StreamCodec.of(AggregatePatternSelection::encode, AggregatePatternSelection::decode);
+    public static final FriendlyStreamCodec<AggregatePatternSelection> STREAM_CODEC =
+            FriendlyStreamCodec.of(AggregatePatternSelection::encode, AggregatePatternSelection::decode);
 
     public AggregatePatternSelection {
         if (ids == null) {
@@ -142,7 +142,7 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
         return withEnabled(patternIds, enabled).reconciled(currentPatternIds);
     }
 
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregatePatternSelection selection) {
+    private static void encode(FriendlyByteBuf buffer, AggregatePatternSelection selection) {
         buffer.writeBoolean(selection.inverted);
         buffer.writeVarInt(selection.ids.size());
         for (String id : selection.ids) {
@@ -150,7 +150,7 @@ public record AggregatePatternSelection(boolean inverted, List<String> ids) {
         }
     }
 
-    private static AggregatePatternSelection decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregatePatternSelection decode(FriendlyByteBuf buffer) {
         boolean inverted = buffer.readBoolean();
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_IDS) {

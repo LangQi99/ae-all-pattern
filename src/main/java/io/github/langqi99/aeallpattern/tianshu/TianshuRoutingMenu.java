@@ -4,7 +4,8 @@ import appeng.menu.AEBaseMenu;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicy;
 import io.github.langqi99.aeallpattern.registry.ModMenus;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
@@ -21,7 +22,7 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
     private int preferenceFlags = 90;
     private int preferenceOrder = CraftingRoutePolicy.DEFAULT_PREFERENCE_ORDER;
 
-    public TianshuRoutingMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
+    public TianshuRoutingMenu(int id, Inventory inventory, FriendlyByteBuf data) {
         this(id, inventory, blockEntity(inventory, data.readBlockPos()));
     }
 
@@ -131,7 +132,7 @@ public final class TianshuRoutingMenu extends AEBaseMenu {
     }
 
     private static int packDirection(int direction, int shift) {
-        return (Math.clamp(direction, -1, 1) + 1) << shift;
+        return (io.github.langqi99.aeallpattern.util.CompatMath.clamp(direction, -1, 1) + 1) << shift;
     }
 
     private static int unpackDirection(int flags, int shift) {

@@ -10,7 +10,7 @@ import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 public final class MachineAdapterRegistry {
     private static final List<MachineAdapter> ADAPTERS = new ArrayList<>();

@@ -84,12 +84,13 @@ class AggregatePatternSelectionTest {
     void serializedComponentContainsOnlyModeAndRecipeIds() {
         var selection = new AggregatePatternSelection(true, List.of("mod:recipe/a", "mod:recipe/b"));
         var encoded = AggregatePatternSelection.CODEC.encodeStart(JsonOps.INSTANCE, selection)
-                .getOrThrow().getAsJsonObject();
+                .getOrThrow(false, message -> {}).getAsJsonObject();
 
         assertEquals(2, encoded.size());
         assertTrue(encoded.has("inverted"));
         assertTrue(encoded.has("ids"));
-        assertEquals(selection, AggregatePatternSelection.CODEC.parse(JsonOps.INSTANCE, encoded).getOrThrow());
+        assertEquals(selection, AggregatePatternSelection.CODEC.parse(JsonOps.INSTANCE, encoded)
+                .getOrThrow(false, message -> {}));
     }
 
     @Test

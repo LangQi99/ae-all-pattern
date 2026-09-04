@@ -31,10 +31,10 @@ public record CraftingRoutePolicy(
     public static final int MAX_PRIORITY = 32;
 
     public CraftingRoutePolicy {
-        aggregatePriority = Math.clamp(aggregatePriority, MIN_PRIORITY, MAX_PRIORITY);
-        pathPreference = Math.clamp(pathPreference, -1, 1);
-        stockSurplusPreference = Math.clamp(stockSurplusPreference, -1, 1);
-        yieldPreference = Math.clamp(yieldPreference, -1, 1);
+        aggregatePriority = io.github.langqi99.aeallpattern.util.CompatMath.clamp(aggregatePriority, MIN_PRIORITY, MAX_PRIORITY);
+        pathPreference = io.github.langqi99.aeallpattern.util.CompatMath.clamp(pathPreference, -1, 1);
+        stockSurplusPreference = io.github.langqi99.aeallpattern.util.CompatMath.clamp(stockSurplusPreference, -1, 1);
+        yieldPreference = io.github.langqi99.aeallpattern.util.CompatMath.clamp(yieldPreference, -1, 1);
         preferenceOrder = normalizeOrder(preferenceOrder);
     }
 

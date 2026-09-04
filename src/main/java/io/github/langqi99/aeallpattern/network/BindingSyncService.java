@@ -6,8 +6,7 @@ import java.util.Objects;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 
 public final class BindingSyncService {
     private BindingSyncService() {
@@ -31,7 +30,7 @@ public final class BindingSyncService {
                 .map(binding -> new BindingRenderEntry(
                         binding.bindingId(), binding.target().dimension(), binding.target().pos(), (byte) 1))
                 .toList();
-        PacketDistributor.sendToPlayer(player, new BindingSyncPayload(entries));
+        BindingNetwork.sendToPlayer(player, new BindingSyncPayload(entries));
     }
 
     public static void sendToOnlinePlayers(MinecraftServer server) {

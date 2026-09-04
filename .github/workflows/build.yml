@@ -2,7 +2,7 @@ name: Build and compatibility tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, mc/1.20.1]
   pull_request:
   workflow_dispatch:
 
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Compile, unit test, and verify release contents
         run: ./gradlew clean check build --stacktrace
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Run ${{ matrix.name }} tests
         run: ./gradlew ${{ matrix.task }} --stacktrace
@@ -107,7 +107,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Run ${{ matrix.name }}-specific scanner tests
         run: ./gradlew ${{ matrix.task }} ${{ matrix.properties }} --stacktrace
@@ -136,7 +136,7 @@ jobs:
               -Pruntime_create=false -Pruntime_industrial_foregoing=false
               -Pruntime_neoecoae=false -Pruntime_ae_provider_addons=false
               -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=jei,ae2jeiintegration
+              -Pexpected_test_mods=jei
           - name: EMI-TMRV
             properties: >-
               -Pclient_smoke_test=true -Pruntime_jei=false -Pruntime_emi=true
@@ -144,13 +144,13 @@ jobs:
               -Pruntime_create=false -Pruntime_industrial_foregoing=false
               -Pruntime_neoecoae=false -Pruntime_ae_provider_addons=false
               -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration
+              -Pexpected_test_mods=emi,toomanyrecipeviewers
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Start the real client and exit after the title screen
         run: xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
@@ -182,7 +182,7 @@ jobs:
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
               -Pexpected_test_mods=aeallpattern,ae2
-              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,mekanism,appmek,create,industrialforegoing,mysticalagriculture,neoecoae,extendedae,advanced_ae,ae2cs,ae2lt,packagedauto
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,mekanism,appmek,create,industrialforegoing,mysticalagriculture,neoecoae,expatternprovider,extendedae_plus,advanced_ae,ae2cs,ae2lt,packagedauto
           - name: JEI-only
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=false
@@ -190,7 +190,7 @@ jobs:
               -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=jei,ae2jeiintegration
+              -Pexpected_test_mods=jei
               -Pforbidden_test_mods=emi,toomanyrecipeviewers
           - name: EMI-TMRV-only
             properties: >-
@@ -199,7 +199,7 @@ jobs:
               -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration
+              -Pexpected_test_mods=emi,toomanyrecipeviewers
           - name: Mekanism-JEI
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
@@ -207,7 +207,7 @@ jobs:
               -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=jei,ae2jeiintegration,mekanism,appmek
+              -Pexpected_test_mods=jei,mekanism,appmek
               -Pforbidden_test_mods=emi,toomanyrecipeviewers
           - name: Mekanism-EMI-TMRV
             properties: >-
@@ -216,7 +216,7 @@ jobs:
               -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
               -Pruntime_ae_provider_addons=false -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=emi,toomanyrecipeviewers,ae2jeiintegration,mekanism,appmek
+              -Pexpected_test_mods=emi,toomanyrecipeviewers,mekanism,appmek
           - name: Mekanism-factory-addons
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=true
@@ -242,8 +242,18 @@ jobs:
               -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
               -Pruntime_ae_provider_addons=true -Pruntime_packaged_addons=false
               -Pruntime_mekanism_addons=false
-              -Pexpected_test_mods=extendedae,extendedae_plus,advanced_ae,ae2cs,ae2lt,ae2ltpp,thunderbolt,ae2wtlib_api,glodium,geckolib,ae2addonlib
+              -Pruntime_extendedae_plus=false
+              -Pexpected_test_mods=expatternprovider,advanced_ae,ae2cs,ae2lt,thunderbolt,glodium,geckolib,ae2addonlib
               -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers
+          - name: ExtendedAE-Plus
+            properties: >-
+              -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_extendedae_plus=true
+              -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=expatternprovider,extendedae_plus,glodium
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,advanced_ae,ae2cs,ae2lt
           - name: PackagedAuto-ExtendedCrafting
             properties: >-
               -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
@@ -258,10 +268,12 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Download profile mods and run the no-GUI game server
         run: ./gradlew runGameTestServer ${{ matrix.properties }} --stacktrace
+      - name: Confirm that all required GameTests ran
+        run: grep -F 'All 55 required tests passed :)' run-gametest/logs/latest.log
       - name: Upload GameTest failure logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -283,7 +295,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Create and save the aggregate-pattern fixture
         run: >-

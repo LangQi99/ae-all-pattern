@@ -2,8 +2,8 @@ package io.github.langqi99.aeallpattern.aggregate;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 
 /** Per-item encoding preferences for one aggregate pattern. */
 public record AggregatePatternOptions(
@@ -118,7 +118,7 @@ public record AggregatePatternOptions(
             Codec.BOOL.optionalFieldOf("skip_durability_consuming_recipes", true)
                     .forGetter(AggregatePatternOptions::skipDurabilityConsumingRecipes)
     ).apply(instance, AggregatePatternOptions::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregatePatternOptions> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<AggregatePatternOptions> STREAM_CODEC = FriendlyStreamCodec.of(
             (buffer, options) -> buffer.writeVarInt(options.flags()),
             buffer -> fromFlags(buffer.readVarInt()));
 

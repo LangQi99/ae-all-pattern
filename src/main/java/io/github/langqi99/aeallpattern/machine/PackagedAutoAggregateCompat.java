@@ -21,7 +21,7 @@ public final class PackagedAutoAggregateCompat {
 
     public static boolean isAggregatePattern(ItemStack stack) {
         return stack.is(ModItems.AGGREGATE_PATTERN.get())
-                && stack.has(ModDataComponents.AGGREGATE_PATTERN.get());
+                && ModDataComponents.hasAggregatePattern(stack);
     }
 
     public static boolean hasAggregatePattern(Object provider) {

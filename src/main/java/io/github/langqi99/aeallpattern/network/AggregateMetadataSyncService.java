@@ -4,8 +4,7 @@ import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 
 import java.util.Objects;
 
@@ -34,7 +33,7 @@ public final class AggregateMetadataSyncService {
                         entry.batchCount() == 1
                                 && AggregateStartupRefreshState.isRequired(player.getServer(), entry.libraryId())))
                 .toList();
-        PacketDistributor.sendToPlayer(player, new AggregateMetadataPayload(entries));
+        BindingNetwork.sendToPlayer(player, new AggregateMetadataPayload(entries));
     }
 
     public static void sendToOnlinePlayers(MinecraftServer server) {

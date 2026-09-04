@@ -25,7 +25,7 @@ public interface MachineAdapter {
     /** Atomically accepts every input for one recipe. */
     default boolean insertRecipe(
             ServerLevel level, BindingRecord binding, RecipeSnapshot recipe, List<ItemStack> inputs) {
-        return inputs.size() == 1 && insert(level, binding, inputs.getFirst());
+        return inputs.size() == 1 && insert(level, binding, inputs.get(0));
     }
 
     /** Extracts one complete stack exposed by the machine's output capability. */

@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import io.github.langqi99.aeallpattern.AeAllPattern;
@@ -13,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -32,6 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * never stalls the server thread on a full 18k-pattern expansion; the completion callback
  * re-runs {@code rebuildPatternCache} once the whole list is ready.</p>
  */
+@Pseudo
 @Mixin(targets = "com.moakiee.ae2lt.blockentity.MatrixPatternStorageBlockEntity", remap = false)
 public abstract class MatrixPatternStorageBlockEntityMixin {
     @Inject(method = "rebuildPatternCache", at = @At("TAIL"), remap = false)

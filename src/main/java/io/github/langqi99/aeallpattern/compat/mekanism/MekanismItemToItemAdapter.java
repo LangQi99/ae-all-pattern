@@ -20,11 +20,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 /** Deterministic Mekanism one-item-input adapter using public recipe and capability APIs. */
 final class MekanismItemToItemAdapter implements MachineAdapter {
@@ -42,7 +41,7 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
             Supplier<RecipeType<ItemStackToItemStackRecipe>> recipeType,
             String singleMachinePath,
             String factorySuffix) {
-        this.id = ResourceLocation.fromNamespaceAndPath("mekanism", idPath);
+        this.id = new ResourceLocation("mekanism", idPath);
         this.recipeType = recipeType;
         this.vanillaSmelting = false;
         this.machineNamespace = "mekanism";
@@ -51,7 +50,7 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
     }
 
     MekanismItemToItemAdapter(String idPath, String singleMachinePath, String factorySuffix) {
-        this.id = ResourceLocation.fromNamespaceAndPath("mekanism", idPath);
+        this.id = new ResourceLocation("mekanism", idPath);
         this.recipeType = null;
         this.vanillaSmelting = true;
         this.machineNamespace = "mekanism";
@@ -65,7 +64,7 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
             String machineNamespace,
             String singleMachinePath,
             String factorySuffix) {
-        this.id = ResourceLocation.fromNamespaceAndPath("mekanism", idPath);
+        this.id = new ResourceLocation("mekanism", idPath);
         this.recipeType = recipeType;
         this.vanillaSmelting = false;
         this.machineNamespace = machineNamespace;
@@ -98,11 +97,11 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
         List<RecipeSnapshot> snapshots = new ArrayList<>();
         Set<List<String>> seen = new HashSet<>();
         int filtered = 0;
-        List<RecipeHolder<ItemStackToItemStackRecipe>> holders = new ArrayList<>(
+        List<ItemStackToItemStackRecipe> holders = new ArrayList<>(
                 level.getRecipeManager().getAllRecipesFor(recipeType.get()));
-        holders.sort(Comparator.comparing(holder -> holder.id().toString()));
-        for (RecipeHolder<ItemStackToItemStackRecipe> holder : holders) {
-            List<ItemStack> variants = holder.value().getInput().getRepresentations().stream()
+        holders.sort(Comparator.comparing(recipe -> recipe.getId().toString()));
+        for (ItemStackToItemStackRecipe recipe : holders) {
+            List<ItemStack> variants = recipe.getInput().getRepresentations().stream()
                     .sorted(Comparator.comparing(MekanismItemToItemAdapter::normalize))
                     .toList();
             if (variants.isEmpty() || variants.size() > MAX_INGREDIENT_VARIANTS) {
@@ -114,13 +113,13 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
                     filtered++;
                     break;
                 }
-                long needed = holder.value().getInput().getNeededAmount(representation);
+                long needed = recipe.getInput().getNeededAmount(representation);
                 if (needed < 1 || needed > representation.getMaxStackSize()) {
                     filtered++;
                     continue;
                 }
                 ItemStack input = representation.copyWithCount((int) needed);
-                ItemStack output = holder.value().getOutput(input).copy();
+                ItemStack output = recipe.getOutput(input).copy();
                 if (output.isEmpty()) {
                     filtered++;
                     continue;
@@ -133,8 +132,8 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
                     continue;
                 }
                 RecipeFingerprint fingerprint = new RecipeFingerprint(
-                        id.toString(), holder.id().toString(), normalizedInput, normalizedOutput, schemaVersion());
-                snapshots.add(new RecipeSnapshot(holder.id(), input, output, fingerprint, 200));
+                        id.toString(), recipe.getId().toString(), normalizedInput, normalizedOutput, schemaVersion());
+                snapshots.add(new RecipeSnapshot(recipe.getId(), input, output, fingerprint, 200));
             }
         }
         snapshots.sort(Comparator.comparing(snapshot -> snapshot.fingerprint().stableKey()));
@@ -146,10 +145,10 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
         Set<List<String>> seen = new HashSet<>();
         int filtered = 0;
         var holders = new ArrayList<>(level.getRecipeManager().getAllRecipesFor(RecipeType.SMELTING));
-        holders.sort(Comparator.comparing(holder -> holder.id().toString()));
-        for (RecipeHolder<net.minecraft.world.item.crafting.SmeltingRecipe> holder : holders) {
+        holders.sort(Comparator.comparing(recipe -> recipe.getId().toString()));
+        for (net.minecraft.world.item.crafting.SmeltingRecipe recipe : holders) {
             List<ItemStack> variants = java.util.Arrays.stream(
-                            holder.value().getIngredients().getFirst().getItems())
+                            recipe.getIngredients().get(0).getItems())
                     .sorted(Comparator.comparing(MekanismItemToItemAdapter::normalize))
                     .toList();
             if (variants.isEmpty() || variants.size() > MAX_INGREDIENT_VARIANTS) {
@@ -162,8 +161,8 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
                     break;
                 }
                 ItemStack input = variant.copyWithCount(Math.max(1, variant.getCount()));
-                ItemStack output = holder.value()
-                        .assemble(new SingleRecipeInput(input), level.registryAccess())
+                ItemStack output = recipe
+                        .assemble(new SimpleContainer(input), level.registryAccess())
                         .copy();
                 if (output.isEmpty()) {
                     filtered++;
@@ -177,9 +176,9 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
                     continue;
                 }
                 RecipeFingerprint fingerprint = new RecipeFingerprint(
-                        id.toString(), holder.id().toString(), normalizedInput, normalizedOutput, schemaVersion());
+                        id.toString(), recipe.getId().toString(), normalizedInput, normalizedOutput, schemaVersion());
                 snapshots.add(new RecipeSnapshot(
-                        holder.id(), input, output, fingerprint, holder.value().getCookingTime()));
+                        recipe.getId(), input, output, fingerprint, recipe.getCookingTime()));
             }
         }
         snapshots.sort(Comparator.comparing(snapshot -> snapshot.fingerprint().stableKey()));
@@ -189,16 +188,15 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
     @Override
     public boolean insert(ServerLevel level, BindingRecord binding, ItemStack stack) {
         for (Direction side : preferredFirst(binding.clickedSide())) {
-            var handler = level.getCapability(
-                    Capabilities.ItemHandler.BLOCK, binding.target().pos(), side);
+            var handler = ItemHandlerTransfer.find(level, binding.target().pos(), side);
             if (ItemHandlerTransfer.insertFully(handler, stack)) {
                 return true;
             }
         }
         // Setblock-created machines and some packs intentionally expose no configured side.
         // Mekanism's unsided automation handler still enforces per-slot insertion rules.
-        if (ItemHandlerTransfer.insertFully(level.getCapability(
-                Capabilities.ItemHandler.BLOCK, binding.target().pos(), null), stack)) {
+        if (ItemHandlerTransfer.insertFully(
+                ItemHandlerTransfer.find(level, binding.target().pos(), null), stack)) {
             return true;
         }
         return forceInsertIntoMekanismInput(level, binding, stack);
@@ -208,16 +206,15 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
     public ItemStack extractAnyOutput(
             ServerLevel level, BindingRecord binding, boolean simulate) {
         for (Direction side : preferredFirst(binding.clickedSide())) {
-            var handler = level.getCapability(
-                    Capabilities.ItemHandler.BLOCK, binding.target().pos(), side);
+            var handler = ItemHandlerTransfer.find(level, binding.target().pos(), side);
             ItemStack extracted = ItemHandlerTransfer.extractAny(handler, simulate);
             if (!extracted.isEmpty()) {
                 return extracted;
             }
         }
         // The unsided handler keeps input slots non-extractable and exposes completed outputs.
-        ItemStack extracted = ItemHandlerTransfer.extractAny(level.getCapability(
-                Capabilities.ItemHandler.BLOCK, binding.target().pos(), null), simulate);
+        ItemStack extracted = ItemHandlerTransfer.extractAny(
+                ItemHandlerTransfer.find(level, binding.target().pos(), null), simulate);
         if (!extracted.isEmpty()) {
             return extracted;
         }

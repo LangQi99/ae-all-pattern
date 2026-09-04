@@ -11,7 +11,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
-import java.util.List;
 import java.util.Objects;
 
 /** Registers aggregate patterns as encoded patterns and supplies a marker for expansion. */
@@ -23,7 +22,7 @@ public final class AggregatePatternDecoder implements IPatternDetailsDecoder {
     @Override
     public boolean isEncodedPattern(ItemStack stack) {
         return stack.is(ModItems.AGGREGATE_PATTERN.get())
-                && stack.has(ModDataComponents.AGGREGATE_PATTERN.get());
+                && ModDataComponents.hasAggregatePattern(stack);
     }
 
     @Override
@@ -47,9 +46,15 @@ public final class AggregatePatternDecoder implements IPatternDetailsDecoder {
         // Nothing is published right now (e.g. every child was deselected). The stand-in keeps
         // the item valid inside pattern slots; it is flagged so providers never publish it.
         ItemStack encoded = PatternDetailsHelper.encodeProcessingPattern(
-                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))),
-                List.of(Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.STONE)))));
+                new GenericStack[]{Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.COBBLESTONE)))},
+                new GenericStack[]{Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.STONE)))});
         IPatternDetails standIn = encoded.isEmpty() ? null : PatternDetailsHelper.decodePattern(encoded, level);
         return standIn == null ? null : new AggregatePatternMarkerDetails(key, standIn, true);
+    }
+
+    @Override
+    public IPatternDetails decodePattern(ItemStack stack, Level level, boolean tryRecovery) {
+        AEItemKey key = AEItemKey.of(stack);
+        return key == null ? null : decodePattern(key, level);
     }
 }

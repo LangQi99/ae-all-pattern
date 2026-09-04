@@ -196,13 +196,13 @@ final class ConservativeFeedbackAnalysis<K> {
 
         List<Transition<K>> cycle = new ArrayList<>(transitions.size());
         Set<CraftPattern<K>> visited = new HashSet<>();
-        Transition<K> current = transitions.getFirst();
+        Transition<K> current = transitions.get(0);
         while (visited.add(current.pattern())) {
             cycle.add(current);
             current = consumerByState.get(current.output());
             if (current == null) return null;
         }
-        if (current.pattern() != cycle.getFirst().pattern() || cycle.size() != transitions.size()) {
+        if (current.pattern() != cycle.get(0).pattern() || cycle.size() != transitions.size()) {
             return null;
         }
 

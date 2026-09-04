@@ -19,7 +19,7 @@
 ./gradlew -Pruntime_jei=true  -Pruntime_mekanism=true  runClient
 ```
 
-首次运行较慢是依赖解析、资产下载与 NeoForge 工作区准备；后续应命中 Gradle 缓存。
+首次运行较慢是依赖解析、资产下载与 Forge 工作区准备；后续应命中 Gradle 缓存。
 
 ## 启动顺序
 

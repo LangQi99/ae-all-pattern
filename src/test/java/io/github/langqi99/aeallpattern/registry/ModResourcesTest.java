@@ -22,9 +22,9 @@ class ModResourcesTest {
                 "assets/aeallpattern/blockstates/pattern_linker.json",
                 "assets/aeallpattern/models/block/pattern_linker.json",
                 "assets/aeallpattern/models/item/pattern_linker.json",
-                "data/aeallpattern/loot_table/blocks/pattern_linker.json",
-                "data/aeallpattern/tags/block/mineable/pickaxe.json",
-                "data/aeallpattern/recipe/pattern_linker.json")) {
+                "data/aeallpattern/loot_tables/blocks/pattern_linker.json",
+                "data/aeallpattern/tags/blocks/mineable/pickaxe.json",
+                "data/aeallpattern/recipes/pattern_linker.json")) {
             assertTrue(Files.isRegularFile(RESOURCES.resolve(relative)), () -> "missing resource: " + relative);
         }
     }
@@ -34,7 +34,7 @@ class ModResourcesTest {
         for (String relative : List.of(
                 "assets/aeallpattern/models/item/all_pattern_generator.json",
                 "assets/aeallpattern/models/item/aggregate_pattern.json",
-                "data/aeallpattern/recipe/all_pattern_generator.json",
+                "data/aeallpattern/recipes/all_pattern_generator.json",
                 "aeallpattern.mixins.json")) {
             assertTrue(Files.isRegularFile(RESOURCES.resolve(relative)), () -> "missing resource: " + relative);
         }
@@ -47,8 +47,8 @@ class ModResourcesTest {
                 "assets/aeallpattern/models/block/tianshu_pattern_selector.json",
                 "assets/aeallpattern/models/block/tianshu_pattern_selector_active.json",
                 "assets/aeallpattern/models/item/tianshu_pattern_selector.json",
-                "data/aeallpattern/loot_table/blocks/tianshu_pattern_selector.json",
-                "data/aeallpattern/recipe/tianshu_pattern_selector.json")) {
+                "data/aeallpattern/loot_tables/blocks/tianshu_pattern_selector.json",
+                "data/aeallpattern/recipes/tianshu_pattern_selector.json")) {
             assertTrue(Files.isRegularFile(RESOURCES.resolve(relative)), () -> "missing resource: " + relative);
         }
         for (String relative : List.of(

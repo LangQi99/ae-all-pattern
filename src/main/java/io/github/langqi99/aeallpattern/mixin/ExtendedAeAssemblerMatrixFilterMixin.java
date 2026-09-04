@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
@@ -8,12 +9,14 @@ import java.util.function.Supplier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /** Lets the assembler-matrix GUI accept aggregate encoded patterns. */
+@Pseudo
 @Mixin(targets = "com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixPattern$Filter",
         remap = false)
 public abstract class ExtendedAeAssemblerMatrixFilterMixin {
@@ -22,7 +25,7 @@ public abstract class ExtendedAeAssemblerMatrixFilterMixin {
     @Inject(method = "allowInsert", at = @At("HEAD"), cancellable = true, remap = false)
     private void aeallpattern$allowAggregate(InternalInventory inventory, int slot, ItemStack stack,
                                              CallbackInfoReturnable<Boolean> callback) {
-        if (stack.has(ModDataComponents.AGGREGATE_PATTERN.get())) {
+        if (ModDataComponents.hasAggregatePattern(stack)) {
             callback.setReturnValue(PatternDetailsHelper.decodePattern(stack, world().get())
                     instanceof IMolecularAssemblerSupportedPattern);
         }

@@ -8,8 +8,8 @@ import io.github.langqi99.aeallpattern.recipe.RecipeSnapshot;
 import java.util.List;
 import java.util.Objects;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.resources.ResourceLocation;
 
 /** One concrete native AE2 recipe stored inside an aggregate pattern. */
@@ -25,12 +25,12 @@ public record AggregateRecipe(
     public static final int MAX_INPUTS = 81;
     public static final int MAX_OUTPUTS = 27;
     public static final int MAX_TOTAL_INPUT_ALTERNATIVES = Integer.MAX_VALUE;
-    private static final Codec<List<GenericStack>> INPUTS_CODEC = GenericStack.CODEC.listOf()
-            .validate(inputs -> validateStacks(inputs, MAX_INPUTS, "inputs"));
-    private static final Codec<List<GenericStack>> OUTPUTS_CODEC = GenericStack.CODEC.listOf()
-            .validate(outputs -> validateStacks(outputs, MAX_OUTPUTS, "outputs"));
+    private static final Codec<List<GenericStack>> INPUTS_CODEC = GenericStackCodec.CODEC.listOf()
+            .flatXmap(inputs -> validateStacks(inputs, MAX_INPUTS, "inputs"), DataResult::success);
+    private static final Codec<List<GenericStack>> OUTPUTS_CODEC = GenericStackCodec.CODEC.listOf()
+            .flatXmap(outputs -> validateStacks(outputs, MAX_OUTPUTS, "outputs"), DataResult::success);
     private static final Codec<List<AggregateInputSlot>> INPUT_SLOTS_CODEC = AggregateInputSlot.CODEC.listOf()
-            .validate(AggregateRecipe::validateInputSlots);
+            .flatXmap(AggregateRecipe::validateInputSlots, DataResult::success);
 
     public static final Codec<AggregateRecipe> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("pattern_id").forGetter(AggregateRecipe::patternId),
@@ -44,7 +44,7 @@ public record AggregateRecipe(
                     .forGetter(AggregateRecipe::probabilisticOutputMask),
             Codec.INT.optionalFieldOf("processing_ticks", 1).forGetter(AggregateRecipe::processingTicks)
     ).apply(instance, AggregateRecipe::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregateRecipe> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<AggregateRecipe> STREAM_CODEC = FriendlyStreamCodec.of(
             AggregateRecipe::encode, AggregateRecipe::decode);
 
     public AggregateRecipe {
@@ -161,19 +161,19 @@ public record AggregateRecipe(
         return result;
     }
 
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregateRecipe recipe) {
+    private static void encode(FriendlyByteBuf buffer, AggregateRecipe recipe) {
         buffer.writeUtf(recipe.patternId(), 160);
         buffer.writeResourceLocation(recipe.recipeId());
         buffer.writeEnum(recipe.kind());
         buffer.writeVarInt(recipe.inputSlots.size());
         recipe.inputSlots.forEach(slot -> AggregateInputSlot.STREAM_CODEC.encode(buffer, slot));
         buffer.writeVarInt(recipe.outputs.size());
-        recipe.outputs.forEach(stack -> GenericStack.STREAM_CODEC.encode(buffer, stack));
+        recipe.outputs.forEach(stack -> GenericStack.writeBuffer(stack, buffer));
         buffer.writeVarInt(recipe.probabilisticOutputMask);
         buffer.writeVarInt(recipe.processingTicks());
     }
 
-    private static AggregateRecipe decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregateRecipe decode(FriendlyByteBuf buffer) {
         String patternId = buffer.readUtf(160);
         ResourceLocation recipeId = buffer.readResourceLocation();
         AggregatePatternKind kind = buffer.readEnum(AggregatePatternKind.class);
@@ -182,7 +182,7 @@ public record AggregateRecipe(
                 .mapToObj(index -> AggregateInputSlot.STREAM_CODEC.decode(buffer)).toList();
         int outputCount = checkedCount(buffer.readVarInt(), MAX_OUTPUTS, "output");
         List<GenericStack> outputs = java.util.stream.IntStream.range(0, outputCount)
-                .mapToObj(index -> GenericStack.STREAM_CODEC.decode(buffer)).toList();
+                .mapToObj(index -> java.util.Objects.requireNonNull(GenericStack.readBuffer(buffer))).toList();
         int probabilisticOutputMask = buffer.readVarInt();
         return new AggregateRecipe(
                 patternId, recipeId, kind,

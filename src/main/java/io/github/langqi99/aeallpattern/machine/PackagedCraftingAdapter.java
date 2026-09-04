@@ -30,10 +30,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.capabilities.Capabilities;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 
 /** Optional, dependency-free bridge to PackagedAuto's atomic crafting-machine protocol. */
 final class PackagedCraftingAdapter implements MachineAdapter {
@@ -86,16 +85,15 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         }
         List<RecipeSnapshot> snapshots = new ArrayList<>();
         int filtered = 0;
-        List<RecipeHolder<?>> holders = recipes(level, recipeType);
-        for (RecipeHolder<?> holder : holders.stream()
-                .sorted(Comparator.comparing(candidate -> candidate.id().toString())).toList()) {
+        List<Recipe<?>> holders = recipes(level, recipeType);
+        for (Recipe<?> recipe : holders.stream()
+                .sorted(Comparator.comparing(candidate -> candidate.getId().toString())).toList()) {
             try {
-                Recipe<?> recipe = holder.value();
                 if (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(recipe, "getTier"))) {
                     continue;
                 }
                 RecipeLayout layout = layout(spec, recipe);
-                Object info = createRecipeInfo(spec, holder.id(), layout, layout.primaryInputs());
+                Object info = createRecipeInfo(level, spec, recipe.getId(), layout, layout.primaryInputs());
                 if (!invokeBoolean(info, "isValid")) {
                     filtered++;
                     continue;
@@ -109,12 +107,12 @@ final class PackagedCraftingAdapter implements MachineAdapter {
                         .map(alternatives -> alternatives.stream().map(PackagedCraftingAdapter::normalize).toList().toString())
                         .toList().toString();
                 RecipeFingerprint fingerprint = new RecipeFingerprint(
-                        id().toString(), holder.id().toString(), normalizedInput, normalize(output), schemaVersion());
+                        id().toString(), recipe.getId().toString(), normalizedInput, normalize(output), schemaVersion());
                 snapshots.add(RecipeSnapshot.withAlternatives(
-                        holder.id(), layout.inputAlternatives, output, fingerprint, processingTicks(info)));
+                        recipe.getId(), layout.inputAlternatives, output, fingerprint, processingTicks(info)));
             } catch (ReflectiveOperationException | RuntimeException error) {
                 filtered++;
-                AeAllPattern.LOGGER.debug("Skipping unsupported packaged recipe {}", holder.id(), error);
+                AeAllPattern.LOGGER.debug("Skipping unsupported packaged recipe {}", recipe.getId(), error);
             }
         }
         snapshots.sort(Comparator.comparing(snapshot -> snapshot.fingerprint().stableKey()));
@@ -135,20 +133,20 @@ final class PackagedCraftingAdapter implements MachineAdapter {
             return false;
         }
         try {
-            RecipeHolder<?> holder = level.getRecipeManager().byKey(snapshot.recipeId()).orElse(null);
-            if (holder == null
-                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(holder.value(), "getTier")))) {
+            Recipe<?> recipe = level.getRecipeManager().byKey(snapshot.recipeId()).orElse(null);
+            if (recipe == null
+                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(recipe, "getTier")))) {
                 return false;
             }
-            RecipeLayout layout = layout(spec, holder.value());
+            RecipeLayout layout = layout(spec, recipe);
             if (inputs.size() != layout.inputAlternatives.size()) {
                 return false;
             }
-            Object info = createRecipeInfo(spec, holder.id(), layout, inputs);
+            Object info = createRecipeInfo(level, spec, recipe.getId(), layout, inputs);
             ItemStack actualOutput = firstOutput(info);
             ItemStack expectedOutput = snapshot.output();
             if (!invokeBoolean(info, "isValid")
-                    || !ItemStack.isSameItemSameComponents(actualOutput, expectedOutput)
+                    || !ItemStack.isSameItemSameTags(actualOutput, expectedOutput)
                     || actualOutput.getCount() != expectedOutput.getCount()) {
                 return false;
             }
@@ -170,18 +168,18 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     @Override
     public ItemStack extractAnyOutput(ServerLevel level, BindingRecord binding, boolean simulate) {
         for (Direction side : preferredFirst(binding.clickedSide())) {
-            ItemStack extracted = ItemHandlerTransfer.extractAny(level.getCapability(
-                    Capabilities.ItemHandler.BLOCK, binding.target().pos(), side), simulate);
+            ItemStack extracted = ItemHandlerTransfer.extractAny(
+                    ItemHandlerTransfer.find(level, binding.target().pos(), side), simulate);
             if (!extracted.isEmpty()) {
                 return extracted;
             }
         }
-        return ItemHandlerTransfer.extractAny(level.getCapability(
-                Capabilities.ItemHandler.BLOCK, binding.target().pos(), null), simulate);
+        return ItemHandlerTransfer.extractAny(
+                ItemHandlerTransfer.find(level, binding.target().pos(), null), simulate);
     }
 
     static List<Object> packageRecipeInfos(ServerLevel level, ItemStack aggregate) {
-        AggregatePatternRef ref = aggregate.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(aggregate);
         if (ref == null) {
             return List.of();
         }
@@ -189,7 +187,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         Spec spec = MACHINES.get(machineId);
         List<AggregateRecipe> recipes = AggregatePatternLibrary.get(level.getServer())
                 .recipes(level.getServer(), ref.libraryId()).orElse(List.of());
-        AggregatePatternOptions savedOptions = aggregate.get(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get());
+        AggregatePatternOptions savedOptions = ModDataComponents.getAggregatePatternOptions(aggregate);
         AggregatePatternOptions options = savedOptions == null ? AggregatePatternOptions.DEFAULT : savedOptions;
         List<Object> result = new ArrayList<>(recipes.size());
         for (AggregateRecipe aggregateRecipe : recipes) {
@@ -212,13 +210,13 @@ final class PackagedCraftingAdapter implements MachineAdapter {
             ServerLevel level, Spec spec, AggregateRecipe aggregateRecipe) {
         try {
             ResourceLocation recipeId = serverRecipeId(aggregateRecipe.recipeId());
-            RecipeHolder<?> holder = level.getRecipeManager().byKey(recipeId).orElse(null);
-            if (holder == null
-                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(holder.value(), "getTier")))) {
+            Recipe<?> recipe = level.getRecipeManager().byKey(recipeId).orElse(null);
+            if (recipe == null
+                    || (spec.tier > 0 && !supportsTier(spec.tier, invokeInt(recipe, "getTier")))) {
                 return null;
             }
-            RecipeLayout layout = layout(spec, holder.value());
-            Object info = createRecipeInfo(spec, holder.id(), layout, layout.primaryInputs());
+            RecipeLayout layout = layout(spec, recipe);
+            Object info = createRecipeInfo(level, spec, recipe.getId(), layout, layout.primaryInputs());
             return invokeBoolean(info, "isValid") && matchesOutput(info, aggregateRecipe) ? info : null;
         } catch (ReflectiveOperationException | RuntimeException error) {
             AeAllPattern.LOGGER.debug(
@@ -234,7 +232,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
         String value = recipeId.getPath().substring(1);
         int separator = value.indexOf('/');
         return separator > 0 && separator < value.length() - 1
-                ? ResourceLocation.fromNamespaceAndPath(value.substring(0, separator), value.substring(separator + 1))
+                ? new ResourceLocation(value.substring(0, separator), value.substring(separator + 1))
                 : recipeId;
     }
 
@@ -261,7 +259,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
                 }
                 inputs.add(stack);
             }
-            List<ItemStack> outputs = new ArrayList<>(details.getOutputs().size());
+            List<ItemStack> outputs = new ArrayList<>(details.getOutputs().length);
             for (GenericStack output : details.getOutputs()) {
                 ItemStack stack = itemStack(output, 1);
                 if (stack.isEmpty()) {
@@ -287,13 +285,13 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     }
 
     private static boolean matchesOutput(Object info, AggregateRecipe recipe) throws ReflectiveOperationException {
-        if (!(recipe.outputs().getFirst().what() instanceof AEItemKey key)
-                || recipe.outputs().getFirst().amount() > Integer.MAX_VALUE) {
+        if (!(recipe.outputs().get(0).what() instanceof AEItemKey key)
+                || recipe.outputs().get(0).amount() > Integer.MAX_VALUE) {
             return false;
         }
         ItemStack actual = firstOutput(info);
-        ItemStack expected = key.toStack((int) recipe.outputs().getFirst().amount());
-        return ItemStack.isSameItemSameComponents(actual, expected) && actual.getCount() == expected.getCount();
+        ItemStack expected = key.toStack((int) recipe.outputs().get(0).amount());
+        return ItemStack.isSameItemSameTags(actual, expected) && actual.getCount() == expected.getCount();
     }
 
     private static RecipeLayout layout(Spec spec, Recipe<?> recipe) throws ReflectiveOperationException {
@@ -330,13 +328,29 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     }
 
     private static Object createRecipeInfo(
-            Spec spec, ResourceLocation recipeId, RecipeLayout layout, List<ItemStack> supplied)
+            ServerLevel level, Spec spec, ResourceLocation recipeId, RecipeLayout layout, List<ItemStack> supplied)
             throws ReflectiveOperationException {
         Class<?> infoClass = Class.forName(spec.recipeInfoClass);
-        if (spec.kind == Kind.COMBINATION) {
-            Constructor<?> constructor = infoClass.getConstructor(ResourceLocation.class, ItemStack.class, List.class);
-            return constructor.newInstance(recipeId, supplied.getFirst().copy(), copy(supplied.subList(1, supplied.size())));
+        try {
+            if (spec.kind == Kind.COMBINATION) {
+                Constructor<?> constructor = infoClass.getConstructor(ResourceLocation.class, ItemStack.class, List.class);
+                return constructor.newInstance(
+                        recipeId, supplied.get(0).copy(), copy(supplied.subList(1, supplied.size())));
+            }
+            Constructor<?> constructor = infoClass.getConstructor(
+                    ResourceLocation.class, int.class, int.class, List.class);
+            return constructor.newInstance(recipeId, layout.width, layout.height, craftingMatrix(layout, supplied));
+        } catch (NoSuchMethodException ignored) {
+            // PackagedExCrafting 1.20.1 builds their recipe info through the encoder's
+            // 9x9 slot layout instead of the constructors used by newer releases.
+            Object info = infoClass.getConstructor().newInstance();
+            Method generate = infoClass.getMethod("generateFromStacks", List.class, List.class, net.minecraft.world.level.Level.class);
+            generate.invoke(info, encoderStacks(spec, layout, supplied), List.of(), level);
+            return info;
         }
+    }
+
+    private static List<ItemStack> craftingMatrix(RecipeLayout layout, List<ItemStack> supplied) {
         int size = Math.multiplyExact(layout.width, layout.height);
         List<ItemStack> matrix = new ArrayList<>(java.util.Collections.nCopies(size, ItemStack.EMPTY));
         for (int index = 0; index < supplied.size(); index++) {
@@ -346,15 +360,39 @@ final class PackagedCraftingAdapter implements MachineAdapter {
             }
             matrix.set(position, supplied.get(index).copy());
         }
-        Constructor<?> constructor = infoClass.getConstructor(
-                ResourceLocation.class, int.class, int.class, List.class);
-        return constructor.newInstance(recipeId, layout.width, layout.height, matrix);
+        return matrix;
+    }
+
+    private static List<ItemStack> encoderStacks(Spec spec, RecipeLayout layout, List<ItemStack> supplied) {
+        List<ItemStack> encoder = new ArrayList<>(java.util.Collections.nCopies(81, ItemStack.EMPTY));
+        if (spec.kind == Kind.COMBINATION) {
+            encoder.set(40, supplied.get(0).copy());
+            int suppliedIndex = 1;
+            for (int row = 1; row < 8 && suppliedIndex < supplied.size(); row++) {
+                for (int column = 1; column < 8 && suppliedIndex < supplied.size(); column++) {
+                    int slot = row * 9 + column;
+                    if (slot != 40) {
+                        encoder.set(slot, supplied.get(suppliedIndex++).copy());
+                    }
+                }
+            }
+            return encoder;
+        }
+
+        List<ItemStack> matrix = craftingMatrix(layout, supplied);
+        int offset = (9 - spec.gridSize) / 2;
+        for (int position = 0; position < matrix.size(); position++) {
+            int row = position / layout.width;
+            int column = position % layout.width;
+            encoder.set((row + offset) * 9 + column + offset, matrix.get(position).copy());
+        }
+        return encoder;
     }
 
     private static ItemStack firstOutput(Object info) throws ReflectiveOperationException {
         @SuppressWarnings("unchecked")
         List<ItemStack> outputs = (List<ItemStack>) info.getClass().getMethod("getOutputs").invoke(info);
-        return outputs.isEmpty() ? ItemStack.EMPTY : outputs.getFirst().copy();
+        return outputs.isEmpty() ? ItemStack.EMPTY : outputs.get(0).copy();
     }
 
     private static int processingTicks(Object info) {
@@ -386,7 +424,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes", "cast"})
-    private static List<RecipeHolder<?>> recipes(ServerLevel level, RecipeType<?> type) {
+    private static List<Recipe<?>> recipes(ServerLevel level, RecipeType<?> type) {
         return (List) level.getRecipeManager().getAllRecipesFor((RecipeType) type);
     }
 
@@ -397,7 +435,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     private static List<Direction> preferredFirst(Direction preferred) {
         List<Direction> sides = new ArrayList<>(List.of(Direction.values()));
         sides.remove(preferred);
-        sides.addFirst(preferred);
+        sides.add(0, preferred);
         return sides;
     }
 
@@ -446,11 +484,11 @@ final class PackagedCraftingAdapter implements MachineAdapter {
             int tier,
             int gridSize) {
         specs.put(id(namespace, path), new Spec(
-                ResourceLocation.parse(recipeType), recipeInfoClass, tier, gridSize, Kind.GRID));
+                new ResourceLocation(recipeType), recipeInfoClass, tier, gridSize, Kind.GRID));
     }
 
     private static ResourceLocation id(String namespace, String path) {
-        return ResourceLocation.fromNamespaceAndPath(namespace, path);
+        return new ResourceLocation(namespace, path);
     }
 
     private static Map.Entry<ResourceLocation, ResourceLocation> alias(
@@ -470,7 +508,7 @@ final class PackagedCraftingAdapter implements MachineAdapter {
     private record RecipeLayout(
             List<List<ItemStack>> inputAlternatives, List<Integer> positions, int width, int height) {
         private List<ItemStack> primaryInputs() {
-            return inputAlternatives.stream().map(List::getFirst).map(ItemStack::copy).toList();
+            return inputAlternatives.stream().map(alternatives -> alternatives.get(0)).map(ItemStack::copy).toList();
         }
     }
 }

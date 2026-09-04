@@ -151,7 +151,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
         if (menu.isLinkerConfiguration()) {
             return new ItemStack(ModItems.PATTERN_LINKER.get());
         }
-        AggregatePatternRef ref = menu.stack().get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(menu.stack());
         if (ref == null) {
             return ItemStack.EMPTY;
         }

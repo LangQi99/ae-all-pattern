@@ -19,14 +19,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.connection.ConnectionType;
+import net.minecraftforge.fluids.FluidStack;
 
 public final class EmiAggregateScanner {
     private static final AtomicBoolean RUNNING = new AtomicBoolean();
@@ -62,7 +62,7 @@ public final class EmiAggregateScanner {
         if (connection == null) { RUNNING.set(false); return true; }
         ResourceLocation catalystId = BuiltInRegistries.BLOCK.getKey(block);
         CompletableFuture.runAsync(() -> buildAndSend(machinePos, catalystId, block.getDescriptionId(), null,
-                candidates, connection.registryAccess(), connection.getConnectionType()))
+                candidates))
                 .whenComplete((ignored, error) -> RUNNING.set(false));
         return true;
     }
@@ -106,7 +106,7 @@ public final class EmiAggregateScanner {
             var connection = minecraft.getConnection();
             CompletableFuture.runAsync(() -> buildAndSend(
                     BlockPos.ZERO, entry.catalystId(), entry.machineTranslationKey(), entry.libraryId(),
-                    candidates, connection.registryAccess(), connection.getConnectionType()))
+                    candidates))
                     .whenComplete((ignored, error) -> RUNNING.set(false));
             return true;
         } catch (RuntimeException error) {
@@ -118,7 +118,7 @@ public final class EmiAggregateScanner {
 
     private static void buildAndSend(
             BlockPos pos, ResourceLocation catalystId, String machineName, UUID replacementLibraryId,
-            List<EmiRecipe> candidates, RegistryAccess registries, ConnectionType connectionType) {
+            List<EmiRecipe> candidates) {
         List<AggregateRecipe> recipes = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         int rejected = 0;
@@ -129,7 +129,7 @@ public final class EmiAggregateScanner {
                 Optional<AggregateRecipe> converted = toAggregate(recipe, ids);
                 if (converted.isEmpty()) {
                     rejected++;
-                } else if (canEncode(converted.orElseThrow(), registries, connectionType)) {
+                } else if (canEncode(converted.orElseThrow())) {
                     recipes.add(converted.orElseThrow());
                 } else {
                     encodingFailed++;
@@ -163,8 +163,8 @@ public final class EmiAggregateScanner {
         });
     }
 
-    private static boolean canEncode(AggregateRecipe recipe, RegistryAccess registries, ConnectionType type) {
-        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registries, type);
+    private static boolean canEncode(AggregateRecipe recipe) {
+        FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.buffer());
         try { AggregateRecipe.STREAM_CODEC.encode(buffer, recipe); return true; }
         catch (RuntimeException ignored) { return false; }
         finally { buffer.release(); }
@@ -189,11 +189,11 @@ public final class EmiAggregateScanner {
                 .limit(AggregateRecipe.MAX_OUTPUTS).toList();
         List<GenericStack> outputs = scannedOutputs.stream().map(ScannedOutput::stack).toList();
         if (inputs.size() != recipeInputs.size() || outputs.isEmpty()) return Optional.empty();
-        RecipeHolder<?> backing = recipe.getBackingRecipe();
-        if (backing != null && backing.value() instanceof CraftingRecipe && backing.value().isSpecial()) {
+        Recipe<?> backing = recipe.getBackingRecipe();
+        if (backing instanceof CraftingRecipe crafting && crafting.isSpecial()) {
             return Optional.empty();
         }
-        ResourceLocation id = backing == null ? recipe.getId() : backing.id();
+        ResourceLocation id = backing == null ? recipe.getId() : backing.getId();
         if (id == null) return Optional.empty();
         String patternId = patternId(recipe.getCategory().getId() + "/" + id);
         if (!ids.add(patternId)) return Optional.empty();
@@ -259,20 +259,20 @@ public final class EmiAggregateScanner {
 
     private static Optional<GenericStack> registered(TMRVStack<?> stack) {
         try {
-            Class<?> converters = Class.forName("tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverters");
+            Class<?> converters = Class.forName("appeng.api.integrations.jei.IngredientConverters");
             Object converter = converters.getMethod("getConverter", mezz.jei.api.ingredients.IIngredientType.class).invoke(null, stack.type);
             if (converter == null) return Optional.empty();
-            Method convert = Class.forName("tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverter")
+            Method convert = Class.forName("appeng.api.integrations.jei.IngredientConverter")
                     .getMethod("getStackFromIngredient", Object.class);
             GenericStack result = (GenericStack) convert.invoke(converter, stack.ingredient);
             return result == null ? Optional.empty() : Optional.of(new GenericStack(result.what(), stack.getAmount()));
         } catch (ReflectiveOperationException | RuntimeException ignored) { return Optional.empty(); }
     }
 
-    private static AggregatePatternKind kind(RecipeHolder<?> recipe) {
-        if (recipe != null && recipe.value() instanceof CraftingRecipe) return AggregatePatternKind.CRAFTING;
-        if (recipe != null && recipe.value() instanceof StonecutterRecipe) return AggregatePatternKind.STONECUTTING;
-        if (recipe != null && recipe.value() instanceof SmithingRecipe) return AggregatePatternKind.SMITHING;
+    private static AggregatePatternKind kind(Recipe<?> recipe) {
+        if (recipe instanceof CraftingRecipe) return AggregatePatternKind.CRAFTING;
+        if (recipe instanceof StonecutterRecipe) return AggregatePatternKind.STONECUTTING;
+        if (recipe instanceof SmithingRecipe) return AggregatePatternKind.SMITHING;
         return AggregatePatternKind.PROCESSING;
     }
 

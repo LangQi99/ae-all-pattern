@@ -393,9 +393,9 @@ public final class FastCraftingPlanner {
                 patternSources.computeIfAbsent(key,
                         ignored -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()))
                         .add(details);
-                List<GenericStack> outputs = details.getOutputs();
+                GenericStack[] outputs = details.getOutputs();
                 long routedOutputAmount = 0;
-                List<CraftOutput<AEKey>> byproducts = new ArrayList<>(Math.max(0, outputs.size() - 1));
+                List<CraftOutput<AEKey>> byproducts = new ArrayList<>(Math.max(0, outputs.length - 1));
                 for (GenericStack out : outputs) {
                     if (key.equals(out.what())) {
                         routedOutputAmount = Sat.add(routedOutputAmount, out.amount());
@@ -455,7 +455,7 @@ public final class FastCraftingPlanner {
                             break;
                         }
                         itemUnitKeys.add(inputKey);
-                        AEKey remaining = in.getRemainingKey(inputKey) instanceof AEKey r ? r : null;
+                        AEKey remaining = in.getRemainingKey(inputKey);
                         if (remaining == null) {
                             opts.add(CraftInput.of(inputKey, template.amount()));
                         } else if (remaining.equals(inputKey)) {
@@ -966,7 +966,7 @@ public final class FastCraftingPlanner {
             int stockSurplusPreference) {
         long units = Math.max(1, multiplier);
         if (options.size() == 1) {
-            return List.of(new SlotChoice(List.of(scaleInput(options.getFirst(), units))));
+            return List.of(new SlotChoice(List.of(scaleInput(options.get(0), units))));
         }
 
         int limit = (int) FUZZY_NONCYCLE_STEPS;

@@ -1,17 +1,19 @@
 package io.github.langqi99.aeallpattern.config;
 
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class AeAllPatternCommonConfig {
-    public static final ModConfigSpec SPEC;
-    public static final ModConfigSpec.IntValue LINKER_MAX_BINDING_DISTANCE;
-    public static final ModConfigSpec.BooleanValue LINKER_ALLOW_CROSS_DIMENSION;
-    public static final ModConfigSpec.IntValue SELECTION_DISPLAY_LIMIT;
-    public static final ModConfigSpec.IntValue AGGREGATE_RECIPE_LIMIT;
-    public static final ModConfigSpec.IntValue TAG_EXPANSION_LIMIT;
+    public static final int MIN_AGGREGATE_RECIPE_LIMIT = 1;
+    public static final int MAX_AGGREGATE_RECIPE_LIMIT = 1_048_576;
+    public static final ForgeConfigSpec SPEC;
+    public static final ForgeConfigSpec.IntValue LINKER_MAX_BINDING_DISTANCE;
+    public static final ForgeConfigSpec.BooleanValue LINKER_ALLOW_CROSS_DIMENSION;
+    public static final ForgeConfigSpec.IntValue SELECTION_DISPLAY_LIMIT;
+    public static final ForgeConfigSpec.IntValue AGGREGATE_RECIPE_LIMIT;
+    public static final ForgeConfigSpec.IntValue TAG_EXPANSION_LIMIT;
 
     static {
-        ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
+        ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
         builder.push("patternLinker");
         LINKER_MAX_BINDING_DISTANCE = builder
                 .comment("Maximum same-dimension distance in blocks between a linker and a bound machine. 0 is unlimited.")
@@ -28,7 +30,11 @@ public final class AeAllPatternCommonConfig {
                 .comment("Maximum number of recipes stored in a newly generated aggregate pattern.")
                 // This key intentionally differs from the old per-part limit. Existing 0.2.1
                 // configs must receive the new single-item default instead of retaining 16384.
-                .defineInRange("singlePatternRecipeLimit", 1_048_576, 1, 1_048_576);
+                .defineInRange(
+                        "singlePatternRecipeLimit",
+                        MAX_AGGREGATE_RECIPE_LIMIT,
+                        MIN_AGGREGATE_RECIPE_LIMIT,
+                        MAX_AGGREGATE_RECIPE_LIMIT);
         TAG_EXPANSION_LIMIT = builder
                 .comment("Maximum number of item alternatives expanded from one recipe ingredient tag.")
                 .defineInRange("tagExpansionLimit", 1024, 1, Integer.MAX_VALUE);
@@ -40,7 +46,11 @@ public final class AeAllPatternCommonConfig {
     }
 
     public static double maxBindingDistanceSquared() {
-        double distance = LINKER_MAX_BINDING_DISTANCE.getAsInt();
+        double distance = LINKER_MAX_BINDING_DISTANCE.get();
         return distance == 0 ? Double.POSITIVE_INFINITY : distance * distance;
+    }
+
+    public static boolean isAggregateRecipeLimitValid(int value) {
+        return value >= MIN_AGGREGATE_RECIPE_LIMIT && value <= MAX_AGGREGATE_RECIPE_LIMIT;
     }
 }

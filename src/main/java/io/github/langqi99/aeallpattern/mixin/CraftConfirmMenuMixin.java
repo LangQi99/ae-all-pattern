@@ -138,7 +138,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
             return;
         }
         java.util.List<GenericStack> extras = ByproductPlanWarnings.get(result);
-        aeallpattern$byproductWarning = extras.isEmpty() ? null : extras.getFirst();
+        aeallpattern$byproductWarning = extras.isEmpty() ? null : extras.get(0);
         aeallpattern$byproductWarningKinds = extras.size();
     }
 
@@ -217,7 +217,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
 
     @Unique
     private static int aeallpattern$packDirection(int direction, int shift) {
-        return (Math.clamp(direction, -1, 1) + 1) << shift;
+        return (io.github.langqi99.aeallpattern.util.CompatMath.clamp(direction, -1, 1) + 1) << shift;
     }
 
     @Unique

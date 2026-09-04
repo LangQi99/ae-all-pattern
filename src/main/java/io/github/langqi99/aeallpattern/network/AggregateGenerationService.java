@@ -73,7 +73,7 @@ public final class AggregateGenerationService {
         }
 
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
-        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        ModDataComponents.setAggregatePattern(aggregate, ref);
         if (!player.addItem(aggregate)) {
             player.drop(aggregate, false);
         }

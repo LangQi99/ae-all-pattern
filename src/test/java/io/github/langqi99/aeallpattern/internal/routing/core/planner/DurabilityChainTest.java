@@ -40,7 +40,7 @@ class DurabilityChainTest {
         assertEquals(d, chain.n(), "n is derived purely from chain length, not given");
         assertEquals(d, chain.links().size());
         assertEquals("t0", chain.carrier());
-        assertEquals("t0", chain.links().getFirst());
+        assertEquals("t0", chain.links().get(0));
         assertEquals("t999", chain.links().get((int) d - 1));
         assertEquals(d, chain.totalUses(), "one full tool = d uses");
     }
@@ -147,7 +147,7 @@ class DurabilityChainTest {
 
         assertEquals(2L, drawn.get("t0"), "ceil((d+1)/d) = 2 full tools drawn");
         List<String> links = chain.links();
-        assertEquals("t0", links.getFirst());
+        assertEquals("t0", links.get(0));
         assertEquals(d, links.size());
     }
 }

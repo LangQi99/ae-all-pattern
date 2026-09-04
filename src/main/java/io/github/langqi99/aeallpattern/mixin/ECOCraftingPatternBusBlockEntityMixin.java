@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.util.inv.AppEngInternalInventory;
@@ -12,20 +13,22 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+@Pseudo
 @Mixin(targets = "cn.dancingsnow.neoecoae.blocks.entity.crafting.ECOCraftingPatternBusBlockEntity", remap = false)
 public abstract class ECOCraftingPatternBusBlockEntityMixin {
     @Shadow @Final private AppEngInternalInventory inventory;
     @Shadow @Final private List<IPatternDetails> patternDetails;
 
-    @Inject(method = "isExecutablePattern", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "isExecutablePattern", at = @At("HEAD"), cancellable = true, require = 0)
     private void allowAggregate(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        if (stack.has(ModDataComponents.AGGREGATE_PATTERN.get())) cir.setReturnValue(true);
+        if (ModDataComponents.hasAggregatePattern(stack)) cir.setReturnValue(true);
     }
 
     @Inject(method = "updatePatternDetails", at = @At(value = "INVOKE",

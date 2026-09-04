@@ -8,6 +8,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.Level;
+import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 public final class TianshuPatternSelectorItem extends BlockItem {
@@ -18,7 +20,7 @@ public final class TianshuPatternSelectorItem extends BlockItem {
     @Override
     public void appendHoverText(
             @NotNull ItemStack stack,
-            Item.@NotNull TooltipContext context,
+            @Nullable Level level,
             List<Component> tooltip,
             @NotNull TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.aeallpattern.tianshu_pattern_selector.cpu")

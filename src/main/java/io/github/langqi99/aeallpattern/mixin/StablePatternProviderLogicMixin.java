@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
 import io.github.langqi99.aeallpattern.AeAllPattern;
@@ -12,6 +13,7 @@ import java.util.Set;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * aggregate. The override mirrors AE2's own bookkeeping, so the watched inputs are kept up to date
  * alongside the pattern list.</p>
  */
+@Pseudo
 @Mixin(targets = "com.moakiee.ae2lt.packaged.patternprovider.StablePatternProviderLogic", remap = false)
 public abstract class StablePatternProviderLogicMixin {
     @Unique private boolean aeallpattern$rerunning;

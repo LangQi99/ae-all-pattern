@@ -3,7 +3,7 @@
 ## 要求
 
 - macOS、Linux 或 Windows。
-- JDK 21；Minecraft 1.21.1 使用 Java 21。
+- JDK 17；Minecraft 1.20.1 Forge 使用 Java 17。
 - Git 2.40+。
 - 预留至少 6 GB 磁盘用于 Gradle 与 Minecraft 依赖缓存。
 - IDE 可选：IntelliJ IDEA，导入 Gradle 项目而不是手动新建 Java 项目。
@@ -22,7 +22,7 @@ Gradle Toolchain 会选择/下载合适 JDK。IDEA 中开启 Gradle source/javad
 
 ## 版本集中管理
 
-所有 Minecraft、NeoForge、AE2、JEI、Mekanism 与模组版本都放在 `gradle.properties`。元数据模板由构建时展开，禁止同时在 Java、TOML、README 多处手工维护不同版本。发布前用测试检查这些事实来源一致。
+所有 Minecraft、Forge、AE2、JEI、Mekanism 与模组版本都放在 `gradle.properties`。元数据模板由构建时展开，禁止同时在 Java、TOML、README 多处手工维护不同版本。发布前用测试检查这些事实来源一致。
 
 ## 本地文件
 

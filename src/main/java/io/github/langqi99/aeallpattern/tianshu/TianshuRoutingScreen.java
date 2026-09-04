@@ -138,7 +138,7 @@ public final class TianshuRoutingScreen extends AEBaseScreen<TianshuRoutingMenu>
                 22,
                 0xFF404052,
                 false);
-        Icon.PRIORITY.getBlitter().dest(99, 18).blit(graphics);
+        Icon.SORT_BY_AMOUNT.getBlitter().dest(99, 18).blit(graphics);
 
         graphics.fill(8, 36, 168, 50, 0xFFC7C7D2);
         graphics.renderOutline(8, 36, 160, 14, 0xFF777789);

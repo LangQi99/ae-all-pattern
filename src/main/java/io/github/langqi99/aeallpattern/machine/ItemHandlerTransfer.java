@@ -1,12 +1,23 @@
 package io.github.langqi99.aeallpattern.machine;
 
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 
 /** Simulation-first, whole-stack item transfers for machine adapters. */
 public final class ItemHandlerTransfer {
     private ItemHandlerTransfer() {
+    }
+
+    public static IItemHandler find(ServerLevel level, BlockPos pos, Direction side) {
+        var blockEntity = level.getBlockEntity(pos);
+        return blockEntity == null
+                ? null
+                : blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, side).orElse(null);
     }
 
     public static boolean insertFully(IItemHandler handler, ItemStack stack) {

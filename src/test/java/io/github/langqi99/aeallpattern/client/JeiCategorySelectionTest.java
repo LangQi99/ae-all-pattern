@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 @Tag("jei")
 class JeiCategorySelectionTest {
     private static ResourceLocation id(String value) {
-        return ResourceLocation.parse(value);
+        return new ResourceLocation(value);
     }
 
     @Test

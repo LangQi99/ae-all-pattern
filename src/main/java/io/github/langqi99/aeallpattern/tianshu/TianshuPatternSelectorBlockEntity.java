@@ -3,14 +3,13 @@ package io.github.langqi99.aeallpattern.tianshu;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.util.AECableType;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicy;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.SecondaryOutputPatternSource;
 import io.github.langqi99.aeallpattern.registry.ModBlockEntities;
 import io.github.langqi99.aeallpattern.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
@@ -23,7 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 
 /** Networked route-planning controller. Crafting execution remains the responsibility of normal AE CPUs. */
-public final class TianshuPatternSelectorBlockEntity extends AENetworkedBlockEntity implements MenuProvider {
+public final class TianshuPatternSelectorBlockEntity extends AENetworkBlockEntity implements MenuProvider {
     private static final double IDLE_POWER_USAGE = 16.0D;
     private static final String ROUTING_POLICY_TAG = "RoutingPolicy";
 
@@ -83,8 +82,8 @@ public final class TianshuPatternSelectorBlockEntity extends AENetworkedBlockEnt
     }
 
     @Override
-    public void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         CompoundTag policyTag = new CompoundTag();
         policyTag.putInt("AggregatePriority", routingPolicy.aggregatePriority());
         policyTag.putBoolean("RequireFeasible", routingPolicy.requireFeasible());
@@ -99,8 +98,8 @@ public final class TianshuPatternSelectorBlockEntity extends AENetworkedBlockEnt
     }
 
     @Override
-    public void loadTag(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadTag(tag, registries);
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
         if (tag.contains(ROUTING_POLICY_TAG, CompoundTag.TAG_COMPOUND)) {
             CompoundTag policyTag = tag.getCompound(ROUTING_POLICY_TAG);
             routingPolicy = new CraftingRoutePolicy(

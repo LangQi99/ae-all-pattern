@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 
 class GenerateAggregatePayloadTest {
     private static final ResourceLocation CATALYST =
-            ResourceLocation.fromNamespaceAndPath("aeallpattern", "test_machine");
+            new ResourceLocation("aeallpattern", "test_machine");
 
     @Test
     void emptyCatalogIsValidOnlyForAnExistingLibraryRefresh() {

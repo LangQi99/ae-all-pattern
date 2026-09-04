@@ -1,4 +1,5 @@
 package io.github.langqi99.aeallpattern.aggregate;
+import io.github.langqi99.aeallpattern.network.BindingNetwork;
 
 import appeng.api.stacks.GenericStack;
 import io.github.langqi99.aeallpattern.config.AeAllPatternCommonConfig;
@@ -10,7 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.Nullable;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -18,7 +20,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -58,7 +59,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         }
     }
 
-    public AggregatePatternSelectionMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
+    public AggregatePatternSelectionMenu(int id, Inventory inventory, FriendlyByteBuf data) {
         this(id, inventory, data.readEnum(InteractionHand.class), readEntries(data),
                 AggregatePatternSelection.STREAM_CODEC.decode(data));
     }
@@ -125,7 +126,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     }
 
     public static int uiPageSize() {
-        return Math.min(MAX_SYNCED_ENTRIES, AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT.getAsInt());
+        return Math.min(MAX_SYNCED_ENTRIES, AeAllPatternCommonConfig.SELECTION_DISPLAY_LIMIT.get());
     }
 
     public List<Entry> entries() {
@@ -143,7 +144,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         this.entryEnabledStates = List.copyOf(enabledStates);
         this.filteredView = filteredView;
         this.totalEntryCount = Math.max(0, totalEntryCount);
-        this.selectedEntryCount = Math.clamp(selectedEntryCount, 0, this.totalEntryCount);
+        this.selectedEntryCount = io.github.langqi99.aeallpattern.util.CompatMath.clamp(selectedEntryCount, 0, this.totalEntryCount);
     }
 
     /**
@@ -161,7 +162,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         if (!isSelectable(stack) || player.level().isClientSide()) {
             return;
         }
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref == null) {
             return;
         }
@@ -175,7 +176,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         List<AggregateRecipe> filteredRecipes = AggregatePatternSearch.filterRecipesAny(
                 recipes, searchText, Integer.MAX_VALUE);
         int resultPageCount = pageCount(filteredRecipes.size());
-        int resultPageIndex = Math.clamp(requestedPageIndex, 0, resultPageCount - 1);
+        int resultPageIndex = io.github.langqi99.aeallpattern.util.CompatMath.clamp(requestedPageIndex, 0, resultPageCount - 1);
         List<Entry> filtered = entriesFromRecipes(filteredRecipes, resultPageIndex);
         List<Boolean> enabledStates = filtered.stream()
                 .map(entry -> selection.isEnabled(entry.patternId()))
@@ -193,7 +194,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
             int from = chunkIndex * AggregateSearchResultPayload.MAX_ENTRIES_PER_PAGE;
             int to = Math.min(filtered.size(), from + AggregateSearchResultPayload.MAX_ENTRIES_PER_PAGE);
-            PacketDistributor.sendToPlayer(player, new AggregateSearchResultPayload(
+            BindingNetwork.sendToPlayer(player, new AggregateSearchResultPayload(
                     requestId,
                     chunkIndex,
                     chunkCount,
@@ -258,7 +259,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             boolean enabled = !updatedStates.get(id);
             updatedStates.set(id, enabled);
             entryEnabledStates = List.copyOf(updatedStates);
-            selectedEntryCount = Math.clamp(selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
+            selectedEntryCount = io.github.langqi99.aeallpattern.util.CompatMath.clamp(selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
         }
 
         if (player.level().isClientSide()) {
@@ -270,7 +271,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         if (!isSelectable(stack)) {
             return false;
         }
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref != null && player instanceof ServerPlayer serverPlayer) {
             List<String> currentPatternIds = AggregatePatternLibrary.get(serverPlayer.server)
                     .recipes(serverPlayer.server, ref.libraryId())
@@ -280,9 +281,9 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             updated = updated.reconciled(currentPatternIds);
         }
         if (updated.isAllEnabled()) {
-            stack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+            ModDataComponents.clearAggregatePatternSelection(stack);
         } else {
-            stack.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(), updated);
+            ModDataComponents.setAggregatePatternSelection(stack, updated);
         }
         player.getInventory().setChanged();
         selection = updated;
@@ -294,7 +295,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         if (!filteredView || player.level().isClientSide() || !(player instanceof ServerPlayer serverPlayer)) {
             return entries.stream().map(Entry::patternId).toList();
         }
-        AggregatePatternRef ref = stack().get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack());
         if (ref == null) {
             return List.of();
         }
@@ -318,7 +319,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             return true;
         }
         optionFlags = options(stack).flags() ^ mask;
-        stack.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.fromFlags(optionFlags));
+        ModDataComponents.setAggregatePatternOptions(stack, AggregatePatternOptions.fromFlags(optionFlags));
         player.getInventory().setChanged();
         broadcastChanges();
         return true;
@@ -336,11 +337,11 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
 
     private static boolean isSelectable(ItemStack stack) {
         return stack.is(ModItems.AGGREGATE_PATTERN.get())
-                && stack.has(ModDataComponents.AGGREGATE_PATTERN.get());
+                && ModDataComponents.hasAggregatePattern(stack);
     }
 
     private static AggregatePatternOptions options(ItemStack stack) {
-        AggregatePatternOptions options = stack.get(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get());
+        AggregatePatternOptions options = ModDataComponents.getAggregatePatternOptions(stack);
         return options == null ? AggregatePatternOptions.DEFAULT : options;
     }
 
@@ -348,7 +349,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         return options(stack());
     }
 
-    private static List<Entry> readEntries(RegistryFriendlyByteBuf buffer) {
+    private static List<Entry> readEntries(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_SYNCED_ENTRIES) {
             throw new IllegalArgumentException("invalid aggregate selection entry count: " + count);
@@ -361,14 +362,14 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         return entries;
     }
 
-    private static List<GenericStack> readStacks(RegistryFriendlyByteBuf buffer) {
+    private static List<GenericStack> readStacks(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_STACKS_PER_LIST) {
             throw new IllegalArgumentException("invalid aggregate selection stack count: " + count);
         }
         List<GenericStack> stacks = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            stacks.add(GenericStack.STREAM_CODEC.decode(buffer));
+            stacks.add(java.util.Objects.requireNonNull(GenericStack.readBuffer(buffer)));
         }
         return stacks;
     }

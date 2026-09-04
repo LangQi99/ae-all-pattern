@@ -1,5 +1,6 @@
 package io.github.langqi99.aeallpattern.mixin;
 
+
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.inventories.InternalInventory;
 import io.github.langqi99.aeallpattern.AeAllPattern;
@@ -11,6 +12,7 @@ import java.util.List;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * the same reason as {@link MatrixPatternStorageBlockEntityMixin}: a hard-coded {@code @Shadow}
  * type mismatch crashes startup on ae2lt builds that changed their field types.</p>
  */
+@Pseudo
 @Mixin(targets = "com.moakiee.ae2lt.blockentity.PigmeePatternProviderBlockEntity", remap = false)
 public abstract class PigmeePatternProviderBlockEntityMixin {
     @Unique private boolean aeallpattern$rerunning;

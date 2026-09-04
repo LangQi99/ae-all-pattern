@@ -1,4 +1,5 @@
 package io.github.langqi99.aeallpattern.client;
+import io.github.langqi99.aeallpattern.network.BindingNetwork;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -24,7 +25,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -235,9 +235,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     /** Uses a bounded share of the screen instead of growing to nearly full-screen. */
     private void updateAdaptiveDimensions() {
         int targetWidth = Math.round(width * SCREEN_WIDTH_RATIO);
-        columns = Math.clamp((targetWidth - NON_GRID_WIDTH) / SLOT_PITCH, MIN_COLUMNS, MAX_COLUMNS);
+        columns = io.github.langqi99.aeallpattern.util.CompatMath.clamp((targetWidth - NON_GRID_WIDTH) / SLOT_PITCH, MIN_COLUMNS, MAX_COLUMNS);
         int targetHeight = Math.round(height * SCREEN_HEIGHT_RATIO);
-        visibleRows = Math.clamp(
+        visibleRows = io.github.langqi99.aeallpattern.util.CompatMath.clamp(
                 (targetHeight - GRID_TOP - BOTTOM_AREA + 1) / SLOT_PITCH,
                 MIN_VISIBLE_ROWS,
                 MAX_VISIBLE_ROWS);
@@ -323,7 +323,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
 
     private void clampScroll() {
         int maxScroll = Math.max(0, menu.entries().size() - visibleSlots());
-        scrollOffset = Math.clamp(scrollOffset, 0, maxScroll);
+        scrollOffset = io.github.langqi99.aeallpattern.util.CompatMath.clamp(scrollOffset, 0, maxScroll);
     }
 
     private int visibleSlots() {
@@ -331,8 +331,8 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        if (super.mouseScrolled(mouseX, mouseY, scrollY)) {
             return true;
         }
         if (!settingsPage && scrollY != 0) {
@@ -401,7 +401,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         pendingPages.clear();
         pendingEnabledStates.clear();
         updatePageButtons();
-        PacketDistributor.sendToServer(new AggregateSearchPayload(
+        BindingNetwork.sendToServer(new AggregateSearchPayload(
                 pendingRequestId, searchBox.getValue(), true, Math.max(0, pageIndex)));
     }
 
@@ -501,7 +501,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         int thumbHeight = Math.max(12, trackHeight * visibleSlots() / total);
         int maxScroll = total - visibleSlots();
         double relative = (mouseY - trackY - thumbHeight / 2.0) / Math.max(1.0, trackHeight - thumbHeight);
-        scrollOffset = (int) Math.round(Math.clamp(relative, 0.0, 1.0) * maxScroll);
+        scrollOffset = (int) Math.round(io.github.langqi99.aeallpattern.util.CompatMath.clamp(relative, 0.0, 1.0) * maxScroll);
         clampScroll();
     }
 
@@ -619,7 +619,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private void renderMainTabs(GuiGraphics graphics, int mouseX, int mouseY) {
-        renderMainTab(graphics, 0, Icon.COG, settingsPage, mouseX, mouseY);
+        renderMainTab(graphics, 0, Icon.WRENCH, settingsPage, mouseX, mouseY);
         renderMainTab(graphics, 1, Icon.PATTERN_ACCESS_SHOW, !settingsPage, mouseX, mouseY);
     }
 
@@ -628,9 +628,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         int x = leftPos - SIDE_TAB_WIDTH;
         int y = topPos + 7 + index * SIDE_TAB_HEIGHT;
         Icon background = active
-                ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS
+                ? Icon.TAB_BUTTON_BACKGROUND_FOCUS
                 : inMainTab(mouseX, mouseY, index)
-                        ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                        ? Icon.TAB_BUTTON_BACKGROUND_FOCUS
                         : Icon.TOOLBAR_BUTTON_BACKGROUND;
         background.getBlitter().dest(x, y, SIDE_TAB_WIDTH, SIDE_TAB_HEIGHT).blit(graphics);
         icon.getBlitter().dest(x + 2, y + 3, 18, 18).blit(graphics);
@@ -698,7 +698,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         List<Component> lines = new ArrayList<>();
         lines.add(entry.outputs().isEmpty()
                 ? Component.literal(entry.patternId())
-                : entry.outputs().getFirst().what().getDisplayName());
+                : entry.outputs().get(0).what().getDisplayName());
         lines.add(Component.translatable("gui.aeallpattern.aggregate_selection.inputs")
                 .withStyle(ChatFormatting.GRAY));
         entry.inputs().stream().limit(9).forEach(stack ->
@@ -732,7 +732,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (entry.outputs().isEmpty()) {
             return ItemStack.EMPTY;
         }
-        AEKey key = entry.outputs().getFirst().what();
+        AEKey key = entry.outputs().get(0).what();
         return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
     }
 
@@ -740,7 +740,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (entry.inputs().isEmpty()) {
             return ItemStack.EMPTY;
         }
-        AEKey key = entry.inputs().getFirst().what();
+        AEKey key = entry.inputs().get(0).what();
         return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
     }
 
@@ -806,7 +806,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private ItemStack machineStack() {
-        AggregatePatternRef ref = menu.stack().get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(menu.stack());
         if (ref == null) {
             return ItemStack.EMPTY;
         }

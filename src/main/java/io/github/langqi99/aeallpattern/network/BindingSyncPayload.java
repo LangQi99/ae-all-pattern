@@ -1,21 +1,15 @@
 package io.github.langqi99.aeallpattern.network;
 
-import io.github.langqi99.aeallpattern.AeAllPattern;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
 
-public record BindingSyncPayload(List<BindingRenderEntry> entries) implements CustomPacketPayload {
+public record BindingSyncPayload(List<BindingRenderEntry> entries) {
     private static final int MAX_ENTRIES = 4096;
-    public static final Type<BindingSyncPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "binding_sync"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, BindingSyncPayload> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<BindingSyncPayload> STREAM_CODEC = FriendlyStreamCodec.of(
             BindingSyncPayload::encode,
             BindingSyncPayload::decode);
 
@@ -26,12 +20,7 @@ public record BindingSyncPayload(List<BindingRenderEntry> entries) implements Cu
         }
     }
 
-    @Override
-    public @NotNull Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
-
-    private static void encode(RegistryFriendlyByteBuf buffer, BindingSyncPayload payload) {
+    private static void encode(FriendlyByteBuf buffer, BindingSyncPayload payload) {
         buffer.writeVarInt(payload.entries.size());
         for (BindingRenderEntry entry : payload.entries) {
             buffer.writeUUID(entry.bindingId());
@@ -41,7 +30,7 @@ public record BindingSyncPayload(List<BindingRenderEntry> entries) implements Cu
         }
     }
 
-    private static BindingSyncPayload decode(RegistryFriendlyByteBuf buffer) {
+    private static BindingSyncPayload decode(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_ENTRIES) {
             throw new IllegalArgumentException("invalid binding render entry count: " + count);

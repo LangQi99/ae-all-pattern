@@ -5,18 +5,20 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.network.BindingRenderEntry;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.debug.DebugRenderer;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import io.github.langqi99.aeallpattern.registry.ModMenus;
 import io.github.langqi99.aeallpattern.tianshu.TianshuRoutingScreen;
 import appeng.init.client.InitScreens;
@@ -29,17 +31,20 @@ public final class ClientEvents {
     }
 
     public static void register() {
-        NeoForge.EVENT_BUS.addListener(ClientEvents::renderBindings);
-        NeoForge.EVENT_BUS.addListener(ClientEvents::onLogout);
-        NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
-        NeoForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
-        NeoForge.EVENT_BUS.addListener(AggregateStartupRefreshService::onClientTick);
+        MinecraftForge.EVENT_BUS.addListener(ClientEvents::renderBindings);
+        MinecraftForge.EVENT_BUS.addListener(ClientEvents::onLogout);
+        MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
+        MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
+        MinecraftForge.EVENT_BUS.addListener(AggregateStartupRefreshService::onClientTick);
         if (Boolean.getBoolean("aeallpattern.clientSmokeTest")) {
-            NeoForge.EVENT_BUS.addListener(ClientEvents::runClientSmokeTest);
+            MinecraftForge.EVENT_BUS.addListener(ClientEvents::runClientSmokeTest);
         }
     }
 
-    private static void runClientSmokeTest(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+    private static void runClientSmokeTest(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen == null || ++smokeTestTicks < 20) {
             return;
@@ -50,18 +55,29 @@ public final class ClientEvents {
                 throw new IllegalStateException("Client smoke test expected mod '" + modId + "' but it was not loaded");
             }
         }
+        for (String path : java.util.List.of(
+                "models/item/aggregate_pattern.json",
+                "models/item/pattern_binder.json",
+                "models/block/pattern_linker.json",
+                "blockstates/pattern_linker.json")) {
+            ResourceLocation resource = new ResourceLocation(AeAllPattern.MOD_ID, path);
+            if (minecraft.getResourceManager().getResource(resource).isEmpty()) {
+                throw new IllegalStateException("Client smoke test could not load resource '" + resource + "'");
+            }
+        }
         AeAllPattern.LOGGER.info("CLIENT_SMOKE_TEST_PASSED");
         minecraft.stop();
     }
 
-    public static void registerScreens(RegisterMenuScreensEvent event) {
-        event.register(ModMenus.AGGREGATE_PATTERN_CONFIG.get(), AggregatePatternConfigScreen::new);
-        event.register(ModMenus.AGGREGATE_PATTERN_SELECTION.get(), AggregatePatternSelectionScreen::new);
-        InitScreens.register(
-                event,
-                ModMenus.TIANSHU_ROUTING.get(),
-                TianshuRoutingScreen::new,
-                "/screens/priority.json");
+    public static void registerScreens(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> {
+            MenuScreens.register(ModMenus.AGGREGATE_PATTERN_CONFIG.get(), AggregatePatternConfigScreen::new);
+            MenuScreens.register(ModMenus.AGGREGATE_PATTERN_SELECTION.get(), AggregatePatternSelectionScreen::new);
+            InitScreens.register(
+                    ModMenus.TIANSHU_ROUTING.get(),
+                    TianshuRoutingScreen::new,
+                    "/screens/goldentweaks_tianshu_priority.json");
+        });
     }
 
     public static void registerConfigScreen(FMLClientSetupEvent event) {
@@ -96,7 +112,8 @@ public final class ClientEvents {
                 continue;
             }
             AABB bounds = blockBounds(minecraft, binding);
-            float pulse = 0.72F + 0.18F * (float) Math.sin((minecraft.level.getGameTime() + event.getPartialTick().getGameTimeDeltaPartialTick(false)) * 0.12F);
+            float pulse = 0.72F + 0.18F * (float) Math.sin(
+                    (minecraft.level.getGameTime() + event.getPartialTick()) * 0.12F);
             renderFrame(poses, buffers, bounds.inflate(0.035), pulse);
             VertexConsumer lines = buffers.getBuffer(RenderType.lines());
             LevelRenderer.renderLineBox(poses, lines, bounds.inflate(0.004), 0.68F, 0.25F, 1.0F, pulse);

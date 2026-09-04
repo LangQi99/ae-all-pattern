@@ -63,7 +63,7 @@ public final class RecipeSnapshot {
                     return alternatives.stream().map(stack -> requireStack(stack, "input")).toList();
                 })
                 .toList();
-        this.inputs = this.inputAlternatives.stream().map(List::getFirst).toList();
+        this.inputs = this.inputAlternatives.stream().map(alternatives -> alternatives.get(0)).toList();
         this.output = requireStack(output, "output");
         this.fingerprint = Objects.requireNonNull(fingerprint, "fingerprint");
         this.processingTicks = Math.max(1, processingTicks);
@@ -74,7 +74,7 @@ public final class RecipeSnapshot {
     }
 
     public ItemStack input() {
-        return inputs.getFirst().copy();
+        return inputs.get(0).copy();
     }
 
     public List<ItemStack> inputs() {

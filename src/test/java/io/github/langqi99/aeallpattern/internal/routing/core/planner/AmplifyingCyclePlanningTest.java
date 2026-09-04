@@ -233,7 +233,7 @@ class AmplifyingCyclePlanningTest {
         Object scope = new TestStockAlias(sourceId);
         ReusableStockSource seedSource = new ReusableStockSource(scope, scope);
         var inputs = new java.util.ArrayList<>(externalInputs);
-        inputs.addFirst(CraftInput.of(key, seedAmount));
+        inputs.add(0, CraftInput.of(key, seedAmount));
         CraftPattern<String> raw = new CraftPattern<>(
                 key, outputAmount, inputs, byproducts, sourceId);
         var compiled = AmplifyingCycleCompiler.compile(

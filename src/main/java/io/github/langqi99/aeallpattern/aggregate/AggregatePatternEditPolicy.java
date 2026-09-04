@@ -58,7 +58,7 @@ public final class AggregatePatternEditPolicy {
         if (!stack.is(ModItems.AGGREGATE_PATTERN.get())) {
             return false;
         }
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref == null || !(level instanceof ServerLevel serverLevel)) {
             return false;
         }

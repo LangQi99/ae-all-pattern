@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.Consumer;
 import net.minecraft.server.MinecraftServer;
-import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.minecraftforge.event.OnDatapackSyncEvent;
 
 /** Refreshes loaded AE2 pattern providers after server recipes finish reloading. */
 public final class AggregateProviderRefreshService {

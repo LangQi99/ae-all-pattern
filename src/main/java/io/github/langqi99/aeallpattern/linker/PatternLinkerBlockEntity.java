@@ -5,7 +5,7 @@ import appeng.api.networking.GridFlags;
 import appeng.api.networking.crafting.ICraftingProvider;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
-import appeng.blockentity.grid.AENetworkedBlockEntity;
+import appeng.blockentity.grid.AENetworkBlockEntity;
 import io.github.langqi99.aeallpattern.ae.VirtualCraftingProvider;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternOptions;
@@ -16,7 +16,6 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
@@ -33,7 +32,7 @@ import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.NotNull;
 
 /** AE-owned anchor for bindings. It consumes one channel and a small idle power budget. */
-public final class PatternLinkerBlockEntity extends AENetworkedBlockEntity implements MenuProvider {
+public final class PatternLinkerBlockEntity extends AENetworkBlockEntity implements MenuProvider {
     private static final String OWNER_TAG = "Owner";
     private static final String OPTIONS_TAG = "PatternOptions";
     private static final double IDLE_POWER_USAGE = 2.0;
@@ -126,23 +125,23 @@ public final class PatternLinkerBlockEntity extends AENetworkedBlockEntity imple
     }
 
     @Override
-    public void loadTag(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadTag(tag, registries);
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
         ownerId = tag.hasUUID(OWNER_TAG) ? tag.getUUID(OWNER_TAG) : null;
         patternOptions = tag.contains(OPTIONS_TAG)
                 ? AggregatePatternOptions.fromFlags(tag.getInt(OPTIONS_TAG))
                 : AggregatePatternOptions.DEFAULT;
-        incomingBuffer.load(tag, registries);
+        incomingBuffer.load(tag);
     }
 
     @Override
-    public void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
         if (ownerId != null) {
             tag.putUUID(OWNER_TAG, ownerId);
         }
         tag.putInt(OPTIONS_TAG, patternOptions.flags());
-        incomingBuffer.save(tag, registries);
+        incomingBuffer.save(tag);
     }
 
     @Override

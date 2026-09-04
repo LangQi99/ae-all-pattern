@@ -43,7 +43,7 @@ public final class AggregateProviderExpansion {
         boolean pending = false;
         for (int slot = 0; slot < inventory.size(); slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
-            if (stack.isEmpty() || !stack.has(ModDataComponents.AGGREGATE_PATTERN.get())) {
+            if (stack.isEmpty() || !ModDataComponents.hasAggregatePattern(stack)) {
                 continue;
             }
             List<IPatternDetails> expanded =

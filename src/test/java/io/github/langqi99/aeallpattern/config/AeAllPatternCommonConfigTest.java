@@ -12,9 +12,9 @@ class AeAllPatternCommonConfigTest {
     void aggregateRecipeLimitHasRequestedRangeAndDefault() {
         assertEquals(1_048_576, AggregatePatternData.MAX_RECIPES);
         assertEquals(1_048_576, AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getDefault());
-        assertTrue(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getSpec().test(1));
-        assertTrue(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getSpec().test(1_048_576));
-        assertFalse(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getSpec().test(1_048_577));
-        assertFalse(AeAllPatternCommonConfig.AGGREGATE_RECIPE_LIMIT.getSpec().test(0));
+        assertTrue(AeAllPatternCommonConfig.isAggregateRecipeLimitValid(1));
+        assertTrue(AeAllPatternCommonConfig.isAggregateRecipeLimitValid(1_048_576));
+        assertFalse(AeAllPatternCommonConfig.isAggregateRecipeLimitValid(1_048_577));
+        assertFalse(AeAllPatternCommonConfig.isAggregateRecipeLimitValid(0));
     }
 }

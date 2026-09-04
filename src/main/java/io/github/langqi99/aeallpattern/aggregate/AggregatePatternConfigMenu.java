@@ -6,7 +6,8 @@ import io.github.langqi99.aeallpattern.registry.ModMenus;
 import io.github.langqi99.aeallpattern.linker.PatternLinkerBlockEntity;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -38,7 +39,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
     private final BlockPos linkerPos;
     private int optionFlags;
 
-    public AggregatePatternConfigMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
+    public AggregatePatternConfigMenu(int id, Inventory inventory, FriendlyByteBuf data) {
         this(id, inventory, readTarget(data));
     }
 
@@ -104,7 +105,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
             linker.setPatternOptions(AggregatePatternOptions.fromFlags(optionFlags));
         } else {
             optionFlags = options(stack).flags() ^ mask;
-            stack.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.fromFlags(optionFlags));
+            ModDataComponents.setAggregatePatternOptions(stack, AggregatePatternOptions.fromFlags(optionFlags));
             player.getInventory().setChanged();
         }
         broadcastChanges();
@@ -128,11 +129,11 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
 
     private static boolean isConfigurable(ItemStack stack) {
         return stack.is(ModItems.AGGREGATE_PATTERN.get())
-                && stack.has(ModDataComponents.AGGREGATE_PATTERN.get());
+                && ModDataComponents.hasAggregatePattern(stack);
     }
 
     private static AggregatePatternOptions options(ItemStack stack) {
-        AggregatePatternOptions options = stack.get(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get());
+        AggregatePatternOptions options = ModDataComponents.getAggregatePatternOptions(stack);
         return options == null ? AggregatePatternOptions.DEFAULT : options;
     }
 
@@ -154,7 +155,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
         return linker;
     }
 
-    private static Target readTarget(RegistryFriendlyByteBuf data) {
+    private static Target readTarget(FriendlyByteBuf data) {
         return data.readBoolean()
                 ? new Target(null, data.readBlockPos())
                 : new Target(data.readEnum(InteractionHand.class), null);

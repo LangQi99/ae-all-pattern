@@ -1,17 +1,14 @@
 package io.github.langqi99.aeallpattern.network;
 
-import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
 
 /** One bounded page of a client JEI scan. No packet can contain the whole catalog. */
 public record GenerateAggregatePayload(
@@ -23,10 +20,8 @@ public record GenerateAggregatePayload(
         int pageIndex,
         int pageCount,
         int totalRecipeCount,
-        List<AggregateRecipe> recipes) implements CustomPacketPayload {
-    public static final Type<GenerateAggregatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "generate_aggregate"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, GenerateAggregatePayload> STREAM_CODEC = StreamCodec.of(
+        List<AggregateRecipe> recipes) {
+    public static final FriendlyStreamCodec<GenerateAggregatePayload> STREAM_CODEC = FriendlyStreamCodec.of(
             GenerateAggregatePayload::encode, GenerateAggregatePayload::decode);
 
     public GenerateAggregatePayload {
@@ -48,12 +43,7 @@ public record GenerateAggregatePayload(
         }
     }
 
-    @Override
-    public @NotNull Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
-
-    private static void encode(RegistryFriendlyByteBuf buffer, GenerateAggregatePayload payload) {
+    private static void encode(FriendlyByteBuf buffer, GenerateAggregatePayload payload) {
         buffer.writeUUID(payload.uploadId());
         buffer.writeBlockPos(payload.machinePos());
         buffer.writeResourceLocation(payload.catalystId());
@@ -69,7 +59,7 @@ public record GenerateAggregatePayload(
         payload.recipes().forEach(recipe -> AggregateRecipe.STREAM_CODEC.encode(buffer, recipe));
     }
 
-    private static GenerateAggregatePayload decode(RegistryFriendlyByteBuf buffer) {
+    private static GenerateAggregatePayload decode(FriendlyByteBuf buffer) {
         UUID uploadId = buffer.readUUID();
         BlockPos pos = buffer.readBlockPos();
         ResourceLocation catalystId = buffer.readResourceLocation();

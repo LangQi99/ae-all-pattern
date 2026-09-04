@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -22,14 +21,13 @@ public final class BindingSavedData extends SavedData {
     private static final String DATA_NAME = AeAllPattern.MOD_ID + "_bindings";
     private static final String BINDINGS_TAG = "Bindings";
     private static final String UNMIGRATED_TAG = "UnmigratedBindings";
-    private static final Factory<BindingSavedData> FACTORY =
-            new Factory<>(BindingSavedData::new, BindingSavedData::load);
 
     private final Map<UUID, BindingRecord> bindings = new LinkedHashMap<>();
     private final List<CompoundTag> unmigrated = new ArrayList<>();
 
     public static BindingSavedData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(
+                BindingSavedData::load, BindingSavedData::new, DATA_NAME);
     }
 
     public Collection<BindingRecord> all() {
@@ -75,7 +73,7 @@ public final class BindingSavedData extends SavedData {
     }
 
     @Override
-    public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.@NotNull Provider registries) {
+    public @NotNull CompoundTag save(@NotNull CompoundTag tag) {
         ListTag bindingTags = new ListTag();
         bindings.values().stream()
                 .sorted((left, right) -> left.bindingId().compareTo(right.bindingId()))
@@ -89,7 +87,7 @@ public final class BindingSavedData extends SavedData {
         return tag;
     }
 
-    private static BindingSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static BindingSavedData load(CompoundTag tag) {
         BindingSavedData data = new BindingSavedData();
         ListTag bindings = tag.getList(BINDINGS_TAG, Tag.TAG_COMPOUND);
         for (Tag raw : bindings) {

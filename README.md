@@ -1,8 +1,8 @@
 # AE All Pattern | AE 全样板
 
-[![Minecraft 1.21.1](https://img.shields.io/badge/Minecraft-1.21.1-62b47a?style=flat-square)](https://www.minecraft.net/)
-[![NeoForge](https://img.shields.io/badge/NeoForge-21.1.219%2B-e96d4f?style=flat-square)](https://neoforged.net/)
-[![AE2](https://img.shields.io/badge/Applied%20Energistics%202-19.2.17-7b62a3?style=flat-square)](https://github.com/AppliedEnergistics/Applied-Energistics-2)
+[![Minecraft 1.20.1](https://img.shields.io/badge/Minecraft-1.20.1-62b47a?style=flat-square)](https://www.minecraft.net/)
+[![Forge](https://img.shields.io/badge/Forge-47.4.20-e96d4f?style=flat-square)](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html)
+[![AE2](https://img.shields.io/badge/Applied%20Energistics%202-15.4.10-7b62a3?style=flat-square)](https://github.com/AppliedEnergistics/Applied-Energistics-2)
 [![Release](https://img.shields.io/github/v/release/LangQi99/ae-all-pattern?style=flat-square)](https://github.com/LangQi99/ae-all-pattern/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
@@ -78,12 +78,12 @@ The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tec
 | Component | Support |
 | --- | --- |
 | AE All Pattern | 0.2.1 |
-| Minecraft | 1.21.1 |
-| Mod loader | NeoForge 21.1.219+ |
-| Java | 21 |
-| Applied Energistics 2 | 19.2.17 (required) |
-| Recipe viewers | JEI 19.x, or EMI + TooManyRecipeViewers |
-| Generic AE keys | Items and fluids; Mekanism chemicals through Applied Mekanistics + AE2 JEI Integration |
+| Minecraft | 1.20.1 |
+| Mod loader | Forge 47.4.20 (tested) |
+| Java | 17 |
+| Applied Energistics 2 | 15.4.10 (required) |
+| Recipe viewers | JEI 15.x, or EMI + TooManyRecipeViewers |
+| Generic AE keys | Items and fluids; Mekanism chemicals through Applied Mekanistics |
 | Machine ecosystems | Vanilla, Mekanism and tested factory add-ons, Create, Mystical Agriculture, Industrial Foregoing |
 | Crafting ecosystems | Vanilla crafting/stonecutting/smithing, Extended Crafting, PackagedAuto/PackagedExCrafting |
 | Pattern-provider add-ons | ExtendedAE, ExtendedAE Plus, AdvancedAE, Neo ECO AE Extension, AE2 Crystal Science, AE2 Lightning Tech, AE2LT Packaged Provider |
@@ -94,7 +94,7 @@ For precise boundaries and tested versions, see the [support matrix](docs/produc
 
 ### Installation
 
-1. Install Minecraft 1.21.1, NeoForge, Java 21, and Applied Energistics 2.
+1. Install Minecraft 1.20.1, Forge 47.4.20, Java 17, and Applied Energistics 2 15.4.10.
 2. Add JEI, or EMI together with TooManyRecipeViewers, if you want the universal Aggregate Pattern Generator workflow.
 3. Put the AE All Pattern JAR in the `mods` folder on both client and server.
 4. Add only the optional machine and AE add-ons used by your pack.
@@ -165,12 +165,12 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 | 组件 | 支持情况 |
 | --- | --- |
 | AE 全样板 | 0.2.1 |
-| Minecraft | 1.21.1 |
-| 模组加载器 | NeoForge 21.1.219+ |
-| Java | 21 |
-| Applied Energistics 2 | 19.2.17（必需） |
-| 配方查看器 | JEI 19.x，或 EMI + TooManyRecipeViewers |
-| AE 通用键 | 原生物品与流体；安装 Applied Mekanistics + AE2 JEI Integration 后支持 Mekanism 化学品 |
+| Minecraft | 1.20.1 |
+| 模组加载器 | Forge 47.4.20（已测试） |
+| Java | 17 |
+| Applied Energistics 2 | 15.4.10（必需） |
+| 配方查看器 | JEI 15.x，或 EMI + TooManyRecipeViewers |
+| AE 通用键 | 原生物品与流体；安装 Applied Mekanistics 后支持 Mekanism 化学品 |
 | 机器生态 | 原版、Mekanism 及已测试的工厂附属、机械动力、神秘农业、工业先锋 |
 | 合成生态 | 原版合成/切石/锻造、Extended Crafting、PackagedAuto/PackagedExCrafting |
 | 样板供应器附属 | ExtendedAE、ExtendedAE Plus、AdvancedAE、Neo ECO AE Extension、AE2 Crystal Science、AE2 Lightning Tech、AE2LT Packaged Provider |
@@ -181,7 +181,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 ### 安装
 
-1. 安装 Minecraft 1.21.1、NeoForge、Java 21 与 Applied Energistics 2。
+1. 安装 Minecraft 1.20.1、Forge 47.4.20、Java 17 与 Applied Energistics 2 15.4.10。
 2. 若要使用通用聚合样板扫描，请安装 JEI，或同时安装 EMI 与 TooManyRecipeViewers。
 3. 把 AE 全样板 JAR 同时放入客户端与服务端的 `mods` 文件夹。
 4. 再按整合包需求添加机器模组和 AE 附属；它们都不是本模组的强制依赖。

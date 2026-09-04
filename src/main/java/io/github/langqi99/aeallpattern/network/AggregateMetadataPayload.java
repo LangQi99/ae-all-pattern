@@ -1,21 +1,14 @@
 package io.github.langqi99.aeallpattern.network;
 
-import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 
-public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries)
-        implements CustomPacketPayload {
+public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries) {
     private static final int MAX_ENTRIES = 4096;
-    public static final Type<AggregateMetadataPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "aggregate_metadata"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregateMetadataPayload> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<AggregateMetadataPayload> STREAM_CODEC = FriendlyStreamCodec.of(
             AggregateMetadataPayload::encode, AggregateMetadataPayload::decode);
 
     public AggregateMetadataPayload {
@@ -25,12 +18,7 @@ public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries
         }
     }
 
-    @Override
-    public @NotNull Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
-
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregateMetadataPayload payload) {
+    private static void encode(FriendlyByteBuf buffer, AggregateMetadataPayload payload) {
         buffer.writeVarInt(payload.entries().size());
         for (var entry : payload.entries()) {
             buffer.writeUUID(entry.libraryId());
@@ -47,7 +35,7 @@ public record AggregateMetadataPayload(List<AggregateMetadataView.Entry> entries
         }
     }
 
-    private static AggregateMetadataPayload decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregateMetadataPayload decode(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 0 || count > MAX_ENTRIES) {
             throw new IllegalArgumentException("invalid aggregate metadata count: " + count);

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class AggregateStartupRefreshServiceTest {
     private static final ResourceLocation CATALYST =
-            ResourceLocation.fromNamespaceAndPath("aeallpattern", "refresh_test");
+            new ResourceLocation("aeallpattern", "refresh_test");
 
     @Test
     void queuesOnlyPersistedSingleItemsStillPendingThisServerStartup() {

@@ -15,6 +15,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.network.NetworkHooks;
+import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 /** One physical AE pattern item that publishes every captured child recipe. */
@@ -26,7 +28,7 @@ public final class AggregatePatternItem extends Item {
     @Override
     public @NotNull InteractionResultHolder<ItemStack> use(@NotNull Level level, Player player, @NotNull InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (!stack.has(ModDataComponents.AGGREGATE_PATTERN.get())) {
+        if (!ModDataComponents.hasAggregatePattern(stack)) {
             return InteractionResultHolder.pass(stack);
         }
         if (!level.isClientSide() && player instanceof ServerPlayer serverPlayer) {
@@ -36,7 +38,7 @@ public final class AggregatePatternItem extends Item {
     }
 
     private static void openSelectionMenu(ServerPlayer player, ItemStack stack, InteractionHand hand) {
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref == null) {
             return;
         }
@@ -45,17 +47,17 @@ public final class AggregatePatternItem extends Item {
                 .orElseGet(List::of);
         List<AggregatePatternSelectionMenu.Entry> entries =
                 AggregatePatternSelectionMenu.entriesFromRecipes(recipes);
-        final AggregatePatternSelection finalSelection = stack
-                .getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
-                        AggregatePatternSelection.ALL_ENABLED)
+        final AggregatePatternSelection finalSelection = ModDataComponents
+                .getAggregatePatternSelectionOrDefault(stack)
                 .reconciled(recipes.stream().map(AggregateRecipe::patternId).toList());
         if (finalSelection.isAllEnabled()) {
-            stack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+            ModDataComponents.clearAggregatePatternSelection(stack);
         } else {
-            stack.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(), finalSelection);
+            ModDataComponents.setAggregatePatternSelection(stack, finalSelection);
         }
         player.getInventory().setChanged();
-        player.openMenu(
+        NetworkHooks.openScreen(
+                player,
                 new SimpleMenuProvider(
                         (id, inventory, ignored) -> new AggregatePatternSelectionMenu(
                                 id, inventory, hand, entries, finalSelection),
@@ -66,9 +68,9 @@ public final class AggregatePatternItem extends Item {
                     for (AggregatePatternSelectionMenu.Entry entry : entries) {
                         data.writeUtf(entry.patternId(), AggregatePatternSelection.MAX_ID_LENGTH);
                         data.writeVarInt(entry.inputs().size());
-                        entry.inputs().forEach(input -> GenericStack.STREAM_CODEC.encode(data, input));
+                        entry.inputs().forEach(input -> GenericStack.writeBuffer(input, data));
                         data.writeVarInt(entry.outputs().size());
-                        entry.outputs().forEach(output -> GenericStack.STREAM_CODEC.encode(data, output));
+                        entry.outputs().forEach(output -> GenericStack.writeBuffer(output, data));
                     }
                     AggregatePatternSelection.STREAM_CODEC.encode(data, finalSelection);
                 });
@@ -76,7 +78,7 @@ public final class AggregatePatternItem extends Item {
 
     @Override
     public @NotNull Component getName(ItemStack stack) {
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref == null) {
             return super.getName(stack);
         }
@@ -96,9 +98,9 @@ public final class AggregatePatternItem extends Item {
 
     @Override
     public void appendHoverText(
-            @NotNull ItemStack stack, @NotNull TooltipContext context, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
-        AggregatePatternRef ref = stack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+            @NotNull ItemStack stack, @Nullable Level level, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(stack);
         if (ref == null) {
             tooltip.add(Component.translatable("tooltip.aeallpattern.aggregate_pattern.empty")
                     .withStyle(ChatFormatting.RED));
@@ -120,7 +122,7 @@ public final class AggregatePatternItem extends Item {
                     "tooltip.aeallpattern.aggregate_pattern.count", entry.recipeCount())
                     .withStyle(ChatFormatting.GRAY));
             int total = entry.recipeCount();
-            int enabled = enabledCount(stack.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get()), total);
+            int enabled = enabledCount(ModDataComponents.getAggregatePatternSelection(stack), total);
             if (enabled >= 0) {
                 tooltip.add(Component.translatable(
                         "tooltip.aeallpattern.aggregate_pattern.selected_count", enabled, total)
@@ -138,7 +140,7 @@ public final class AggregatePatternItem extends Item {
 
     @Override
     public boolean isFoil(ItemStack stack) {
-        return stack.has(ModDataComponents.AGGREGATE_PATTERN.get()) || super.isFoil(stack);
+        return ModDataComponents.hasAggregatePattern(stack) || super.isFoil(stack);
     }
 
     /** Returns the enabled pattern count, or -1 when it cannot be derived from the item alone. */

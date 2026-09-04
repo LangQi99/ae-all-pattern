@@ -17,59 +17,44 @@ Bind a supported machine once and expose its deterministic recipes to AE2 as vir
 绑定一次受支持的机器，即可把确定性配方作为虚拟处理样板发布到 AE2 网络，无需存放成千上万张实体编码样板。
 '''
 
-[[mixins]]
-config="aeallpattern.mixins.json"
-
 [[dependencies.${mod_id}]]
-modId="neoforge"
-type="required"
-versionRange="[${neo_version},)"
+modId="forge"
+mandatory=true
+versionRange="[${forge_version},)"
 ordering="NONE"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="minecraft"
-type="required"
+mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="ae2"
-type="required"
-reason="AE All Pattern publishes virtual processing patterns to an AE network."
+mandatory=true
 versionRange="${ae2_version_range}"
 ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="mekanism"
-type="optional"
-reason="Enables Mekanism machine adapters."
+mandatory=false
 versionRange="${mekanism_version_range}"
 ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
 modId="jei"
-type="optional"
-reason="Provides universal recipe discovery for aggregate patterns."
-versionRange="[19.19,20)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.${mod_id}]]
-modId="ae2jeiintegration"
-type="optional"
-reason="Converts JEI ingredient types into AE generic stack keys."
-versionRange="[1.2.0,2)"
+mandatory=false
+versionRange="[15.0.0,16.0.0)"
 ordering="AFTER"
 side="CLIENT"
 
 [[dependencies.${mod_id}]]
 modId="appmek"
-type="optional"
-reason="Adds AE chemical keys used by Mekanism gas and chemical aggregate patterns."
-versionRange="[1.6.0,2)"
+mandatory=false
+versionRange="[1.4.3,2.0.0)"
 ordering="AFTER"
 side="BOTH"

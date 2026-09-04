@@ -87,7 +87,7 @@ public final class ClientRecipeMachineResolver {
     }
 
     private static ResourceLocation id(String namespace, String path) {
-        return ResourceLocation.fromNamespaceAndPath(namespace, path);
+        return new ResourceLocation(namespace, path);
     }
 
     private static Map.Entry<ResourceLocation, ResourceLocation> alias(

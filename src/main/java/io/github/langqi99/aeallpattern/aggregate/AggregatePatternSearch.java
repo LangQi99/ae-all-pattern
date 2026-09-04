@@ -112,7 +112,7 @@ public final class AggregatePatternSearch {
         if (modId.contains(term)) {
             return true;
         }
-        return net.neoforged.fml.ModList.get().getModContainerById(modId)
+        return net.minecraftforge.fml.ModList.get().getModContainerById(modId)
                 .map(container -> container.getModInfo().getDisplayName().toLowerCase(Locale.ROOT).contains(term))
                 .orElse(false);
     }

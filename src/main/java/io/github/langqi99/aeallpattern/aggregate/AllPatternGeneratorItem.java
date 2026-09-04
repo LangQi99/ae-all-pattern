@@ -19,7 +19,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.fml.ModList;
+import net.minecraft.world.level.Level;
+import javax.annotation.Nullable;
+import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.NotNull;
 
 /** Captures all deterministic recipes exposed by one supported machine. */
@@ -83,7 +85,7 @@ public final class AllPatternGeneratorItem extends Item {
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
         String machineTranslationKey = target.getBlockState().getBlock().getDescriptionId();
         var ref = library.put(level.getServer(), catalystId, machineTranslationKey, recipes);
-        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        ModDataComponents.setAggregatePattern(aggregate, ref);
         AggregateMetadataSyncService.sendToOnlinePlayers(level.getServer());
         if (!player.addItem(aggregate)) {
             player.drop(aggregate, false);
@@ -96,8 +98,8 @@ public final class AllPatternGeneratorItem extends Item {
 
     @Override
     public void appendHoverText(
-            @NotNull ItemStack stack, @NotNull TooltipContext context, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
+            @NotNull ItemStack stack, @Nullable Level level, @NotNull List<Component> tooltip, @NotNull TooltipFlag flag) {
+        super.appendHoverText(stack, level, tooltip, flag);
         tooltip.add(Component.translatable("tooltip.aeallpattern.generator.usage"));
     }
 

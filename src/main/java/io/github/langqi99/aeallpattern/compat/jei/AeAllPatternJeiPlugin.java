@@ -15,7 +15,7 @@ import java.util.Optional;
 public final class AeAllPatternJeiPlugin implements IModPlugin {
     private static volatile IJeiRuntime runtime;
     private static final ResourceLocation ID =
-            ResourceLocation.fromNamespaceAndPath(AeAllPattern.MOD_ID, "jei_plugin");
+            new ResourceLocation(AeAllPattern.MOD_ID, "jei_plugin");
 
     @Override
     public ResourceLocation getPluginUid() {

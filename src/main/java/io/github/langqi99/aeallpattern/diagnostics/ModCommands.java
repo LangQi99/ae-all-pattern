@@ -17,7 +17,6 @@ import io.github.langqi99.aeallpattern.recipe.RecipeIndexService;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
 import io.github.langqi99.aeallpattern.registry.ModItems;
 import java.util.List;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.commands.CommandSourceStack;
@@ -27,7 +26,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
 import java.util.Locale;
 import net.minecraft.core.BlockPos;
 
@@ -137,7 +136,7 @@ public final class ModCommands {
         }
 
         ItemStack namedEmerald = new ItemStack(Items.EMERALD);
-        namedEmerald.set(DataComponents.CUSTOM_NAME, Component.literal("带组件的演示产物"));
+        namedEmerald.setHoverName(Component.literal("带组件的演示产物"));
         List<AggregateRecipe> optionRecipes = List.of(
                 processing("showcase_config_split", Items.DIAMOND, 3, namedEmerald, 1, 0, 40),
                 new AggregateRecipe(
@@ -165,12 +164,12 @@ public final class ModCommands {
                         60));
         var configRef = AggregatePatternLibrary.get(source.getServer()).put(
                 source.getServer(),
-                ResourceLocation.fromNamespaceAndPath("aeallpattern", "pattern_linker"),
+                new ResourceLocation("aeallpattern", "pattern_linker"),
                 "block.aeallpattern.pattern_linker",
                 optionRecipes);
         ItemStack configurable = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
-        configurable.set(ModDataComponents.AGGREGATE_PATTERN.get(), configRef);
-        configurable.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.DEFAULT);
+        ModDataComponents.setAggregatePattern(configurable, configRef);
+        ModDataComponents.setAggregatePatternOptions(configurable, AggregatePatternOptions.DEFAULT);
         container.setItem(0, configurable);
         container.setChanged();
 
@@ -187,11 +186,11 @@ public final class ModCommands {
                         new ItemStack(Items.AMETHYST_SHARD), 4, 0, 5));
         var routeRef = AggregatePatternLibrary.get(source.getServer()).put(
                 source.getServer(),
-                ResourceLocation.fromNamespaceAndPath("aeallpattern", "tianshu_pattern_selector"),
+                new ResourceLocation("aeallpattern", "tianshu_pattern_selector"),
                 "block.aeallpattern.tianshu_pattern_selector",
                 routeRecipes);
         ItemStack routes = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
-        routes.set(ModDataComponents.AGGREGATE_PATTERN.get(), routeRef);
+        ModDataComponents.setAggregatePattern(routes, routeRef);
 
         var patternInventory = provider.getLogic().getPatternInv();
         for (int slot = 0; slot < patternInventory.size(); slot++) {
@@ -226,12 +225,12 @@ public final class ModCommands {
                 crafting("eco_chest", "chest", Items.OAK_PLANKS, 8, Items.CHEST, 1));
         var ref = AggregatePatternLibrary.get(source.getServer()).put(
                 source.getServer(),
-                ResourceLocation.fromNamespaceAndPath("neoecoae", "crafting_pattern_bus"),
+                new ResourceLocation("neoecoae", "crafting_pattern_bus"),
                 "block.neoecoae.crafting_pattern_bus",
                 craftingRecipes);
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
-        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
-        aggregate.set(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.DEFAULT);
+        ModDataComponents.setAggregatePattern(aggregate, ref);
+        ModDataComponents.setAggregatePatternOptions(aggregate, AggregatePatternOptions.DEFAULT);
 
         ItemStack remainder = patternContainer.getTerminalPatternInventory().insertItem(0, aggregate, false);
         if (!remainder.isEmpty()) {
@@ -315,7 +314,7 @@ public final class ModCommands {
             int outputCount) {
         return new AggregateRecipe(
                 name,
-                ResourceLocation.withDefaultNamespace(recipePath),
+                new ResourceLocation("minecraft", recipePath),
                 AggregatePatternKind.CRAFTING,
                 List.of(GenericStack.fromItemStack(new ItemStack(input, inputCount))),
                 List.of(GenericStack.fromItemStack(new ItemStack(output, outputCount))),
@@ -323,7 +322,7 @@ public final class ModCommands {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath("aeallpattern", path);
+        return new ResourceLocation("aeallpattern", path);
     }
 
     private static final List<SeedStack> TEST_MATERIALS = List.of(
@@ -347,7 +346,7 @@ public final class ModCommands {
             seed("mysticalagriculture:tertium_essence", 32));
 
     private static SeedStack seed(String id, int count) {
-        return new SeedStack(ResourceLocation.parse(id), count);
+        return new SeedStack(new ResourceLocation(id), count);
     }
 
     private record SeedStack(ResourceLocation id, int count) {

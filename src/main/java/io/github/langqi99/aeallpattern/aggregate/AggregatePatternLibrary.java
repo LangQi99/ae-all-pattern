@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -31,14 +30,12 @@ import org.jetbrains.annotations.NotNull;
 public final class AggregatePatternLibrary extends SavedData {
     public static final int PAGE_SIZE = 128;
     private static final String INDEX_NAME = AeAllPattern.MOD_ID + "_aggregate_index";
-    private static final Factory<AggregatePatternLibrary> FACTORY =
-            new Factory<>(AggregatePatternLibrary::new, AggregatePatternLibrary::load);
-    private static final Factory<Page> PAGE_FACTORY = new Factory<>(Page::new, Page::load);
 
     private final Map<UUID, Entry> entries = new LinkedHashMap<>();
 
     public static AggregatePatternLibrary get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(FACTORY, INDEX_NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(
+                AggregatePatternLibrary::load, AggregatePatternLibrary::new, INDEX_NAME);
     }
 
     public AggregatePatternRef put(
@@ -55,7 +52,7 @@ public final class AggregatePatternLibrary extends SavedData {
                         && candidate.batchCount() == 1)
                 .findFirst().orElse(null);
         UUID id = entry == null ? UUID.randomUUID() : entry.libraryId();
-        int pageCount = Math.ceilDiv(recipes.size(), PAGE_SIZE);
+        int pageCount = ceilDiv(recipes.size(), PAGE_SIZE);
         var storage = server.overworld().getDataStorage();
         for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
             int from = pageIndex * PAGE_SIZE;
@@ -85,7 +82,7 @@ public final class AggregatePatternLibrary extends SavedData {
             throw new IllegalArgumentException("invalid aggregate library recipe count: " + recipes.size());
         }
         String hash = contentHash(recipes);
-        int pageCount = Math.ceilDiv(recipes.size(), PAGE_SIZE);
+        int pageCount = ceilDiv(recipes.size(), PAGE_SIZE);
         var storage = server.overworld().getDataStorage();
         for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
             int from = pageIndex * PAGE_SIZE;
@@ -108,7 +105,7 @@ public final class AggregatePatternLibrary extends SavedData {
         List<AggregateRecipe> recipes = new ArrayList<>(entry.recipeCount());
         var storage = server.overworld().getDataStorage();
         for (int pageIndex = 0; pageIndex < entry.pageCount(); pageIndex++) {
-            Page page = storage.get(PAGE_FACTORY, pageName(libraryId, pageIndex));
+            Page page = storage.get(Page::load, pageName(libraryId, pageIndex));
             if (page == null) {
                 AeAllPattern.LOGGER.warn("Missing aggregate pattern page {} for {}", pageIndex, libraryId);
                 return Optional.empty();
@@ -130,7 +127,7 @@ public final class AggregatePatternLibrary extends SavedData {
     }
 
     @Override
-    public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.@NotNull Provider registries) {
+    public @NotNull CompoundTag save(@NotNull CompoundTag tag) {
         ListTag list = new ListTag();
         entries.values().stream().sorted(Comparator.comparing(Entry::libraryId)).forEach(entry -> {
             CompoundTag raw = new CompoundTag();
@@ -151,12 +148,12 @@ public final class AggregatePatternLibrary extends SavedData {
         return tag;
     }
 
-    private static AggregatePatternLibrary load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static AggregatePatternLibrary load(CompoundTag tag) {
         AggregatePatternLibrary library = new AggregatePatternLibrary();
         for (Tag rawTag : tag.getList("Entries", Tag.TAG_COMPOUND)) {
             CompoundTag raw = (CompoundTag) rawTag;
             try {
-                ResourceLocation catalyst = ResourceLocation.parse(raw.getString("CatalystId"));
+                ResourceLocation catalyst = new ResourceLocation(raw.getString("CatalystId"));
                 String contentHash = raw.getString("ContentHash");
                 int recipeCount = raw.getInt("RecipeCount");
                 boolean numbered = raw.contains("BatchCount", Tag.TAG_INT);
@@ -198,6 +195,10 @@ public final class AggregatePatternLibrary extends SavedData {
         return AeAllPattern.MOD_ID + "_aggregate_" + id.toString().replace("-", "") + "_" + page;
     }
 
+    private static int ceilDiv(int value, int divisor) {
+        return (value + divisor - 1) / divisor;
+    }
+
     public record Entry(
             UUID libraryId,
             ResourceLocation catalystId,
@@ -211,7 +212,7 @@ public final class AggregatePatternLibrary extends SavedData {
             int batchCount,
             int totalRecipeCount) {
         public Entry {
-            if (recipeCount < 0 || pageCount != Math.ceilDiv(recipeCount, PAGE_SIZE)) {
+            if (recipeCount < 0 || pageCount != ceilDiv(recipeCount, PAGE_SIZE)) {
                 throw new IllegalArgumentException("invalid aggregate library metadata");
             }
             if (recipeCount == 0) {
@@ -242,7 +243,7 @@ public final class AggregatePatternLibrary extends SavedData {
                 || batchSize < 1
                 || (batchSize > AggregatePatternData.MAX_RECIPES && !legacyOversizedSingle)
                 || batchIndex < 0 || batchCount < 1 || batchIndex >= batchCount
-                || totalRecipeCount < 1 || batchCount != Math.ceilDiv(totalRecipeCount, batchSize)) {
+                || totalRecipeCount < 1 || batchCount != ceilDiv(totalRecipeCount, batchSize)) {
             throw new IllegalArgumentException("invalid aggregate batch metadata");
         }
         long start = (long) batchIndex * batchSize;
@@ -275,7 +276,7 @@ public final class AggregatePatternLibrary extends SavedData {
         }
 
         @Override
-        public @NotNull CompoundTag save(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
+        public @NotNull CompoundTag save(@NotNull CompoundTag tag) {
             ListTag recipeTags = new ListTag();
             for (AggregateRecipe recipe : recipes) {
                 CompoundTag raw = new CompoundTag();
@@ -285,21 +286,21 @@ public final class AggregatePatternLibrary extends SavedData {
                 raw.putInt("ProcessingTicks", recipe.processingTicks());
                 raw.putInt("ProbabilisticOutputMask", recipe.probabilisticOutputMask());
                 ListTag inputs = new ListTag();
-                recipe.inputs().forEach(stack -> inputs.add(GenericStack.writeTag(registries, stack)));
+                recipe.inputs().forEach(stack -> inputs.add(GenericStack.writeTag(stack)));
                 raw.put("GenericInputs", inputs);
                 ListTag inputSlots = new ListTag();
                 for (AggregateInputSlot slot : recipe.inputSlots()) {
                     CompoundTag slotTag = new CompoundTag();
                     ListTag alternatives = new ListTag();
                     slot.alternatives().forEach(stack ->
-                            alternatives.add(GenericStack.writeTag(registries, stack)));
+                            alternatives.add(GenericStack.writeTag(stack)));
                     slotTag.put("Alternatives", alternatives);
                     slot.itemTag().ifPresent(tagId -> slotTag.putString("ItemTag", tagId.toString()));
                     inputSlots.add(slotTag);
                 }
                 raw.put("InputSlots", inputSlots);
                 ListTag outputs = new ListTag();
-                recipe.outputs().forEach(stack -> outputs.add(GenericStack.writeTag(registries, stack)));
+                recipe.outputs().forEach(stack -> outputs.add(GenericStack.writeTag(stack)));
                 raw.put("GenericOutputs", outputs);
                 recipeTags.add(raw);
             }
@@ -307,17 +308,17 @@ public final class AggregatePatternLibrary extends SavedData {
             return tag;
         }
 
-        private static Page load(CompoundTag tag, HolderLookup.Provider registries) {
+        private static Page load(CompoundTag tag) {
             List<AggregateRecipe> recipes = new ArrayList<>();
             for (Tag recipeTag : tag.getList("Recipes", Tag.TAG_COMPOUND)) {
                 CompoundTag raw = (CompoundTag) recipeTag;
                 try {
-                    List<GenericStack> inputs = parseStacks(raw, "GenericInputs", "Inputs", registries);
-                    List<AggregateInputSlot> inputSlots = parseInputSlots(raw, inputs, registries);
-                    List<GenericStack> outputs = parseStacks(raw, "GenericOutputs", "Outputs", registries);
+                    List<GenericStack> inputs = parseStacks(raw, "GenericInputs", "Inputs");
+                    List<AggregateInputSlot> inputSlots = parseInputSlots(raw, inputs);
+                    List<GenericStack> outputs = parseStacks(raw, "GenericOutputs", "Outputs");
                     recipes.add(new AggregateRecipe(
                             raw.getString("PatternId"),
-                            ResourceLocation.parse(raw.getString("RecipeId")),
+                            new ResourceLocation(raw.getString("RecipeId")),
                             AggregatePatternKind.fromName(raw.getString("Kind")),
                             inputs, inputSlots, outputs,
                             raw.getInt("ProbabilisticOutputMask"),
@@ -330,16 +331,16 @@ public final class AggregatePatternLibrary extends SavedData {
         }
 
         private static List<GenericStack> parseStacks(
-                CompoundTag recipe, String genericName, String legacyName, HolderLookup.Provider registries) {
+                CompoundTag recipe, String genericName, String legacyName) {
             boolean generic = recipe.contains(genericName, Tag.TAG_LIST);
             ListTag tags = recipe.getList(generic ? genericName : legacyName, Tag.TAG_COMPOUND);
             List<GenericStack> stacks = new ArrayList<>(tags.size());
             for (Tag raw : tags) {
                 GenericStack stack;
                 if (generic) {
-                    stack = GenericStack.readTag(registries, (CompoundTag) raw);
+                    stack = GenericStack.readTag((CompoundTag) raw);
                 } else {
-                    ItemStack item = ItemStack.parse(registries, raw).orElse(ItemStack.EMPTY);
+                    ItemStack item = ItemStack.of((CompoundTag) raw);
                     stack = item.isEmpty() ? null : GenericStack.fromItemStack(item);
                 }
                 if (stack == null || stack.what() == null || stack.amount() <= 0) {
@@ -352,8 +353,7 @@ public final class AggregatePatternLibrary extends SavedData {
 
         private static List<AggregateInputSlot> parseInputSlots(
                 CompoundTag recipe,
-                List<GenericStack> legacyInputs,
-                HolderLookup.Provider registries) {
+                List<GenericStack> legacyInputs) {
             if (!recipe.contains("InputSlots", Tag.TAG_LIST)) {
                 return legacyInputs.stream().map(AggregateInputSlot::exact).toList();
             }
@@ -362,14 +362,14 @@ public final class AggregatePatternLibrary extends SavedData {
                 CompoundTag slotTag = (CompoundTag) rawSlot;
                 List<GenericStack> alternatives = new ArrayList<>();
                 for (Tag rawAlternative : slotTag.getList("Alternatives", Tag.TAG_COMPOUND)) {
-                    GenericStack stack = GenericStack.readTag(registries, (CompoundTag) rawAlternative);
+                    GenericStack stack = GenericStack.readTag((CompoundTag) rawAlternative);
                     if (stack == null || stack.what() == null || stack.amount() <= 0) {
                         throw new IllegalArgumentException("empty alternative in aggregate input slot");
                     }
                     alternatives.add(stack);
                 }
                 Optional<ResourceLocation> itemTag = slotTag.contains("ItemTag", Tag.TAG_STRING)
-                        ? Optional.of(ResourceLocation.parse(slotTag.getString("ItemTag")))
+                        ? Optional.of(new ResourceLocation(slotTag.getString("ItemTag")))
                         : Optional.empty();
                 slots.add(AggregateInputSlot.fromSavedData(alternatives, itemTag));
             }

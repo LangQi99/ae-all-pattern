@@ -3,14 +3,21 @@ package io.github.langqi99.aeallpattern.binding;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.github.langqi99.aeallpattern.TestMinecraftBootstrap;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.world.level.Level;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class BindingRecordTest {
+    @BeforeAll
+    static void bootstrapMinecraft() {
+        TestMinecraftBootstrap.initialize();
+    }
+
     @Test
     void nbtRoundTripPreservesStableReferences() {
         BindingRecord original = new BindingRecord(

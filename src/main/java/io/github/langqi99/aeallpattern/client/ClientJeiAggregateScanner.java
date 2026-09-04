@@ -1,4 +1,5 @@
 package io.github.langqi99.aeallpattern.client;
+import io.github.langqi99.aeallpattern.network.BindingNetwork;
 
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEItemKey;
@@ -11,6 +12,7 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.compat.jei.AeAllPatternJeiPlugin;
+import io.github.langqi99.aeallpattern.compat.emi.EmiAggregateScanner;
 import io.github.langqi99.aeallpattern.network.GenerateAggregatePayload;
 import io.github.langqi99.aeallpattern.recipe.RecipeFingerprint;
 import io.github.langqi99.aeallpattern.registry.ModItems;
@@ -43,17 +45,15 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fml.ModList;
 import org.jetbrains.annotations.NotNull;
-import tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverter;
-import tamaized.ae2jeiintegration.api.integrations.jei.IngredientConverters;
+import appeng.api.integrations.jei.IngredientConverter;
+import appeng.api.integrations.jei.IngredientConverters;
 
 /** Converts any JEI catalyst's visible recipes into concrete AE generic-stack patterns. */
 public final class ClientJeiAggregateScanner {
@@ -110,6 +110,16 @@ public final class ClientJeiAggregateScanner {
         lastScanTick = level.getGameTime();
         lastScanPos = event.getPos().immutable();
 
+        if (ModList.get().isLoaded("emi") && ModList.get().isLoaded("toomanyrecipeviewers")) {
+            try {
+                if (EmiAggregateScanner.scan(event.getPos())) {
+                    return;
+                }
+            } catch (RuntimeException error) {
+                AeAllPattern.LOGGER.debug("EMI aggregate scan could not start; trying JEI", error);
+            }
+        }
+
         var runtime = AeAllPatternJeiPlugin.runtime();
         if (runtime.isEmpty()) {
             show("message.aeallpattern.generator.jei_not_ready");
@@ -119,7 +129,8 @@ public final class ClientJeiAggregateScanner {
     }
 
     /** Client tick pump: advances the active scan job within the per-tick budget. */
-    public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+    public static void onClientTick(net.minecraftforge.event.TickEvent.ClientTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) { return; }
         ScanJob job = activeJob;
         if (job == null) {
             return;
@@ -185,7 +196,8 @@ public final class ClientJeiAggregateScanner {
         IFocus<ItemStack> catalystFocus = focusFactory.createFocus(
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, catalyst);
         List<IRecipeCategory<?>> categories;
-        if (catalyst.is(Blocks.CRAFTING_TABLE.asItem()) || AEBlocks.MOLECULAR_ASSEMBLER.is(catalyst)) {
+        if (catalyst.is(Blocks.CRAFTING_TABLE.asItem())
+                || catalyst.is(AEBlocks.MOLECULAR_ASSEMBLER.block().asItem())) {
             // JEI integrations do not consistently register the molecular assembler as a
             // vanilla crafting catalyst. It executes the same native AE crafting patterns.
             categories = List.of(runtime.getRecipeManager().getRecipeCategory(RecipeTypes.CRAFTING));
@@ -277,14 +289,14 @@ public final class ClientJeiAggregateScanner {
             int[] lastNotify = {0};
             try {
                 if (kind == AggregatePatternKind.CRAFTING) {
-                    List<RecipeHolder<CraftingRecipe>> recipes =
+                    List<CraftingRecipe> recipes =
                             manager.getAllRecipesFor(RecipeType.CRAFTING);
-                    for (RecipeHolder<CraftingRecipe> holder : recipes) {
+                    for (CraftingRecipe recipe : recipes) {
                         if (result.size() >= recipeLimit) {
                             truncated = true;
                             break;
                         }
-                        scanVanillaCrafting(holder, registryAccess, categoryId, result, seen);
+                        scanVanillaCrafting(recipe, registryAccess, categoryId, result, seen);
                         index++;
                         if (notifyPlayer && index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
                             lastNotify[0] = index;
@@ -292,14 +304,14 @@ public final class ClientJeiAggregateScanner {
                         }
                     }
                 } else {
-                    List<RecipeHolder<StonecutterRecipe>> recipes =
+                    List<StonecutterRecipe> recipes =
                             manager.getAllRecipesFor(RecipeType.STONECUTTING);
-                    for (RecipeHolder<StonecutterRecipe> holder : recipes) {
+                    for (StonecutterRecipe recipe : recipes) {
                         if (result.size() >= recipeLimit) {
                             truncated = true;
                             break;
                         }
-                        scanVanillaStonecutting(holder, registryAccess, categoryId, result, seen);
+                        scanVanillaStonecutting(recipe, registryAccess, categoryId, result, seen);
                         index++;
                         if (notifyPlayer && index - lastNotify[0] >= PROGRESS_INTERVAL * 5) {
                             lastNotify[0] = index;
@@ -333,13 +345,12 @@ public final class ClientJeiAggregateScanner {
     }
 
     private static void scanVanillaCrafting(
-            RecipeHolder<CraftingRecipe> holder,
-            net.minecraft.core.HolderLookup.Provider registryAccess,
+            CraftingRecipe recipe,
+            net.minecraft.core.RegistryAccess registryAccess,
             ResourceLocation categoryId,
             List<AggregateRecipe> destination,
             Set<String> seen) {
         try {
-            CraftingRecipe recipe = holder.value();
             List<AggregateInputSlot> inputSlots = new ArrayList<>();
             for (Ingredient ingredient : recipe.getIngredients()) {
                 if (ingredient.isEmpty()) {
@@ -362,33 +373,32 @@ public final class ClientJeiAggregateScanner {
             String normalizedInputs = inputSlots.stream().map(ClientJeiAggregateScanner::normalizeSlot).sorted()
                     .reduce("", (left, right) -> left + "|" + right);
             String normalizedOutputs = normalize(out);
-            String recipeIdentity = holder.id().toString();
+            String recipeIdentity = recipe.getId().toString();
             RecipeFingerprint fingerprint = new RecipeFingerprint(
                     "jei:" + AggregatePatternKind.CRAFTING.serializedName() + ":" + categoryId,
                     recipeIdentity, normalizedInputs, normalizedOutputs, 1);
             String patternId = fingerprint.stableKey();
             if (seen.add(patternId)) {
                 destination.add(new AggregateRecipe(
-                        patternId, holder.id(), AggregatePatternKind.CRAFTING,
+                        patternId, recipe.getId(), AggregatePatternKind.CRAFTING,
                         inputSlots.stream().map(AggregateInputSlot::primary).toList(),
                         inputSlots, List.of(out), 0, 200));
             }
         } catch (RuntimeException error) {
             io.github.langqi99.aeallpattern.AeAllPattern.LOGGER.debug(
-                    "vanilla crafting scan skipped {}", holder.id(), error);
+                    "vanilla crafting scan skipped {}", recipe.getId(), error);
         }
     }
 
     private static void scanVanillaStonecutting(
-            RecipeHolder<StonecutterRecipe> holder,
-            net.minecraft.core.HolderLookup.Provider registryAccess,
+            StonecutterRecipe recipe,
+            net.minecraft.core.RegistryAccess registryAccess,
             ResourceLocation categoryId,
             List<AggregateRecipe> destination,
             Set<String> seen) {
         try {
-            StonecutterRecipe recipe = holder.value();
             var ingredients = recipe.getIngredients();
-            Ingredient ingredient = ingredients.isEmpty() ? Ingredient.EMPTY : ingredients.getFirst();
+            Ingredient ingredient = ingredients.isEmpty() ? Ingredient.EMPTY : ingredients.get(0);
             List<GenericStack> candidates = ingredientCandidates(ingredient);
             if (candidates.isEmpty()) {
                 return;
@@ -404,20 +414,20 @@ public final class ClientJeiAggregateScanner {
             AggregateInputSlot input = new AggregateInputSlot(candidates, Optional.empty());
             String normalizedInputs = normalizeSlot(input);
             String normalizedOutputs = normalize(out);
-            String recipeIdentity = holder.id().toString();
+            String recipeIdentity = recipe.getId().toString();
             RecipeFingerprint fingerprint = new RecipeFingerprint(
                     "jei:" + AggregatePatternKind.STONECUTTING.serializedName() + ":" + categoryId,
                     recipeIdentity, normalizedInputs, normalizedOutputs, 1);
             String patternId = fingerprint.stableKey();
             if (seen.add(patternId)) {
                 destination.add(new AggregateRecipe(
-                        patternId, holder.id(), AggregatePatternKind.STONECUTTING,
+                        patternId, recipe.getId(), AggregatePatternKind.STONECUTTING,
                         List.of(input.primary()),
                         List.of(input), List.of(out), 0, 200));
             }
         } catch (RuntimeException error) {
             io.github.langqi99.aeallpattern.AeAllPattern.LOGGER.debug(
-                    "vanilla stonecutting scan skipped {}", holder.id(), error);
+                    "vanilla stonecutting scan skipped {}", recipe.getId(), error);
         }
     }
 
@@ -483,7 +493,7 @@ public final class ClientJeiAggregateScanner {
             pages = List.of(List.of());
         }
         for (int pageIndex = 0; pageIndex < pages.size(); pageIndex++) {
-            PacketDistributor.sendToServer(new GenerateAggregatePayload(
+            BindingNetwork.sendToServer(new GenerateAggregatePayload(
                     uploadId, target.machinePos(), target.catalystId(), target.machineKey(),
                     target.replacementLibraryId(), pageIndex, pages.size(),
                     selected.size(), pages.get(pageIndex)));
@@ -634,7 +644,7 @@ public final class ClientJeiAggregateScanner {
                 destination.add(new AggregateRecipe(
                         patternId,
                         originalId == null
-                                ? ResourceLocation.fromNamespaceAndPath("aeallpattern", "jei/" + patternId.substring(0, 32))
+                                ? new ResourceLocation("aeallpattern", "jei/" + patternId.substring(0, 32))
                                 : originalId,
                         kind,
                         inputSlots.stream().map(AggregateInputSlot::primary).toList(),
@@ -711,7 +721,7 @@ public final class ClientJeiAggregateScanner {
                 return borrowed;
             }
         }
-        return sameNamespace.isEmpty() ? categoryIds.getFirst() : sameNamespace.getFirst();
+        return sameNamespace.isEmpty() ? categoryIds.get(0) : sameNamespace.get(0);
     }
 
     /** Contains match first, then longest shared prefix for names that do not line up exactly. */
@@ -860,7 +870,7 @@ public final class ClientJeiAggregateScanner {
             // The tag will be resolved from the server's current datapack. Keep
             // only one concrete fallback so large tags never inflate packets.
             return Optional.of(new AggregateInputSlot(
-                    List.of(candidates.getFirst()), itemTag));
+                    List.of(candidates.get(0)), itemTag));
         }
         return Optional.of(new AggregateInputSlot(
                 candidates.stream().limit(alternativeLimit).toList(),
@@ -927,9 +937,6 @@ public final class ClientJeiAggregateScanner {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static Optional<GenericStack> convertRegistered(ITypedIngredient typed) {
-        if (!ModList.get().isLoaded("ae2jeiintegration")) {
-            return Optional.empty();
-        }
         try {
             IngredientConverter converter = IngredientConverters.getConverter(typed.getType());
             return converter == null

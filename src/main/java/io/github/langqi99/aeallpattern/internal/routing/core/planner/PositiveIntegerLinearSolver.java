@@ -340,9 +340,11 @@ public final class PositiveIntegerLinearSolver {
 
             @Override
             public boolean equals(Object obj) {
-                return obj instanceof Rational(BigInteger numerator1, BigInteger denominator1)
-                        && numerator.equals(numerator1)
-                        && denominator.equals(denominator1);
+                if (!(obj instanceof Rational other)) {
+                    return false;
+                }
+                return numerator.equals(other.numerator())
+                        && denominator.equals(other.denominator());
             }
 
     }

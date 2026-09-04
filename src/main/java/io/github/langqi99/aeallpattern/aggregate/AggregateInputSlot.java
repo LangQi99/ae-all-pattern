@@ -11,8 +11,8 @@ import java.util.*;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.FriendlyByteBuf;
+import io.github.langqi99.aeallpattern.network.FriendlyStreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.Level;
@@ -25,22 +25,22 @@ public record AggregateInputSlot(
     public static final int MAX_ALTERNATIVES = Integer.MAX_VALUE;
 
     public static int configuredAlternativeLimit() {
-        return AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.getAsInt();
+        return AeAllPatternCommonConfig.TAG_EXPANSION_LIMIT.get();
     }
 
-    private static final Codec<List<GenericStack>> ALTERNATIVES_CODEC = GenericStack.CODEC.listOf()
-            .validate(AggregateInputSlot::validateAlternatives);
+    private static final Codec<List<GenericStack>> ALTERNATIVES_CODEC = GenericStackCodec.CODEC.listOf()
+            .flatXmap(AggregateInputSlot::validateAlternatives, DataResult::success);
     public static final Codec<AggregateInputSlot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ALTERNATIVES_CODEC.fieldOf("alternatives").forGetter(AggregateInputSlot::alternatives),
             ResourceLocation.CODEC.optionalFieldOf("item_tag").forGetter(AggregateInputSlot::itemTag)
     ).apply(instance, AggregateInputSlot::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, AggregateInputSlot> STREAM_CODEC = StreamCodec.of(
+    public static final FriendlyStreamCodec<AggregateInputSlot> STREAM_CODEC = FriendlyStreamCodec.of(
             AggregateInputSlot::encode,
             AggregateInputSlot::decode);
 
     public AggregateInputSlot {
         alternatives = copyAndValidate(alternatives);
-        if (itemTag.isPresent() && !(alternatives.getFirst().what() instanceof AEItemKey)) {
+        if (itemTag.isPresent() && !(alternatives.get(0).what() instanceof AEItemKey)) {
             throw new IllegalArgumentException("only item inputs can reference an item tag");
         }
     }
@@ -59,7 +59,7 @@ public record AggregateInputSlot(
     }
 
     public GenericStack primary() {
-        return alternatives.getFirst();
+        return alternatives.get(0);
     }
 
     /** Resolves a saved tag against the current datapack; explicit candidates are the safe fallback. */
@@ -95,7 +95,7 @@ public record AggregateInputSlot(
         if (resolved.stream().anyMatch(stack -> !(stack.what() instanceof AEItemKey))) {
             return List.of(new AggregateInputSlot(resolved, Optional.empty()));
         }
-        long amount = resolved.getFirst().amount();
+        long amount = resolved.get(0).amount();
         if (amount <= 1 || resolved.stream().anyMatch(stack -> stack.amount() != amount)) {
             return List.of(new AggregateInputSlot(resolved, Optional.empty()));
         }
@@ -132,21 +132,21 @@ public record AggregateInputSlot(
         return result;
     }
 
-    private static void encode(RegistryFriendlyByteBuf buffer, AggregateInputSlot slot) {
+    private static void encode(FriendlyByteBuf buffer, AggregateInputSlot slot) {
         buffer.writeVarInt(slot.alternatives.size());
-        slot.alternatives.forEach(stack -> GenericStack.STREAM_CODEC.encode(buffer, stack));
+        slot.alternatives.forEach(stack -> GenericStack.writeBuffer(stack, buffer));
         buffer.writeBoolean(slot.itemTag.isPresent());
         slot.itemTag.ifPresent(buffer::writeResourceLocation);
     }
 
-    private static AggregateInputSlot decode(RegistryFriendlyByteBuf buffer) {
+    private static AggregateInputSlot decode(FriendlyByteBuf buffer) {
         int count = buffer.readVarInt();
         if (count < 1 || count > MAX_ALTERNATIVES) {
             throw new IllegalArgumentException("invalid input alternative count: " + count);
         }
         List<GenericStack> alternatives = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
-            alternatives.add(GenericStack.STREAM_CODEC.decode(buffer));
+            alternatives.add(java.util.Objects.requireNonNull(GenericStack.readBuffer(buffer)));
         }
         Optional<ResourceLocation> tag = buffer.readBoolean()
                 ? Optional.of(buffer.readResourceLocation())

@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.143'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.143'
     id 'idea'
 }
 
@@ -9,10 +9,10 @@ version = mod_version
 group = mod_group_id
 
 base {
-    archivesName = "${mod_id}-${minecraft_version}-neoforge"
+    archivesName = "${mod_id}-${minecraft_version}-forge"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 java.modularity.inferModulePath = false
 
 repositories {
@@ -29,8 +29,9 @@ repositories {
     }
 }
 
-neoForge {
-    version = project.neo_version
+legacyForge {
+    version = "${project.minecraft_version}-${project.forge_version}"
+    validateAccessTransformers = true
 
     parchment {
         mappingsVersion = project.parchment_mappings_version
@@ -40,7 +41,7 @@ neoForge {
     runs {
         client {
             client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
             def stressItemCount = providers.gradleProperty('stress_item_count')
             if (stressItemCount.isPresent()) {
                 systemProperty 'aeallpattern.stressItemCount', stressItemCount.get()
@@ -70,7 +71,7 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         }
 
         gameTestServer {
@@ -81,7 +82,7 @@ neoForge {
             // would otherwise replace those machines with air when saving.
             gameDirectory = file(providers.gradleProperty('gametest_directory')
                     .getOrElse('run-gametest'))
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'aeallpattern.expectedTestMods',
                     providers.gradleProperty('expected_test_mods').getOrElse('')
             systemProperty 'aeallpattern.forbiddenTestMods',
@@ -109,14 +110,28 @@ neoForge {
     }
 }
 
+mixin {
+    add sourceSets.main, 'aeallpattern.refmap.json'
+    config 'aeallpattern.mixins.json'
+}
+
 sourceSets.main.resources {
     srcDir('src/generated/resources')
     srcDir(layout.buildDirectory.dir('generated/resources/gameTest'))
 }
 
+// Forge 1.20.1 discovers resource-pack namespaces from the first physical root in
+// MOD_CLASSES. Keep classes and resources together so assets/data are visible in dev runs.
+sourceSets.main.output.resourcesDir = sourceSets.main.java.destinationDirectory.get().asFile
+
+tasks.named('compileJava').configure {
+    // processResources synchronizes this shared directory; compile classes only after that cleanup.
+    dependsOn(tasks.named('processResources'))
+}
+
 def generateGameTestTemplate = tasks.register('generateGameTestTemplate') {
     def outputFile = layout.buildDirectory.file(
-            'generated/resources/gameTest/data/aeallpattern/structure/empty.nbt')
+            'generated/resources/gameTest/data/aeallpattern/structures/empty.nbt')
     outputs.file(outputFile)
     doLast {
         def encoded = 'H4sIAAAAAAAA/2WPwU4DMQxEB7Yt2VSo3PgXzpwRJ64r79YtLtk4SixV8PUkKmUPteSDPfZongd6rIr8cAeg9d21eziOJiZc0KrHZgw6fRXfVI8ujuawPUikMBQjYzzOEnnKdLAXkuywijQznpftrOMwaayjadOTasBu0XlO9u2wPqlEg8saAo2BHe5lj6fl7iTHQmeHjVE+st1Y1LBd0nJl+q8O60vSC9BDosBm/Efk37Mmzo24gmmWyk8mGuH3eo5D1GyfqLHfGtZNnOq+fSWjD86lPWFX8AuuiQ4xYAEAAA=='
@@ -130,53 +145,51 @@ tasks.named('processResources').configure {
     dependsOn(generateGameTestTemplate)
 }
 
-// ModDev keeps the Minecraft/NeoForge classpath scoped to the main source set.
+// ModDev keeps the Minecraft/Forge classpath scoped to the main source set.
 // Persistence codec tests need the same mapped classes without launching a game.
 sourceSets.test.compileClasspath += sourceSets.main.compileClasspath
 sourceSets.test.runtimeClasspath += sourceSets.main.runtimeClasspath
 
 configurations {
-    runtimeClasspath.extendsFrom localRuntime
+    runtimeClasspath.extendsFrom modRuntimeOnly
 }
 
 dependencies {
     // AE2 is required and supplies the public crafting-provider API.
-    implementation "org.appliedenergistics:appliedenergistics2:${ae2_version}"
+    modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+    compileOnly "io.github.llamalad7:mixinextras-common:0.4.1"
+    implementation "io.github.llamalad7:mixinextras-forge:0.4.1"
 
     // Optional client recipe-viewer bridges. EMI + TMRV replace the JEI runtime,
     // but still expose JEI integrations to the scanner through TMRV.
-    compileOnly "maven.modrinth:emi:1.1.24+1.21.1+neoforge"
-    compileOnly "maven.modrinth:yFypjcfd:pEhG9g9P"
-    compileOnly "maven.modrinth:cloth-config:15.0.140+neoforge"
-    localRuntime "maven.modrinth:cloth-config:15.0.140+neoforge"
+    compileOnly "maven.modrinth:emi:${emi_version}"
+    compileOnly "maven.modrinth:yFypjcfd:${tmrv_version}"
+    modCompileOnly "maven.modrinth:cloth-config:${cloth_config_version}"
+    modRuntimeOnly "maven.modrinth:cloth-config:${cloth_config_version}"
 
     // Mekanism is optional. Keep its classes out of common signatures and load adapters conditionally.
-    compileOnly "mekanism:Mekanism:${mekanism_version}:api"
+    modCompileOnly "mekanism:Mekanism:${mekanism_version}:api"
     if (project.property('runtime_mekanism').toBoolean()) {
-        localRuntime "mekanism:Mekanism:${mekanism_version}:all"
+        modRuntimeOnly "mekanism:Mekanism:${mekanism_version}:all"
     }
 
     // JEI is optional and client-only. The server recipe index must not depend on it.
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
     if (project.property('runtime_emi').toBoolean()) {
-        localRuntime "maven.modrinth:emi:1.1.24+1.21.1+neoforge"
-        localRuntime "maven.modrinth:yFypjcfd:pEhG9g9P"
+        modRuntimeOnly "maven.modrinth:emi:${emi_version}"
+        modRuntimeOnly "maven.modrinth:yFypjcfd:${tmrv_version}"
     } else if (project.property('runtime_jei').toBoolean()) {
-        localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    }
-    if (project.property('runtime_jei').toBoolean()
-            || project.property('runtime_emi').toBoolean()) {
-        localRuntime "curse.maven:ae2-jei-integration-1074338:${ae2_jei_integration_file_id}"
+        modRuntimeOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     }
 
-    // Reuse AE's extensible JEI converter registry. Applied Mekanistics adds
-    // Mekanism chemicals to that same registry and owns their transport logic.
-    compileOnly "curse.maven:ae2-jei-integration-1074338:${ae2_jei_integration_file_id}"
-    compileOnly "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file_id}"
+    // AE2 15 includes its JEI bridge. Applied Mekanistics extends that bridge
+    // with Mekanism chemical keys and owns their transport logic.
+    modCompileOnly "maven.modrinth:applied-mekanistics:${applied_mekanistics_version}"
     if ((project.property('runtime_jei').toBoolean()
             || project.property('runtime_emi').toBoolean())
             && project.property('runtime_mekanism').toBoolean()) {
-        localRuntime "curse.maven:applied-mekanistics-574300:${applied_mekanistics_file_id}"
+        modRuntimeOnly "maven.modrinth:applied-mekanistics:${applied_mekanistics_version}"
     }
 
     // Runtime-only generic JEI compatibility fixture. No Mystical Agriculture
@@ -184,57 +197,67 @@ dependencies {
     if (project.property('runtime_mystical_agriculture').toBoolean()) {
         // Their published POMs contain no packaging metadata, so request the
         // binary artifacts explicitly for the development runtime fixture.
-        localRuntime "com.blakebr0.cucumber:Cucumber:${cucumber_version}@jar"
-        localRuntime "com.blakebr0.mysticalagriculture:MysticalAgriculture:${mystical_agriculture_version}@jar"
+        modRuntimeOnly "com.blakebr0.cucumber:Cucumber:${cucumber_version}@jar"
+        modRuntimeOnly "com.blakebr0.mysticalagriculture:MysticalAgriculture:${mystical_agriculture_version}@jar"
     }
 
     // Large-tech fixtures used by the video showcase. They remain runtime-only:
     // aggregate scanning must keep working through JEI without linking their APIs.
     if (project.property('runtime_create').toBoolean()) {
-        localRuntime "maven.modrinth:LNytGWDc:UjX6dr61"
+        modRuntimeOnly "maven.modrinth:LNytGWDc:8amzvn9x"
     }
     if (project.property('runtime_industrial_foregoing').toBoolean()) {
-        localRuntime "maven.modrinth:1Ro7m06l:7AWtSmd7"
-        localRuntime "maven.modrinth:industrial-foregoing:7otXKx1D"
+        modRuntimeOnly "maven.modrinth:1Ro7m06l:LMqbm4db"
+        modRuntimeOnly "maven.modrinth:lWxpUd04:5XXYqEMK"
     }
     if (project.property('runtime_neoecoae').toBoolean()) {
-        // Neo ECO 21.1.1 is built against LDLib2 2.2.8. Keep both runtime-only:
+        // Neo ECO 20.4.2 is built against the Forge 1.20.1 LDLib line. Keep both runtime-only:
         // the optional compatibility mixin is selected by mod id at launch.
-        localRuntime "maven.modrinth:B1CBVXHX:xmPYPfWU"
-        localRuntime "maven.modrinth:udZtKfzP:gWMhHBje"
+        modRuntimeOnly "maven.modrinth:B1CBVXHX:NzNZILgs"
+        // 20.4.x declares two overloaded CraftingService mixin targets that
+        // Mixin 0.8.5 cannot disambiguate on Forge 1.20.1. 20.3.0 uses the
+        // AE2 15.4.10 signature and still contains the crafting-pattern bus.
+        modRuntimeOnly "maven.modrinth:udZtKfzP:TYrXvWwv"
     }
 
-    // Optional AE provider compatibility fixture. These versions are pinned to
-    // known-good 1.21.1 releases so CI detects upstream class/mixin drift instead
-    // of silently skipping provider tests when an addon is absent.
+    // Optional AE provider compatibility fixture. These are real Forge 1.20.1
+    // releases, pinned so CI detects upstream class/mixin drift instead of
+    // silently skipping provider tests when an addon is absent.
     if (project.property('runtime_ae_provider_addons').toBoolean()) {
-        localRuntime "curse.maven:glodium-957920:5821676"
-        localRuntime "curse.maven:ae2-wireless-terminals-459929:8450398"
-        localRuntime "curse.maven:ae2-addon-lib-1366135:7222312"
-        localRuntime "curse.maven:geckolib-388172:8350073"
-        localRuntime "curse.maven:thunderbolt-1631756:8638565"
-        localRuntime "curse.maven:extended-ae-892005:8511901"
-        localRuntime "curse.maven:extended-ae-plus-1337639:8701596"
-        localRuntime "curse.maven:advanced-ae-1084104:8564177"
-        localRuntime "curse.maven:ae2-crystal-science-1435174:8498888"
-        localRuntime "curse.maven:ae2-lightning-tech-1527395:8638573"
-        localRuntime "curse.maven:ae2lt-packaged-provider-1572723:8575412"
+        modRuntimeOnly "maven.modrinth:UhW5uCKw:eoUaDkZf"
+        modRuntimeOnly "maven.modrinth:8BmcQJ2H:aC5KMoNg"
+        modRuntimeOnly "maven.modrinth:JiOqfoFM:uq3lO4ER"
+        modRuntimeOnly "maven.modrinth:rxYaglEe:d83Wdhdn"
+        modRuntimeOnly "maven.modrinth:uJ9afomy:VGhHOKsP"
+        modRuntimeOnly "maven.modrinth:M5jhzZXH:bdl88uT0"
+        modRuntimeOnly "maven.modrinth:ArHeh5Fz:mpt9LSEi"
+    }
+    // ExtendedAE Plus 1.6.x requires ExtendedAE 1.4.6 or newer. Keep this
+    // profile on that declared compatibility baseline. Plus 1.6.2 added a
+    // lifecycle mixin that targets a method absent from every 1.20 ExtendedAE
+    // binary; 1.6.1-f1 contains the same supported matrix APIs without it.
+    if (project.property('runtime_extendedae_plus').toBoolean()) {
+        modRuntimeOnly "maven.modrinth:UhW5uCKw:eoUaDkZf"
+        modRuntimeOnly "curse.maven:ex-pattern-provider-892005:7005572"
+        modRuntimeOnly "maven.modrinth:xr109llC:3sniosWU"
     }
 
     // Packaging integration fixture: PackagedAuto + Extended Crafting bridge.
     if (project.property('runtime_packaged_addons').toBoolean()) {
-        localRuntime "com.blakebr0.cucumber:Cucumber:${cucumber_version}@jar"
-        localRuntime "curse.maven:extended-crafting-268387:7180800"
-        localRuntime "curse.maven:packaged-auto-308380:7329743"
-        localRuntime "curse.maven:packaged-ex-crafting-322861:8533371"
+        modRuntimeOnly "com.blakebr0.cucumber:Cucumber:${cucumber_version}@jar"
+        modRuntimeOnly "maven.modrinth:5JMG1gql:NtEZsGjO"
+        modRuntimeOnly "maven.modrinth:ugIdhQx4:JlONTeuu"
+        modRuntimeOnly "maven.modrinth:qO33ACjS:OFILEfwe"
     }
 
     // Mekanism factory addons are tested separately from base Mekanism so a
     // broken addon alias cannot hide inside the broad full-runtime job.
     if (project.property('runtime_mekanism_addons').toBoolean()) {
-        localRuntime "curse.maven:mekanism-more-machine-1275257:8724947"
-        localRuntime "curse.maven:mekanism-extras-1026040:8677677"
+        modRuntimeOnly "maven.modrinth:qDJXZJTz:PQ3IlR98"
+        modRuntimeOnly "curse.maven:mekanism-extras-1026040:6936409"
     }
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -284,6 +307,7 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version': mod_version,
                 'Implementation-Vendor': mod_authors,
                 'Automatic-Module-Name': mod_group_id,
+                'MixinConfigs': 'aeallpattern.mixins.json',
         )
     }
 }
@@ -292,7 +316,7 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
     def replaceProperties = [
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
+            forge_version          : forge_version,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
@@ -310,11 +334,11 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
 }
 
 sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
+legacyForge.ideSyncTask generateModMetadata
 
 def releaseVersion = providers.gradleProperty('mod_version')
 def generatedMetadataFile = layout.buildDirectory.file(
-        'generated/sources/modMetadata/META-INF/neoforge.mods.toml')
+        'generated/sources/modMetadata/META-INF/mods.toml')
 def readmeFile = layout.projectDirectory.file('README.md')
 
 def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
@@ -322,7 +346,7 @@ def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
     inputs.property('releaseVersion', releaseVersion)
     inputs.file('gradle.properties')
     inputs.file(readmeFile)
-    inputs.file('src/main/templates/META-INF/neoforge.mods.toml')
+    inputs.file('src/main/templates/META-INF/mods.toml')
     doLast {
         def expectedVersion = releaseVersion.get()
         if (expectedVersion.endsWith('-dev')) {
@@ -348,7 +372,7 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
         try {
             def names = zip.entries().collect { it.name } as Set
             for (required in [
-                    'META-INF/neoforge.mods.toml',
+                    'META-INF/mods.toml',
                     'META-INF/LICENSE',
                     'META-INF/NOTICE.md',
                     'META-INF/licenses/routing-engine-LGPL-3.0.txt',
@@ -371,7 +395,7 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
             if (names.any { it.startsWith('appeng/') || it.startsWith('mekanism/') || it.startsWith('mezz/jei/') }) {
                 throw new GradleException('Release JAR unexpectedly contains upstream classes')
             }
-            def metadataEntry = zip.getEntry('META-INF/neoforge.mods.toml')
+            def metadataEntry = zip.getEntry('META-INF/mods.toml')
             def metadata = zip.getInputStream(metadataEntry).getText('UTF-8')
             if (metadata =~ /(?i)modId\s*=\s*"thunderbolt"/) {
                 throw new GradleException('Release JAR must not require or declare Thunderbolt')
@@ -388,6 +412,9 @@ tasks.named('check').configure {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // Optional integration mixins deliberately target mods that are not on the
+    // normal compile classpath. Runtime plugin checks still gate every target.
+    options.compilerArgs += ['-AdisableTargetValidator=true']
 }
 
 publishing {

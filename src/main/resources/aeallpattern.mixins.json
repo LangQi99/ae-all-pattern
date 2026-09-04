@@ -3,7 +3,7 @@
   "minVersion": "0.8",
   "package": "io.github.langqi99.aeallpattern.mixin",
   "plugin": "io.github.langqi99.aeallpattern.mixin.AeAllPatternMixinPlugin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [
     "AEBaseMenuAccessor",
     "NetworkCraftingProvidersAccessor",
@@ -30,9 +30,7 @@
     "CraftConfirmMenuMixin"
   ],
   "client": [
-    "client.CraftConfirmScreenRoutingMixin",
-    "client.ClientJeiAggregateScannerMixin",
-    "client.ClientEventsMixin"
+    "client.CraftConfirmScreenRoutingMixin"
   ],
   "injectors": {
     "defaultRequire": 1

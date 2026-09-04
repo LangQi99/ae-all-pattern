@@ -29,21 +29,23 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.SmithingRecipe;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.TransientCraftingContainer;
+import net.minecraft.world.entity.player.Player;
 
 public final class AggregatePatternExpander {
     static final int MAX_SPLIT_ITEM_INPUTS = 4096;
     private static final ResourceLocation CHEMICAL_KEY_TYPE =
-            ResourceLocation.fromNamespaceAndPath("appmek", "chemical");
+            new ResourceLocation("appmek", "chemical");
     static final TagKey<Item> PROCESSING_CATALYSTS = TagKey.create(
-            Registries.ITEM, ResourceLocation.fromNamespaceAndPath("aeallpattern", "processing_catalysts"));
+            Registries.ITEM, new ResourceLocation("aeallpattern", "processing_catalysts"));
 
     /**
      * Expanding one child costs an encode+decode round trip through encoded pattern NBT, so a
@@ -142,7 +144,7 @@ public final class AggregatePatternExpander {
     }
 
     private static ExpansionContext resolveContext(ItemStack aggregateStack, Level level) {
-        AggregatePatternRef ref = aggregateStack.get(ModDataComponents.AGGREGATE_PATTERN.get());
+        AggregatePatternRef ref = ModDataComponents.getAggregatePattern(aggregateStack);
         if (!aggregateStack.is(ModItems.AGGREGATE_PATTERN.get()) || ref == null
                 || !(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return null;
@@ -151,10 +153,10 @@ public final class AggregatePatternExpander {
         List<AggregateRecipe> recipes = AggregatePatternLibrary.get(server)
                 .recipes(server, ref.libraryId()).orElse(List.of());
         AggregatePatternOptions savedOptions =
-                aggregateStack.get(ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get());
+                ModDataComponents.getAggregatePatternOptions(aggregateStack);
         AggregatePatternOptions options = savedOptions == null ? AggregatePatternOptions.DEFAULT : savedOptions;
         AggregatePatternSelection selection =
-                aggregateStack.get(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+                ModDataComponents.getAggregatePatternSelection(aggregateStack);
         if (selection != null) {
             AggregatePatternSelection reconciled = selection.reconciled(
                     recipes.stream().map(AggregateRecipe::patternId).toList());
@@ -164,9 +166,9 @@ public final class AggregatePatternExpander {
             // keeps the smaller of the enabled/disabled id sets.
             if (!reconciled.equals(selection)) {
                 if (reconciled.isAllEnabled()) {
-                    aggregateStack.remove(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get());
+                    ModDataComponents.clearAggregatePatternSelection(aggregateStack);
                 } else {
-                    aggregateStack.set(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(), reconciled);
+                    ModDataComponents.setAggregatePatternSelection(aggregateStack, reconciled);
                 }
             }
             selection = reconciled;
@@ -223,7 +225,7 @@ public final class AggregatePatternExpander {
         }
         List<IPatternDetails> cached = context.cache().get(context.key());
         if (cached != null && !cached.isEmpty()) {
-            return cached.getFirst();
+            return cached.get(0);
         }
         for (AggregateRecipe recipe : context.recipes()) {
             IPatternDetails details = expandOne(recipe, context.options(), context.selection(), context.level());
@@ -385,6 +387,12 @@ public final class AggregatePatternExpander {
         if (options.skipProbabilisticMainOutput() && recipe.isProbabilisticOutput(0)) {
             return null;
         }
+        // Check the integration-supplied recipe before output metadata is normalized below.
+        // On 1.20.1 item damage is stored in NBT, so ignoreOutputComponents would otherwise
+        // erase the damaged-tool remainder before the durability filter can recognize it.
+        if (options.skipDurabilityConsumingRecipes() && consumesDurability(recipe)) {
+            return null;
+        }
         if (recipe.kind() == AggregatePatternKind.PROCESSING
                 && recipe.outputs().stream().allMatch(stack -> removeOutput(stack.what(), options))) {
             return null;
@@ -405,13 +413,11 @@ public final class AggregatePatternExpander {
         if (delegate == null) {
             return null;
         }
-        if (options.skipDurabilityConsumingRecipes()
-                && (consumesDurability(delegate) || consumesDurability(configuredRecipe))) {
+        if (options.skipDurabilityConsumingRecipes() && consumesDurability(delegate)) {
             return null;
         }
 
-        encoded.set(ModDataComponents.VIRTUAL_PATTERN_ID.get(),
-                virtualPatternId(virtualIdPrefix, options, configuredInputs));
+        ModDataComponents.setVirtualPatternId(encoded, virtualPatternId(virtualIdPrefix, options, configuredInputs));
         AEItemKey definition = AEItemKey.of(encoded);
         if (delegate instanceof IMolecularAssemblerSupportedPattern assemblerPattern) {
             return new AggregateAssemblerPatternDetails(
@@ -484,8 +490,7 @@ public final class AggregatePatternExpander {
                 continue;
             }
             if (options.ignoreOutputComponents()
-                    && stack.what() instanceof AEItemKey itemKey
-                    && itemKey.hasComponents()) {
+                    && stack.what() instanceof AEItemKey itemKey) {
                 stack = new GenericStack(AEItemKey.of(itemKey.getItem()), stack.amount());
             }
             if (probabilistic) {
@@ -548,7 +553,7 @@ public final class AggregatePatternExpander {
             return inputs;
         }
         List<AggregateInputSlot> reordered = new ArrayList<>(inputs);
-        AggregateInputSlot first = reordered.getFirst();
+        AggregateInputSlot first = reordered.get(0);
         int lastIndex = reordered.size() - 1;
         reordered.set(0, reordered.get(lastIndex));
         reordered.set(lastIndex, first);
@@ -627,7 +632,8 @@ public final class AggregatePatternExpander {
             net.minecraft.server.level.ServerLevel level,
             AggregatePatternOptions options) {
         return switch (recipe.kind()) {
-            case PROCESSING -> PatternDetailsHelper.encodeProcessingPattern(recipe.inputs(), recipe.outputs());
+            case PROCESSING -> PatternDetailsHelper.encodeProcessingPattern(
+                    recipe.inputs().toArray(GenericStack[]::new), recipe.outputs().toArray(GenericStack[]::new));
             case CRAFTING -> encodeCrafting(recipe, level, options);
             case STONECUTTING -> encodeStonecutting(recipe, level, options);
             case SMITHING -> encodeSmithing(recipe, level, options);
@@ -639,16 +645,16 @@ public final class AggregatePatternExpander {
             net.minecraft.server.level.ServerLevel level,
             AggregatePatternOptions options) {
         ItemStack[] storedGrid = storedCraftingGrid(aggregate.inputs());
-        Optional<RecipeHolder<CraftingRecipe>> holder = craftingHolder(aggregate, storedGrid, level);
-        if (holder.isEmpty()) {
+        Optional<CraftingRecipe> found = craftingRecipe(aggregate, storedGrid, level);
+        if (found.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        CraftingRecipe recipe = holder.orElseThrow().value();
+        CraftingRecipe recipe = found.orElseThrow();
         ItemStack[] grid = recipe.getIngredients().isEmpty() ? storedGrid : craftingGrid(recipe);
         if (Arrays.stream(grid).allMatch(ItemStack::isEmpty)) {
             return ItemStack.EMPTY;
         }
-        ItemStack output = itemStack(aggregate.outputs().getFirst());
+        ItemStack output = itemStack(aggregate.outputs().get(0));
         if (output.isEmpty()) {
             output = recipe.getResultItem(level.registryAccess()).copy();
         }
@@ -656,24 +662,24 @@ public final class AggregatePatternExpander {
             return ItemStack.EMPTY;
         }
         return PatternDetailsHelper.encodeCraftingPattern(
-                holder.orElseThrow(), grid, output,
+                recipe, grid, output,
                 options.allowItemSubstitutions(), options.allowFluidSubstitutions());
     }
 
-    private static Optional<RecipeHolder<CraftingRecipe>> craftingHolder(
+    private static Optional<CraftingRecipe> craftingRecipe(
             AggregateRecipe aggregate,
             ItemStack[] storedGrid,
             net.minecraft.server.level.ServerLevel level) {
-        Optional<RecipeHolder<?>> byId = level.getRecipeManager().byKey(aggregate.recipeId());
-        if (byId.isPresent() && byId.orElseThrow().value() instanceof CraftingRecipe) {
-            return Optional.of(castHolder(byId.orElseThrow()));
+        Optional<? extends Recipe<?>> byId = level.getRecipeManager().byKey(aggregate.recipeId());
+        if (byId.isPresent() && byId.orElseThrow() instanceof CraftingRecipe recipe) {
+            return Optional.of(recipe);
         }
         if (Arrays.stream(storedGrid).allMatch(ItemStack::isEmpty)) {
             return Optional.empty();
         }
         return level.getRecipeManager().getRecipeFor(
                 RecipeType.CRAFTING,
-                CraftingInput.of(3, 3, List.of(storedGrid)),
+                craftingContainer(storedGrid),
                 level);
     }
 
@@ -681,36 +687,36 @@ public final class AggregatePatternExpander {
             AggregateRecipe aggregate,
             net.minecraft.server.level.ServerLevel level,
             AggregatePatternOptions options) {
-        Optional<RecipeHolder<?>> rawHolder = level.getRecipeManager().byKey(aggregate.recipeId());
-        if (rawHolder.isEmpty() || !(rawHolder.orElseThrow().value() instanceof StonecutterRecipe)) {
+        Optional<? extends Recipe<?>> rawRecipe = level.getRecipeManager().byKey(aggregate.recipeId());
+        if (rawRecipe.isEmpty() || !(rawRecipe.orElseThrow() instanceof StonecutterRecipe recipe)) {
             return ItemStack.EMPTY;
         }
-        AEItemKey input = itemKey(aggregate.inputs().getFirst());
-        AEItemKey output = itemKey(aggregate.outputs().getFirst());
+        AEItemKey input = itemKey(aggregate.inputs().get(0));
+        AEItemKey output = itemKey(aggregate.outputs().get(0));
         if (input == null || output == null) {
             return ItemStack.EMPTY;
         }
         return PatternDetailsHelper.encodeStonecuttingPattern(
-                castHolder(rawHolder.orElseThrow()), input, output, options.allowItemSubstitutions());
+                recipe, input, output, options.allowItemSubstitutions());
     }
 
     private static ItemStack encodeSmithing(
             AggregateRecipe aggregate,
             net.minecraft.server.level.ServerLevel level,
             AggregatePatternOptions options) {
-        Optional<RecipeHolder<?>> rawHolder = level.getRecipeManager().byKey(aggregate.recipeId());
-        if (rawHolder.isEmpty() || !(rawHolder.orElseThrow().value() instanceof SmithingRecipe recipe)) {
+        Optional<? extends Recipe<?>> rawRecipe = level.getRecipeManager().byKey(aggregate.recipeId());
+        if (rawRecipe.isEmpty() || !(rawRecipe.orElseThrow() instanceof SmithingRecipe recipe)) {
             return ItemStack.EMPTY;
         }
         AEItemKey template = findItemKey(aggregate.inputs(), recipe::isTemplateIngredient);
         AEItemKey base = findItemKey(aggregate.inputs(), recipe::isBaseIngredient);
         AEItemKey addition = findItemKey(aggregate.inputs(), recipe::isAdditionIngredient);
-        AEItemKey output = itemKey(aggregate.outputs().getFirst());
+        AEItemKey output = itemKey(aggregate.outputs().get(0));
         if (template == null || base == null || addition == null || output == null) {
             return ItemStack.EMPTY;
         }
         return PatternDetailsHelper.encodeSmithingTablePattern(
-                castHolder(rawHolder.orElseThrow()), template, base, addition, output,
+                recipe, template, base, addition, output,
                 options.allowItemSubstitutions());
     }
 
@@ -760,7 +766,7 @@ public final class AggregatePatternExpander {
     }
 
     private static String itemIdentity(ItemStack stack) {
-        return BuiltInRegistries.ITEM.getKey(stack.getItem()) + "*" + stack.getComponents();
+        return BuiltInRegistries.ITEM.getKey(stack.getItem()) + "*" + stack.getTag();
     }
 
     private static AEItemKey findItemKey(List<GenericStack> stacks, Predicate<ItemStack> predicate) {
@@ -785,9 +791,22 @@ public final class AggregatePatternExpander {
         return key.toStack((int) Math.min(Integer.MAX_VALUE, stack.amount()));
     }
 
-    @SuppressWarnings("unchecked")
-    private static <T extends net.minecraft.world.item.crafting.Recipe<?>> RecipeHolder<T> castHolder(
-            RecipeHolder<?> holder) {
-        return (RecipeHolder<T>) holder;
+    private static TransientCraftingContainer craftingContainer(ItemStack[] grid) {
+        AbstractContainerMenu menu = new AbstractContainerMenu(null, -1) {
+            @Override
+            public ItemStack quickMoveStack(Player player, int slot) {
+                return ItemStack.EMPTY;
+            }
+
+            @Override
+            public boolean stillValid(Player player) {
+                return false;
+            }
+        };
+        var items = net.minecraft.core.NonNullList.withSize(9, ItemStack.EMPTY);
+        for (int index = 0; index < Math.min(grid.length, items.size()); index++) {
+            items.set(index, grid[index]);
+        }
+        return new TransientCraftingContainer(menu, 3, 3, items);
     }
 }

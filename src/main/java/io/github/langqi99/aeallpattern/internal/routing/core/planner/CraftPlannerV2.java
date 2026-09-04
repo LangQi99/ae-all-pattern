@@ -440,13 +440,13 @@ public final class CraftPlannerV2<K> {
     private static int scaledSearchWorkBudget(int work) {
         int log = 32 - Integer.numberOfLeadingZeros(Math.max(1, work));
         long scaled = (long) work * (log + 4L);
-        return Math.clamp(scaled, MIN_SEARCH_WORK_BUDGET,
-                DEFAULT_SEARCH_WORK_BUDGET);
+        return (int) io.github.langqi99.aeallpattern.util.CompatMath.clamp(
+                scaled, MIN_SEARCH_WORK_BUDGET, DEFAULT_SEARCH_WORK_BUDGET);
     }
 
     private static int fallbackWorkBudget(int reachableWork) {
         long scaled = (long) Math.max(1, reachableWork) * FALLBACK_WORK_PER_REACHABLE_UNIT;
-        return (int) Math.clamp(scaled, 64L, MAX_FALLBACK_WORK_BUDGET);
+        return (int) io.github.langqi99.aeallpattern.util.CompatMath.clamp(scaled, 64L, MAX_FALLBACK_WORK_BUDGET);
     }
 
     static <K> int reachableWorkEstimate(CraftGraph<K> graph, K target) {
@@ -2098,7 +2098,7 @@ public final class CraftPlannerV2<K> {
             long p = capRemainingVia(r, need);
             Long cap = capUnits.get(r);
             if (cap != null) {
-                p = Math.clamp(cap - allocatedUnits.getOrDefault(r, 0L), 0L, p);
+                p = io.github.langqi99.aeallpattern.util.CompatMath.clamp(cap - allocatedUnits.getOrDefault(r, 0L), 0L, p);
             }
             if (p <= 0) {
                 continue;
@@ -2113,7 +2113,7 @@ public final class CraftPlannerV2<K> {
         // Leftover nobody had capacity for: push demand down the primary recipe; the deficit surfaces
         // at the raw leaves (same optimistic behaviour as AE2's simulation).
         if (d > 0) {
-            CraftPattern<K> r0 = ps.getFirst();
+            CraftPattern<K> r0 = ps.get(0);
             long t = Sat.ceilDiv(d, r0.outputAmount());
             allocatedUnits.merge(r0, d, Sat::add);
             fireLinear(x, r0, t, d, need, bp, returnedSeedReserve, fired);
@@ -2262,8 +2262,8 @@ public final class CraftPlannerV2<K> {
             List<CraftPattern<K>> right,
             ToLongFunction<CraftPattern<K>> totalCapacity,
             ToLongFunction<CraftPattern<K>> directStockCapacity) {
-        CraftPattern<K> a = left.getFirst();
-        CraftPattern<K> b = right.getFirst();
+        CraftPattern<K> a = left.get(0);
+        CraftPattern<K> b = right.get(0);
         long capacityA = maxCapacity(left, totalCapacity);
         long capacityB = maxCapacity(right, totalCapacity);
 
@@ -2427,7 +2427,7 @@ public final class CraftPlannerV2<K> {
         // A single recipe needs no alternate search, but its descendants still resolve their own
         // contention normally. It consumes resolution work above, never alternative-search work.
         if (ps.size() == 1) {
-            long unmet = fire(x, ps.getFirst(), d, !commitFailure);
+            long unmet = fire(x, ps.get(0), d, !commitFailure);
             if (!commitFailure && unmet > 0
                     && !searchBudget.exhausted() && !diagnostics.resolutionExhausted()) {
                 failedSpeculativeSearches.add(failureKey);
@@ -2440,7 +2440,7 @@ public final class CraftPlannerV2<K> {
         if (distinctBranches.size() == 1) {
             // There is no materially different alternative to discover. Commit the representative
             // once instead of speculatively expanding it, rolling it back, and expanding it again.
-            long unmet = fire(x, distinctBranches.getFirst(), d, !commitFailure);
+            long unmet = fire(x, distinctBranches.get(0), d, !commitFailure);
             if (!commitFailure && unmet > 0
                     && !searchBudget.exhausted() && !diagnostics.resolutionExhausted()) {
                 failedSpeculativeSearches.add(failureKey);
@@ -2784,7 +2784,7 @@ public final class CraftPlannerV2<K> {
                 }
             }
             List<CraftPattern<K>> psy = patternsByOutput.getOrDefault(y, List.of());
-            CraftPattern<K> r = psy.size() == 1 ? psy.getFirst() : capacityOrder(y).getFirst();
+            CraftPattern<K> r = psy.size() == 1 ? psy.get(0) : capacityOrder(y).get(0);
             if (processed < Integer.MAX_VALUE) {
                 processed++;
             }
@@ -2815,8 +2815,8 @@ public final class CraftPlannerV2<K> {
     }
 
     private long commitBestEffort(List<CraftPattern<K>> ps, K x, long d) {
-        recordRouteDecision(x, ps.getFirst(), ps);
-        return fire(x, ps.getFirst(), d, false);
+        recordRouteDecision(x, ps.get(0), ps);
+        return fire(x, ps.get(0), d, false);
     }
 
     /**
@@ -3332,7 +3332,7 @@ public final class CraftPlannerV2<K> {
 
         List<CraftPattern<K>> patterns = patternsByOutput.getOrDefault(key, List.of());
         if (patterns.isEmpty()) return;
-        CraftPattern<K> preferred = capacityOrder(key).getFirst();
+        CraftPattern<K> preferred = capacityOrder(key).get(0);
         List<FeedbackSeedBootstrap<K>> bootstraps = feedbackSeedBootstraps.get(preferred);
         if (bootstraps == null || bootstraps.isEmpty()) return;
 
@@ -3536,7 +3536,7 @@ public final class CraftPlannerV2<K> {
         int oldSize = routeDecisions.size();
         trail.push(() -> {
             while (routeDecisions.size() > oldSize) {
-                routeDecisions.removeLast();
+                routeDecisions.remove(routeDecisions.size() - 1);
             }
         });
         routeDecisions.add(new RouteDecision<>(key, selected, List.copyOf(candidates)));
@@ -3567,7 +3567,7 @@ public final class CraftPlannerV2<K> {
             List<CraftPattern<K>> defaultOrder = capacityOrderByOutput.getOrDefault(
                     decision.key(), patternsByOutput.getOrDefault(decision.key(), List.of()));
             CraftPattern<K> defaultPattern =
-                    defaultOrder.isEmpty() ? decision.selected() : defaultOrder.getFirst();
+                    defaultOrder.isEmpty() ? decision.selected() : defaultOrder.get(0);
             for (int i = selected + 1; i < candidates.size(); i++) {
                 if (alternatives.size() >= limit) {
                     truncated = true;

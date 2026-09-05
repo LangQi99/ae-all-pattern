@@ -792,21 +792,32 @@ public final class AggregatePatternExpander {
     }
 
     private static TransientCraftingContainer craftingContainer(ItemStack[] grid) {
-        AbstractContainerMenu menu = new AbstractContainerMenu(null, -1) {
-            @Override
-            public ItemStack quickMoveStack(Player player, int slot) {
-                return ItemStack.EMPTY;
-            }
-
-            @Override
-            public boolean stillValid(Player player) {
-                return false;
-            }
-        };
+        AbstractContainerMenu menu = new RecipeLookupMenu();
         var items = net.minecraft.core.NonNullList.withSize(9, ItemStack.EMPTY);
         for (int index = 0; index < Math.min(grid.length, items.size()); index++) {
             items.set(index, grid[index]);
         }
         return new TransientCraftingContainer(menu, 3, 3, items);
+    }
+
+    /**
+     * A named class avoids javac generating an anonymous constructor from Forge's mapped
+     * parameter names. Some clean Linux mapping artifacts expose both super-constructor
+     * parameters as {@code o}, which makes that generated source-level signature invalid.
+     */
+    private static final class RecipeLookupMenu extends AbstractContainerMenu {
+        private RecipeLookupMenu() {
+            super(null, -1);
+        }
+
+        @Override
+        public ItemStack quickMoveStack(Player player, int slot) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return false;
+        }
     }
 }

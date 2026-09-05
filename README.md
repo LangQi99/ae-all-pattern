@@ -77,7 +77,7 @@ The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tec
 
 | Component | Support |
 | --- | --- |
-| AE All Pattern | 0.2.1 |
+| AE All Pattern | 0.2.2 |
 | Minecraft | 1.21.1 |
 | Mod loader | NeoForge 21.1.219+ |
 | Java | 21 |
@@ -164,7 +164,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 | 组件 | 支持情况 |
 | --- | --- |
-| AE 全样板 | 0.2.1 |
+| AE 全样板 | 0.2.2 |
 | Minecraft | 1.21.1 |
 | 模组加载器 | NeoForge 21.1.219+ |
 | Java | 21 |

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.2 - 2026-09-05
+
 - Aggregate generation now keeps a machine catalog in one physical pattern item instead of creating numbered `[1/2]` parts.
 - Raised the single Aggregate Pattern recipe limit to 1,048,576 while retaining bounded network-transfer and server-storage pages.
 - Existing aggregate catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client and are replaced under the same server-library UUID.
@@ -10,6 +12,8 @@
 - Aggregate selection now has server-backed previous/next controls; each UI page loads 1,024 recipes by default while search and bulk selection still cover the complete catalog.
 - Added a default-on Tianshu Router qualification for direct self-amplifying recipes such as `A + D -> 2 A`; planning reserves a real startup seed, schedules net growth, and rejects zero-seed or non-growing loops.
 - Added four dedicated amplifying-cycle CI gates covering recipe classification, closed-form demand planning, the AE adapter policy gate, and policy migration/persistence.
+- Added a Forge 1.20.1 build line with Java 17 and Applied Energistics 2 15.4.10 compatibility.
+- Fixed large Aggregate Patterns failing to open their management screen by moving initial recipes and selection state to bounded, server-backed pages.
 
 ## 0.2.1 - 2026-09-03
 

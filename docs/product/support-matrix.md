@@ -4,8 +4,8 @@
 
 | 能力 | 状态 | 说明 |
 | --- | --- | --- |
-| Minecraft 1.21.1 + NeoForge | 已实现 | Java 21；发布版 0.2.1 |
-| Minecraft 1.20.1 + Forge | 未实现、未发布 | 仅定义了未来兼容线的维护流程，不是当前可下载版本 |
+| Minecraft 1.21.1 + NeoForge | 已实现、已发布 | Java 21；发布版 0.2.2 |
+| Minecraft 1.20.1 + Forge | 已实现、已发布 | Java 17；Forge 47.4.20；发布版 0.2.2 |
 | AE2 Grid Node/provider | 已实现 | 一个频道、2 AE/t，断频道时停止发布 |
 | 两阶段绑定与持久化 | 已实现 | 64 格、同维度、所有者校验、schema 化 SavedData |
 | 紫色 AE 包围框 | 已实现 | 只同步给所有者，96 格客户端渲染上限 |

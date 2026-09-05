@@ -73,13 +73,10 @@ public final class PackagedAutoAggregateCompat {
 
             ClassLoader loader = provider.getClass().getClassLoader();
             Class<?> recipeInfoType = Class.forName("thelm.packagedauto.api.IPackageRecipeInfo", false, loader);
-            Class<?> packagePatternType = Class.forName("thelm.packagedauto.api.IPackagePattern", false, loader);
-            Constructor<?> packageDetails = Class.forName(
-                            "thelm.packagedauto.integration.appeng.recipe.PackageCraftingPatternDetails", false, loader)
-                    .getConstructor(packagePatternType, HolderLookup.Provider.class);
-            Constructor<?> recipeDetails = Class.forName(
-                            "thelm.packagedauto.integration.appeng.recipe.RecipeCraftingPatternDetails", false, loader)
-                    .getConstructor(recipeInfoType, HolderLookup.Provider.class);
+            Class<?> packageDetails = Class.forName(
+                    "thelm.packagedauto.integration.appeng.recipe.PackageCraftingPatternDetails", false, loader);
+            Class<?> recipeDetails = Class.forName(
+                    "thelm.packagedauto.integration.appeng.recipe.RecipeCraftingPatternDetails", false, loader);
             Method isCraftable = recipeInfoType.getMethod("isCraftable");
             Method isPackageable = recipeInfoType.getMethod("isPackageable");
             Method getPatterns = recipeInfoType.getMethod("getPatterns");
@@ -95,7 +92,7 @@ public final class PackagedAutoAggregateCompat {
                             level.registryAccess());
                 }
                 if ((boolean) isCraftable.invoke(recipe)) {
-                    result.add(recipeDetails.newInstance(recipe, level.registryAccess()));
+                    result.add(newPatternDetails(recipeDetails, recipe, level.registryAccess()));
                 }
             }
             return result;
@@ -108,10 +105,40 @@ public final class PackagedAutoAggregateCompat {
     private static void addPackagePatterns(
             List<Object> result,
             List<?> patterns,
-            Constructor<?> packageDetails,
+            Class<?> packageDetails,
             HolderLookup.Provider registries) throws ReflectiveOperationException {
         for (Object pattern : patterns) {
-            result.add(packageDetails.newInstance(pattern, registries));
+            result.add(newPatternDetails(packageDetails, pattern, registries));
         }
+    }
+
+    private static Object newPatternDetails(
+            Class<?> detailsType,
+            Object recipeOrPattern,
+            HolderLookup.Provider registries) throws ReflectiveOperationException {
+        for (Constructor<?> constructor : detailsType.getConstructors()) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+            if (parameterTypes.length == 2
+                    && parameterTypes[0].isInstance(recipeOrPattern)
+                    && parameterTypes[1].isInstance(registries)) {
+                return constructor.newInstance(recipeOrPattern, registries);
+            }
+        }
+        for (Constructor<?> constructor : detailsType.getConstructors()) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+            if (parameterTypes.length == 1 && parameterTypes[0].isInstance(recipeOrPattern)) {
+                return constructor.newInstance(recipeOrPattern);
+            }
+        }
+        StringBuilder signatures = new StringBuilder();
+        for (Constructor<?> constructor : detailsType.getConstructors()) {
+            if (!signatures.isEmpty()) {
+                signatures.append(", ");
+            }
+            signatures.append(constructor);
+        }
+        throw new NoSuchMethodException("No compatible constructor found for " + detailsType.getName()
+                + " with " + recipeOrPattern.getClass().getName() + " and " + registries.getClass().getName()
+                + "; available: " + signatures);
     }
 }

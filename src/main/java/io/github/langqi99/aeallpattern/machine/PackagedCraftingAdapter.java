@@ -267,8 +267,15 @@ final class PackagedCraftingAdapter implements MachineAdapter {
                 }
                 outputs.add(stack);
             }
-            return Class.forName("thelm.packagedauto.recipe.ProcessingPackageRecipeInfo")
-                    .getConstructor(List.class, List.class).newInstance(inputs, outputs);
+            Class<?> infoClass = Class.forName("thelm.packagedauto.recipe.ProcessingPackageRecipeInfo");
+            try {
+                return infoClass.getConstructor(List.class, List.class).newInstance(inputs, outputs);
+            } catch (NoSuchMethodException ignored) {
+                Object info = infoClass.getConstructor().newInstance();
+                infoClass.getMethod("generateFromStacks", List.class, List.class, net.minecraft.world.level.Level.class)
+                        .invoke(info, inputs, outputs, level);
+                return info;
+            }
         } catch (ReflectiveOperationException | RuntimeException error) {
             AeAllPattern.LOGGER.debug(
                     "Unable to rebuild processing package recipe {}", recipe.recipeId(), error);

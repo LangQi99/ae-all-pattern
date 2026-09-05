@@ -59,8 +59,10 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     }
 
     public AggregatePatternSelectionMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
-        this(id, inventory, data.readEnum(InteractionHand.class), readEntries(data),
-                AggregatePatternSelection.STREAM_CODEC.decode(data));
+        // Keep the open-screen packet constant-size. Recipe entries and the complete
+        // selection are loaded through the existing bounded search-result pages.
+        this(id, inventory, data.readEnum(InteractionHand.class), List.of(),
+                AggregatePatternSelection.ALL_ENABLED);
     }
 
     public AggregatePatternSelectionMenu(
@@ -234,6 +236,12 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             return toggleOption(player, optionIndex);
         }
 
+        // The client only needs an optimistic update for its visible page. The server owns
+        // the complete selection and returns authoritative enabled bits with every page.
+        if (player.level().isClientSide()) {
+            return clickClientEntry(id);
+        }
+
         AggregatePatternSelection updated;
         if (id == SELECT_ALL) {
             updated = filteredView
@@ -261,11 +269,6 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
             selectedEntryCount = Math.clamp(selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
         }
 
-        if (player.level().isClientSide()) {
-            selection = updated;
-            return true;
-        }
-
         ItemStack stack = stack();
         if (!isSelectable(stack)) {
             return false;
@@ -287,6 +290,25 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         player.getInventory().setChanged();
         selection = updated;
         broadcastChanges();
+        return true;
+    }
+
+    private boolean clickClientEntry(int id) {
+        if (id == SELECT_ALL || id == DESELECT_ALL) {
+            boolean enabled = id == SELECT_ALL;
+            entryEnabledStates = entries.stream().map(ignored -> enabled).toList();
+            selectedEntryCount = enabled ? totalEntryCount : 0;
+            return true;
+        }
+        if (id < 0 || id >= entries.size()) {
+            return false;
+        }
+        List<Boolean> updatedStates = new ArrayList<>(entryEnabledStates);
+        boolean enabled = !updatedStates.get(id);
+        updatedStates.set(id, enabled);
+        entryEnabledStates = List.copyOf(updatedStates);
+        selectedEntryCount = Math.clamp(
+                selectedEntryCount + (enabled ? 1 : -1), 0, totalEntryCount);
         return true;
     }
 
@@ -348,28 +370,4 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         return options(stack());
     }
 
-    private static List<Entry> readEntries(RegistryFriendlyByteBuf buffer) {
-        int count = buffer.readVarInt();
-        if (count < 0 || count > MAX_SYNCED_ENTRIES) {
-            throw new IllegalArgumentException("invalid aggregate selection entry count: " + count);
-        }
-        List<Entry> entries = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            String patternId = buffer.readUtf(AggregatePatternSelection.MAX_ID_LENGTH);
-            entries.add(new Entry(patternId, readStacks(buffer), readStacks(buffer)));
-        }
-        return entries;
-    }
-
-    private static List<GenericStack> readStacks(RegistryFriendlyByteBuf buffer) {
-        int count = buffer.readVarInt();
-        if (count < 0 || count > MAX_STACKS_PER_LIST) {
-            throw new IllegalArgumentException("invalid aggregate selection stack count: " + count);
-        }
-        List<GenericStack> stacks = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            stacks.add(GenericStack.STREAM_CODEC.decode(buffer));
-        }
-        return stacks;
-    }
 }

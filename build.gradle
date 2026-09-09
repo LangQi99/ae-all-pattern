@@ -23,9 +23,14 @@ repositories {
     // The public endpoint redirects binary artifacts into /releases. Pointing
     // Gradle there directly avoids resolving only the POM without the mod JAR.
     maven { url = 'https://maven.blakesmods.com/releases' }
-    maven {
-        url = 'https://www.cursemaven.com'
-        content { includeGroup 'curse.maven' }
+    // CurseMaven regularly rate-limits GitHub Actions. ExtendedAE 1.4.6 is not
+    // published on Modrinth, so resolve the pinned CurseForge file directly
+    // from its immutable CDN path without requesting generated Maven metadata.
+    ivy {
+        url = 'https://mediafilez.forgecdn.net/files/7005/572'
+        patternLayout { artifact '[artifact]-[revision].[ext]' }
+        metadataSources { artifact() }
+        content { includeModule 'curseforge.cdn', 'ExtendedAE' }
     }
 }
 
@@ -242,7 +247,7 @@ dependencies {
     // binary; 1.6.1-f1 contains the same supported matrix APIs without it.
     if (project.property('runtime_extendedae_plus').toBoolean()) {
         modRuntimeOnly "maven.modrinth:UhW5uCKw:eoUaDkZf"
-        modRuntimeOnly "curse.maven:ex-pattern-provider-892005:7005572"
+        modRuntimeOnly "curseforge.cdn:ExtendedAE:1.20-1.4.6-forge"
         modRuntimeOnly "maven.modrinth:xr109llC:3sniosWU"
     }
 
@@ -258,7 +263,7 @@ dependencies {
     // broken addon alias cannot hide inside the broad full-runtime job.
     if (project.property('runtime_mekanism_addons').toBoolean()) {
         modRuntimeOnly "maven.modrinth:qDJXZJTz:PQ3IlR98"
-        modRuntimeOnly "curse.maven:mekanism-extras-1026040:6936409"
+        modRuntimeOnly "maven.modrinth:HUZkxNTQ:eTwlYRNB"
     }
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'

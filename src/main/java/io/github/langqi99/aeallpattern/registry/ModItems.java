@@ -23,10 +23,10 @@ public final class ModItems {
     public static final RegistryObject<PatternBinderItem> PATTERN_BINDER = ITEMS.register(
             "pattern_binder", () -> new PatternBinderItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<BlockItem> PATTERN_LINKER = ITEMS.register(
-            "pattern_linker", () -> new BlockItem(ModBlocks.PATTERN_LINKER.get(), new Item.Properties()));
+            "pattern_linker", () -> new BlockItem(ModBlocks.PATTERN_LINKER_BLOCK, new Item.Properties()));
     public static final RegistryObject<TianshuPatternSelectorItem> TIANSHU_PATTERN_SELECTOR = ITEMS.register(
             "tianshu_pattern_selector",
-            () -> new TianshuPatternSelectorItem(ModBlocks.TIANSHU_PATTERN_SELECTOR.get(), new Item.Properties()));
+            () -> new TianshuPatternSelectorItem(ModBlocks.TIANSHU_PATTERN_SELECTOR_BLOCK, new Item.Properties()));
     public static final RegistryObject<AllPatternGeneratorItem> ALL_PATTERN_GENERATOR = ITEMS.register(
             "all_pattern_generator", () -> new AllPatternGeneratorItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<AggregatePatternItem> AGGREGATE_PATTERN = ITEMS.register(

@@ -15,22 +15,31 @@ public final class ModBlocks {
     private static final DeferredRegister<net.minecraft.world.level.block.Block> BLOCKS =
             DeferredRegister.create(ForgeRegistries.BLOCKS, AeAllPattern.MOD_ID);
 
-    public static final RegistryObject<PatternLinkerBlock> PATTERN_LINKER = BLOCKS.register(
-            "pattern_linker",
-            () -> new PatternLinkerBlock(BlockBehaviour.Properties.of()
+    // Keep the block instances independent of Forge's registry event ordering. Some large
+    // modpacks alter GameData registration and can fire the item supplier before the block
+    // RegistryObject has been populated; BlockItem still needs the exact registered instance.
+    static final PatternLinkerBlock PATTERN_LINKER_BLOCK = new PatternLinkerBlock(
+            BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_PURPLE)
                     .sound(SoundType.METAL)
                     .strength(2.2F, 10.0F)
-                    .requiresCorrectToolForDrops()));
+                    .requiresCorrectToolForDrops());
 
-    public static final RegistryObject<TianshuPatternSelectorBlock> TIANSHU_PATTERN_SELECTOR = BLOCKS.register(
-            "tianshu_pattern_selector",
-            () -> new TianshuPatternSelectorBlock(BlockBehaviour.Properties.of()
+    static final TianshuPatternSelectorBlock TIANSHU_PATTERN_SELECTOR_BLOCK =
+            new TianshuPatternSelectorBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_PURPLE)
                     .sound(SoundType.METAL)
                     .strength(5.0F, 12.0F)
                     .lightLevel(state -> state.getValue(TianshuPatternSelectorBlock.ACTIVE) ? 7 : 1)
-                    .requiresCorrectToolForDrops()));
+                    .requiresCorrectToolForDrops());
+
+    public static final RegistryObject<PatternLinkerBlock> PATTERN_LINKER = BLOCKS.register(
+            "pattern_linker",
+            () -> PATTERN_LINKER_BLOCK);
+
+    public static final RegistryObject<TianshuPatternSelectorBlock> TIANSHU_PATTERN_SELECTOR = BLOCKS.register(
+            "tianshu_pattern_selector",
+            () -> TIANSHU_PATTERN_SELECTOR_BLOCK);
 
     private ModBlocks() {
     }

@@ -380,6 +380,7 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
                     'META-INF/LICENSE',
                     'META-INF/NOTICE.md',
                     'META-INF/licenses/routing-engine-LGPL-3.0.txt',
+                    'aeallpattern.refmap.json',
                     'icon.png',
                     'assets/aeallpattern/textures/item/pattern_binder.png',
                     'assets/aeallpattern/textures/block/pattern_linker.png',
@@ -403,6 +404,11 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
             def metadata = zip.getInputStream(metadataEntry).getText('UTF-8')
             if (metadata =~ /(?i)modId\s*=\s*"thunderbolt"/) {
                 throw new GradleException('Release JAR must not require or declare Thunderbolt')
+            }
+            def refmap = zip.getInputStream(zip.getEntry('aeallpattern.refmap.json')).getText('UTF-8')
+            if (!refmap.contains('"broadcastChanges"') || !refmap.contains('m_38946_')) {
+                throw new GradleException(
+                        'Release JAR is missing the production Forge mapping for broadcastChanges')
             }
         } finally {
             zip.close()

@@ -131,7 +131,10 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
                 () -> original.call(service, level, requester, what, requestedAmount, strategy));
     }
 
-    @Inject(method = "broadcastChanges", at = @At("TAIL"))
+    // CraftConfirmMenu overrides AbstractContainerMenu#broadcastChanges. Unlike AE2-owned
+    // members, this method is renamed in production Forge, so this one injection must use
+    // the Minecraft refmap even though the mixin otherwise targets AE2 with remap disabled.
+    @Inject(method = "broadcastChanges", at = @At("TAIL"), remap = true)
     private void aeallpattern$captureByproductWarning(CallbackInfo ci) {
         CraftConfirmMenu self = (CraftConfirmMenu) (Object) this;
         if (self.isClientSide()) {

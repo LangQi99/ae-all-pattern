@@ -1,6 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
+  "refmap": "aeallpattern.refmap.json",
   "package": "io.github.langqi99.aeallpattern.mixin",
   "plugin": "io.github.langqi99.aeallpattern.mixin.AeAllPatternMixinPlugin",
   "compatibilityLevel": "JAVA_17",

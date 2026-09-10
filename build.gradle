@@ -411,6 +411,11 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
                 throw new GradleException('Release JAR must not require or declare Thunderbolt')
             }
             def refmap = zip.getInputStream(zip.getEntry('aeallpattern.refmap.json')).getText('UTF-8')
+            def mixinConfig = new groovy.json.JsonSlurper().parseText(
+                    zip.getInputStream(zip.getEntry('aeallpattern.mixins.json')).getText('UTF-8'))
+            if (mixinConfig.refmap != 'aeallpattern.refmap.json') {
+                throw new GradleException('Release Mixin config must load aeallpattern.refmap.json')
+            }
             if (!refmap.contains('"broadcastChanges"') || !refmap.contains('m_38946_')) {
                 throw new GradleException(
                         'Release JAR is missing the production Forge mapping for broadcastChanges')

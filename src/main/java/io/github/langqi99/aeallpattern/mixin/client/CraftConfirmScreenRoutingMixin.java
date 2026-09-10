@@ -313,7 +313,8 @@ public abstract class CraftConfirmScreenRoutingMixin extends AEBaseScreen<CraftC
                 && mouseY < aeallpattern$panel.getY() + aeallpattern$panel.getHeight();
     }
 
-    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+    // This overrides Minecraft's input handler and is renamed in production Forge.
+    @Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true, remap = true)
     private void aeallpattern$closePopupWithEscape(
             int keyCode, int scanCode, int p_keyPressed_3_, CallbackInfoReturnable<Boolean> cir) {
         if (aeallpattern$expanded && keyCode == 256) {

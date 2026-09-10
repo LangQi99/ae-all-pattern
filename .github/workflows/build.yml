@@ -43,6 +43,46 @@ jobs:
             build/test-results/**
           if-no-files-found: ignore
 
+  production-client:
+    name: Production Forge client · ${{ matrix.name }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal
+            arguments: ''
+          - name: JEI
+            arguments: '--jei'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ae-all-pattern-${{ github.sha }}
+          path: release-jars
+      - run: pip install minecraft-launcher-lib==8.0
+      - name: Launch packaged mod in production Forge
+        run: xvfb-run --auto-servernum python tools/production_client_smoke.py --jar release-jars/aeallpattern-*.jar --directory production-client ${{ matrix.arguments }}
+      - name: Upload production logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-client-${{ matrix.name }}-${{ github.run_id }}
+          path: |
+            production-client/production-console.log
+            production-client/logs/**
+            production-client/crash-reports/**
+          if-no-files-found: ignore
+
   amplifying-cycles:
     name: Amplifying cycles · ${{ matrix.name }}
     runs-on: ubuntu-latest

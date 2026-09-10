@@ -33,9 +33,11 @@ public final class ClientEvents {
     public static void register() {
         MinecraftForge.EVENT_BUS.addListener(ClientEvents::renderBindings);
         MinecraftForge.EVENT_BUS.addListener(ClientEvents::onLogout);
-        MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
-        MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
-        MinecraftForge.EVENT_BUS.addListener(AggregateStartupRefreshService::onClientTick);
+        if (ModList.get().isLoaded("jei") || ModList.get().isLoaded("emi")) {
+            MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onRightClickBlock);
+            MinecraftForge.EVENT_BUS.addListener(ClientJeiAggregateScanner::onClientTick);
+            MinecraftForge.EVENT_BUS.addListener(AggregateStartupRefreshService::onClientTick);
+        }
         if (Boolean.getBoolean("aeallpattern.clientSmokeTest")) {
             MinecraftForge.EVENT_BUS.addListener(ClientEvents::runClientSmokeTest);
         }
@@ -46,6 +48,14 @@ public final class ClientEvents {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
+        boolean screenSmoke = Boolean.getBoolean("aeallpattern.clientScreenSmokeTest");
+        if (screenSmoke
+                && !ProductionScreenSmokeTest.tick(minecraft)) {
+            return;
+        }
+        if (!screenSmoke && !(minecraft.screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+            return;
+        }
         if (minecraft.screen == null || ++smokeTestTicks < 20) {
             return;
         }

@@ -10,6 +10,8 @@ Microsoft, Applied Energistics 2, JEI, or Mekanism.
   `io.github.langqi99.aeallpattern.internal.routing` package. It is part of
   AE All Pattern rather than a nested or runtime Thunderbolt mod.
 - JEI is an optional client-side contextual-help integration.
+- MixinExtras 0.4.1 is bundled as a runtime library under the MIT license;
+  its nested JAR includes `LICENSE_MixinExtras`.
 - Mekanism is an optional machine integration target used through its public API.
 - Minecraft and all referenced mod names and assets belong to their respective owners.
 

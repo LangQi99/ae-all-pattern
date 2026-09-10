@@ -169,6 +169,7 @@ dependencies {
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
     compileOnly "io.github.llamalad7:mixinextras-common:0.4.1"
     implementation "io.github.llamalad7:mixinextras-forge:0.4.1"
+    jarJar "io.github.llamalad7:mixinextras-forge:0.4.1"
 
     // Optional client recipe-viewer bridges. EMI + TMRV replace the JEI runtime,
     // but still expose JEI integrations to the scanner through TMRV.
@@ -373,7 +374,7 @@ def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
 
 def releaseJar = tasks.named('jar', Jar).flatMap { it.archiveFile }
 def verifyReleaseJar = tasks.register('verifyReleaseJar') {
-    dependsOn(tasks.named('jar'))
+    dependsOn(tasks.named('reobfJar'))
     inputs.file(releaseJar)
     doLast {
         def archive = releaseJar.get().asFile
@@ -395,9 +396,17 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
                     throw new GradleException("Release JAR is missing ${required}")
                 }
             }
-            if (names.contains('META-INF/jarjar/metadata.json')
-                    || names.any { it.startsWith('META-INF/jarjar/') }) {
-                throw new GradleException('Release JAR must not contain nested mods')
+            def nestedMetadata = zip.getEntry('META-INF/jarjar/metadata.json')
+            if (nestedMetadata == null) {
+                throw new GradleException('Release JAR must bundle the MixinExtras runtime')
+            }
+            def nested = new groovy.json.JsonSlurper().parseText(
+                    zip.getInputStream(nestedMetadata).getText('UTF-8')).jars
+            if (nested.size() != 1
+                    || nested[0].identifier.group != 'io.github.llamalad7'
+                    || nested[0].identifier.artifact != 'mixinextras-forge'
+                    || !names.contains(nested[0].path)) {
+                throw new GradleException('Only the required MixinExtras runtime may be bundled')
             }
             if (names.any { it.startsWith('com/moakiee/thunderbolt/') }) {
                 throw new GradleException('Release JAR must not expose the upstream Thunderbolt package')
@@ -419,6 +428,11 @@ def verifyReleaseJar = tasks.register('verifyReleaseJar') {
             if (!refmap.contains('"broadcastChanges"') || !refmap.contains('m_38946_')) {
                 throw new GradleException(
                         'Release JAR is missing the production Forge mapping for broadcastChanges')
+            }
+            def mappings = new groovy.json.JsonSlurper().parseText(refmap).mappings
+            def screenMapping = mappings['io/github/langqi99/aeallpattern/mixin/client/CraftConfirmScreenRoutingMixin']
+            if (screenMapping?.keyPressed != 'Lappeng/client/gui/me/crafting/CraftConfirmScreen;m_7933_(III)Z') {
+                throw new GradleException('Release JAR is missing the production Forge mapping for keyPressed')
             }
         } finally {
             zip.close()

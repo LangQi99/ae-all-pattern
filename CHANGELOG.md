@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.3 - 2026-09-12
+
+- Added Mekanism rotary condensentrator direction-aware aggregate pattern support, including MekMM large machines.
+- Preserved rotary aggregate catalogs across startup refreshes and separated generated patterns by machine mode.
+- Improved aggregate metadata synchronization, client scanning, EMI/JEI integration, and localization for mode variants.
+
 ## 0.2.2 - 2026-09-05
 
 - Aggregate generation now keeps a machine catalog in one physical pattern item instead of creating numbered `[1/2]` parts.

@@ -74,6 +74,8 @@ public final class ClientEvents {
         ClientBindingState.clear();
         io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView.replace(java.util.List.of());
         AggregateStartupRefreshService.reset();
+        io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport.clearDirections();
+        ClientJeiAggregateScanner.clearPendingRotaryScan();
     }
 
     private static void renderBindings(RenderLevelStageEvent event) {

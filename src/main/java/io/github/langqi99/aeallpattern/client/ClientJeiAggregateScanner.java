@@ -11,7 +11,10 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
 import io.github.langqi99.aeallpattern.compat.jei.AeAllPatternJeiPlugin;
+import io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport;
 import io.github.langqi99.aeallpattern.network.GenerateAggregatePayload;
+import io.github.langqi99.aeallpattern.network.RotaryDirectionPayload;
+import io.github.langqi99.aeallpattern.network.RotaryDirectionQueryPayload;
 import io.github.langqi99.aeallpattern.recipe.RecipeFingerprint;
 import io.github.langqi99.aeallpattern.registry.ModItems;
 import java.util.ArrayList;
@@ -35,6 +38,7 @@ import mezz.jei.api.recipe.IRecipeManager;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.runtime.IJeiRuntime;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -46,7 +50,9 @@ import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.StonecutterRecipe;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -84,12 +90,19 @@ public final class ClientJeiAggregateScanner {
     private static BlockPos lastScanPos = BlockPos.ZERO;
     private static ScanJob activeJob;
     private static volatile boolean vanillaScanRunning;
+    /** How long a deferred rotary scan waits for the server's direction before falling back. */
+    private static final int ROTARY_REPLY_TIMEOUT_TICKS = 40;
+    private static PendingRotaryScan pendingRotaryScan;
 
     private record ScanTarget(
             BlockPos machinePos,
             ResourceLocation catalystId,
             String machineKey,
             UUID replacementLibraryId) {
+    }
+
+    /** A rotary click whose scan is paused until the server reports the machine's direction. */
+    private record PendingRotaryScan(IJeiRuntime runtime, BlockPos pos, long expiresAtTick) {
     }
 
     private ClientJeiAggregateScanner() {
@@ -115,16 +128,72 @@ public final class ClientJeiAggregateScanner {
             show("message.aeallpattern.generator.jei_not_ready");
             return;
         }
-        startScan(runtime.orElseThrow(), ClientRecipeMachineResolver.resolvePosition(level, event.getPos()));
+        IJeiRuntime jei = runtime.orElseThrow();
+        BlockPos machinePos = ClientRecipeMachineResolver.resolvePosition(level, event.getPos());
+        if (isRotary(level, machinePos)) {
+            // Mekanism never sends the machine's mode to the client block entity, so ask the
+            // server, which owns it, and scan as soon as the answer arrives.
+            pendingRotaryScan = new PendingRotaryScan(
+                    jei, machinePos, level.getGameTime() + ROTARY_REPLY_TIMEOUT_TICKS);
+            PacketDistributor.sendToServer(new RotaryDirectionQueryPayload(machinePos));
+            return;
+        }
+        dispatchScan(jei, machinePos);
+    }
+
+    /** True when the clicked machine is a rotary condensentrator whose direction must be queried. */
+    private static boolean isRotary(Level level, BlockPos machinePos) {
+        ItemStack catalyst = ClientRecipeMachineResolver.recipeViewerCatalyst(level, machinePos);
+        return !catalyst.isEmpty() && RotaryCondensentratorSupport.isRotaryCondensentrator(
+                BuiltInRegistries.ITEM.getKey(catalyst.getItem()));
+    }
+
+    /**
+     * Runs a scan. Kept as a single call site so the EMI/TMRV mixin also covers the deferred rotary
+     * reply instead of only the original click.
+     */
+    private static void dispatchScan(IJeiRuntime runtime, BlockPos pos) {
+        startScan(runtime, pos);
+    }
+
+    /** Applies the server's rotary direction and resumes the scan that was waiting for it. */
+    public static void acceptRotaryDirection(RotaryDirectionPayload payload) {
+        PendingRotaryScan pending = pendingRotaryScan;
+        if (pending == null || !pending.pos().equals(payload.pos())) {
+            return;
+        }
+        pendingRotaryScan = null;
+        if (payload.known()) {
+            RotaryCondensentratorSupport.rememberDirection(pending.pos(), payload.condensentrating());
+        } else {
+            // Never reuse a direction from an earlier click once the server cannot confirm it.
+            RotaryCondensentratorSupport.forgetDirection(pending.pos());
+        }
+        dispatchScan(pending.runtime(), pending.pos());
+    }
+
+    /** Called on disconnect so a reply from a previous world cannot resume an old click. */
+    public static void clearPendingRotaryScan() {
+        pendingRotaryScan = null;
     }
 
     /** Client tick pump: advances the active scan job within the per-tick budget. */
-    public static void onClientTick(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
+    public static void onClientTick(ClientTickEvent.Post event) {
+        var minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            pendingRotaryScan = null;
+        } else {
+            PendingRotaryScan pending = pendingRotaryScan;
+            if (pending != null && minecraft.level.getGameTime() > pending.expiresAtTick()) {
+                // The server did not answer in time; fall back to whatever the client can read.
+                pendingRotaryScan = null;
+                dispatchScan(pending.runtime(), pending.pos());
+            }
+        }
         ScanJob job = activeJob;
         if (job == null) {
             return;
         }
-        var minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft.level == null) {
             activeJob = null;
             return;
@@ -137,7 +206,7 @@ public final class ClientJeiAggregateScanner {
 
     /** Cheap preparation for a player-triggered scan. Kept as a stable mixin hook for EMI/TMRV. */
     private static void startScan(IJeiRuntime runtime, BlockPos pos) {
-        var minecraft = net.minecraft.client.Minecraft.getInstance();
+        var minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null) {
             return;
         }
@@ -157,13 +226,18 @@ public final class ClientJeiAggregateScanner {
         if (isBusy() || entry.batchCount() != 1) {
             return false;
         }
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId())) {
+            // The rotary direction is live machine state; a position-less refresh cannot read it.
+            // Leaving the catalog untouched keeps the direction chosen when it was generated.
+            return true;
+        }
         var runtime = AeAllPatternJeiPlugin.runtime();
         var minecraft = net.minecraft.client.Minecraft.getInstance();
         if (runtime.isEmpty() || minecraft.level == null || minecraft.player == null) {
             return false;
         }
         var block = BuiltInRegistries.BLOCK.get(entry.catalystId());
-        ItemStack catalyst = block == null ? ItemStack.EMPTY : block.asItem().getDefaultInstance();
+        ItemStack catalyst = block.asItem().getDefaultInstance();
         ScanTarget target = new ScanTarget(
                 BlockPos.ZERO, entry.catalystId(), entry.machineTranslationKey(), entry.libraryId());
         if (catalyst.isEmpty()
@@ -208,7 +282,8 @@ public final class ClientJeiAggregateScanner {
         // A compatibility machine may register the clicked block as a catalyst for
         // its own category. A native JEI category is owned by the same namespace as
         // the clicked machine, so never fall back to an unrelated category.
-        IRecipeCategory<?> category = findNativeCategory(categories, catalyst);
+        IRecipeCategory<?> category = findNativeCategory(
+                categories, catalyst, net.minecraft.client.Minecraft.getInstance().level, target.machinePos());
         if (category == null || !allowsCategory(
                 BuiltInRegistries.ITEM.getKey(catalyst.getItem()), category.getRecipeType().getUid())) {
             if (target.replacementLibraryId() != null) {
@@ -660,12 +735,20 @@ public final class ClientJeiAggregateScanner {
     }
 
     private static IRecipeCategory<?> findNativeCategory(
-            List<IRecipeCategory<?>> categories, ItemStack catalyst) {
+            List<IRecipeCategory<?>> categories, ItemStack catalyst,
+            net.minecraft.world.level.Level level, BlockPos machinePos) {
         ResourceLocation catalystId = BuiltInRegistries.ITEM.getKey(catalyst.getItem());
         List<ResourceLocation> ids = categories.stream()
                 .map(category -> category.getRecipeType().getUid())
                 .toList();
-        ResourceLocation picked = pickCategoryId(ids, catalystId);
+        Boolean rotaryCondensentrating =
+                RotaryCondensentratorSupport.condensentrating(level, machinePos, catalystId);
+        ResourceLocation picked = pickCategoryId(ids, catalystId, rotaryCondensentrating);
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(catalystId)) {
+            AeAllPattern.LOGGER.info(
+                    "JEI rotary candidates {} -> chosen {} (direction {})",
+                    ids, picked, rotaryCondensentrating);
+        }
         if (picked == null) {
             return null;
         }
@@ -691,8 +774,25 @@ public final class ClientJeiAggregateScanner {
      */
     public static ResourceLocation pickCategoryId(
             List<ResourceLocation> categoryIds, ResourceLocation catalystId) {
+        return pickCategoryId(categoryIds, catalystId, null);
+    }
+
+    /** Selects the rotary direction from the machine's persisted mode when available. */
+    public static ResourceLocation pickCategoryId(
+            List<ResourceLocation> categoryIds, ResourceLocation catalystId,
+            Boolean rotaryCondensentrating) {
         if (categoryIds.isEmpty()) {
             return null;
+        }
+        if (rotaryCondensentrating != null
+                && RotaryCondensentratorSupport.isRotaryCondensentrator(catalystId)) {
+            String path = rotaryCondensentrating
+                    ? RotaryCondensentratorSupport.CONDENSENTRATING
+                    : RotaryCondensentratorSupport.DECONDENSENTRATING;
+            ResourceLocation directed = categoryIds.stream()
+                    .filter(id -> id.getNamespace().equals("mekanism") && id.getPath().equals(path))
+                    .findFirst().orElse(null);
+            if (directed != null) return directed;
         }
         String keyword = machineKeyword(catalystId.getPath());
         List<ResourceLocation> sameNamespace = categoryIds.stream()

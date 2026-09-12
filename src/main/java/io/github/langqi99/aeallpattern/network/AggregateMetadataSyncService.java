@@ -2,6 +2,7 @@ package io.github.langqi99.aeallpattern.network;
 
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternLibrary;
+import io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -31,7 +32,11 @@ public final class AggregateMetadataSyncService {
                         entry.libraryId(), entry.catalystId(), entry.machineTranslationKey(),
                         entry.contentHash(), entry.recipeCount(), entry.seriesHash(), entry.batchSize(),
                         entry.batchIndex(), entry.batchCount(), entry.totalRecipeCount(),
+                        entry.variant(),
                         entry.batchCount() == 1
+                                // The rotary direction is live machine state; a position-less
+                                // startup refresh cannot reproduce it, so never re-scan those.
+                                && !RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId())
                                 && AggregateStartupRefreshState.isRequired(player.getServer(), entry.libraryId())))
                 .toList();
         PacketDistributor.sendToPlayer(player, new AggregateMetadataPayload(entries));

@@ -10,6 +10,7 @@ import io.github.langqi99.aeallpattern.aggregate.*;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.client.ClientRecipeMachineResolver;
 import io.github.langqi99.aeallpattern.client.ClientJeiAggregateScanner;
+import io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport;
 import io.github.langqi99.aeallpattern.recipe.RecipeFingerprint;
 import io.netty.buffer.Unpooled;
 import java.lang.reflect.Method;
@@ -51,8 +52,16 @@ public final class EmiAggregateScanner {
                         .anyMatch(stack -> stack.isEqual(machineStack))).toList();
         if (categories.isEmpty()) return false;
         ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
+        List<ResourceLocation> categoryIds = categories.stream().map(EmiRecipeCategory::getId).toList();
+        Boolean rotary = RotaryCondensentratorSupport.condensentrating(
+                minecraft.level, machinePos, catalystItemId);
         ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
-                categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId);
+                categoryIds, catalystItemId, rotary);
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(catalystItemId)) {
+            AeAllPattern.LOGGER.info(
+                    "EMI rotary candidates {} -> chosen {} (direction {})",
+                    categoryIds, categoryId, rotary);
+        }
         if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) return false;
         List<EmiRecipe> candidates = categories.stream().filter(category -> category.getId().equals(categoryId))
                 .flatMap(c -> manager.getRecipes(c).stream())
@@ -70,7 +79,15 @@ public final class EmiAggregateScanner {
     public static boolean refresh(AggregateMetadataView.Entry entry) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null || minecraft.getConnection() == null
-                || entry.batchCount() != 1 || !RUNNING.compareAndSet(false, true)) {
+                || entry.batchCount() != 1) {
+            return false;
+        }
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId())) {
+            // The rotary direction is live machine state; a position-less refresh cannot read it.
+            // Leaving the catalog untouched keeps the direction chosen when it was generated.
+            return true;
+        }
+        if (!RUNNING.compareAndSet(false, true)) {
             return false;
         }
         try {
@@ -93,16 +110,21 @@ public final class EmiAggregateScanner {
                     .toList();
             ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
             ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
-                    categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId);
+                    categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId, null);
             if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) {
-                ClientJeiAggregateScanner.uploadRefresh(List.of(), entry);
+                // The EMI workstations could not map this machine to a category. Never destroy the
+                // existing catalog from an ambiguous scan; the caller retries through the JEI path.
                 RUNNING.set(false);
-                return true;
+                return false;
             }
             List<EmiRecipe> candidates = categories.stream()
                     .filter(category -> category.getId().equals(categoryId))
                     .flatMap(category -> manager.getRecipes(category).stream())
                     .toList();
+            if (candidates.isEmpty()) {
+                RUNNING.set(false);
+                return false;
+            }
             var connection = minecraft.getConnection();
             CompletableFuture.runAsync(() -> buildAndSend(
                     BlockPos.ZERO, entry.catalystId(), entry.machineTranslationKey(), entry.libraryId(),

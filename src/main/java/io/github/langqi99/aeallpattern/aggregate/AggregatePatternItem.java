@@ -69,15 +69,30 @@ public final class AggregatePatternItem extends Item {
         var metadata = AggregateMetadataView.find(ref.libraryId());
         String machineKey = metadata.map(AggregateMetadataView.Entry::machineTranslationKey)
                 .orElseGet(() -> BuiltInRegistries.BLOCK.get(ref.catalystId()).getDescriptionId());
+        String variant = metadata.map(AggregateMetadataView.Entry::variant).orElse("");
         if (metadata.isPresent() && metadata.orElseThrow().batchCount() > 1) {
             var entry = metadata.orElseThrow();
             return Component.translatable(
                     "item.aeallpattern.aggregate_pattern.named_part",
-                    Component.translatable(machineKey), entry.batchIndex() + 1, entry.batchCount());
+                    variantName(Component.translatable(machineKey), variant),
+                    entry.batchIndex() + 1, entry.batchCount());
         }
         return Component.translatable(
                 "item.aeallpattern.aggregate_pattern.named",
-                Component.translatable(machineKey));
+                variantName(Component.translatable(machineKey), variant));
+    }
+
+    /**
+     * Names the catalog variant of a state-dependent machine, so the condensing and evaporating
+     * rotary patterns do not look like the same item.
+     */
+    private static Component variantName(Component machine, String variant) {
+        if (variant == null || variant.isEmpty()) {
+            return machine;
+        }
+        return Component.translatable(
+                "item.aeallpattern.aggregate_pattern.named_variant",
+                machine, Component.translatable("aeallpattern.variant." + variant));
     }
 
     @Override

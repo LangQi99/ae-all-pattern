@@ -21,3 +21,5 @@ logs/
 AGENTS.md
 local.properties
 secrets.properties
+/.deepcode/
+bin/

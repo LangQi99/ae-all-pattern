@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.4 - 2026-09-17
+
+- Added structure-aware Masterful Machinery aggregate scanning for multiple controllers and recipe categories, excluding unrelated structures and external FE requirements.
+- Added a craftable GuideME guide with five English and Simplified Chinese pages covering aggregate patterns, the All Pattern Linker, the Tianshu Pattern Router, and multiblock troubleshooting.
+- Added reproducible Masterful Machinery fixtures, dedicated-server regression tests, and real-client guide/encoding checks.
+- GuideME is now an explicit required dependency. Back up existing worlds before upgrading.
+
 ## 0.2.3 - 2026-09-12
 
 - Added Mekanism rotary condensentrator direction-aware aggregate pattern support, including MekMM large machines.

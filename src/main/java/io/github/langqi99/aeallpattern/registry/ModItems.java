@@ -22,6 +22,8 @@ public final class ModItems {
 
     public static final RegistryObject<PatternBinderItem> PATTERN_BINDER = ITEMS.register(
             "pattern_binder", () -> new PatternBinderItem(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<io.github.langqi99.aeallpattern.guide.PatternGuideItem> GUIDE = ITEMS.register(
+            "guide", () -> new io.github.langqi99.aeallpattern.guide.PatternGuideItem(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<BlockItem> PATTERN_LINKER = ITEMS.register(
             "pattern_linker", () -> new BlockItem(ModBlocks.PATTERN_LINKER_BLOCK, new Item.Properties()));
     public static final RegistryObject<TianshuPatternSelectorItem> TIANSHU_PATTERN_SELECTOR = ITEMS.register(
@@ -43,6 +45,7 @@ public final class ModItems {
                     .title(Component.translatable("itemGroup.aeallpattern"))
                     .icon(() -> PATTERN_BINDER.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
+                        output.accept(GUIDE.get());
                         output.accept(PATTERN_BINDER.get());
                         output.accept(PATTERN_LINKER.get());
                         output.accept(TIANSHU_PATTERN_SELECTOR.get());

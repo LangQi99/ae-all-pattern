@@ -1,0 +1,20 @@
+{
+  "name": "AAP alpha",
+  "controllerIds": [
+    "mm:aap_test_primary",
+    "mm:aap_test_secondary"
+  ],
+  "layout": [
+    [
+      "PCO"
+    ]
+  ],
+  "key": {
+    "P": {
+      "block": "mm:aap_test_items_input"
+    },
+    "O": {
+      "block": "mm:aap_test_items_output"
+    }
+  }
+}

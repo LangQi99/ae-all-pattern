@@ -41,6 +41,9 @@ public final class EmiAggregateScanner {
         if (minecraft.level == null || minecraft.player == null) return true;
         BlockPos machinePos = ClientRecipeMachineResolver.resolvePosition(minecraft.level, pos);
         Block block = minecraft.level.getBlockState(machinePos).getBlock();
+        // Let the JEI/TMRV bridge use MM's structure membership, not EMI workstation icons.
+        if (!io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge
+                .structuresForController(BuiltInRegistries.BLOCK.getKey(block)).isEmpty()) return false;
         ItemStack machine = ClientRecipeMachineResolver.recipeViewerCatalyst(minecraft.level, machinePos);
         if (machine.isEmpty()) return false;
         EmiRecipeManager manager = EmiApi.getRecipeManager();
@@ -68,6 +71,10 @@ public final class EmiAggregateScanner {
     }
 
     public static boolean refresh(AggregateMetadataView.Entry entry) {
+        if (!io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge
+                .structuresForController(entry.catalystId()).isEmpty()) {
+            return ClientJeiAggregateScanner.startRefresh(entry);
+        }
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null || minecraft.player == null || minecraft.getConnection() == null
                 || entry.batchCount() != 1 || !RUNNING.compareAndSet(false, true)) {

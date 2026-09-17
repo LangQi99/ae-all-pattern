@@ -15,8 +15,23 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 java.modularity.inferModulePath = false
 
+// Isolated, opt-in real-mod fixture. Never add test recipes to the release resources.
+if (providers.gradleProperty('masterful_fixture').getOrElse('false').toBoolean()) {
+    def fixtureDirectory = providers.gradleProperty('gametest_directory').getOrElse('run-gametest')
+    def prepareMasterfulFixture = tasks.register('prepareMasterfulFixture', Copy) {
+        from('tools/testworld/masterful/config') { into 'config' }
+        from('tools/testworld/masterful/datapack') { into 'world/datapacks/aap_masterful_test' }
+        into layout.projectDirectory.dir(fixtureDirectory)
+    }
+    tasks.matching { it.name == 'runGameTestServer' }.configureEach { dependsOn prepareMasterfulFixture }
+}
+
 repositories {
     mavenCentral()
+    maven {
+        url = 'https://www.cursemaven.com'
+        content { includeGroup 'curse.maven' }
+    }
     maven { url = 'https://api.modrinth.com/maven' }
     maven { url = 'https://modmaven.dev/' }
     maven { url = 'https://maven.blamejared.com' }
@@ -85,6 +100,7 @@ legacyForge {
 
         gameTestServer {
             type = 'gameTestServer'
+            systemProperty 'aeallpattern.masterfulFixture', providers.gradleProperty('masterful_fixture').getOrElse('false')
             programArgument '--nogui'
             // Keep dependency-matrix tests away from the playable lab save. A
             // minimal run intentionally omits optional block registries and
@@ -164,6 +180,9 @@ configurations {
 }
 
 dependencies {
+    if (providers.gradleProperty('runtime_masterful').getOrElse('false').toBoolean()) {
+        modRuntimeOnly 'curse.maven:masterful-machinery-fork-1361830:8803045'
+    }
     // AE2 is required and supplies the public crafting-provider API.
     modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"

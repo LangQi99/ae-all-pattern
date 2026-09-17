@@ -192,6 +192,21 @@ public final class ClientJeiAggregateScanner {
     private static boolean startScan(
             IJeiRuntime runtime, ItemStack catalyst, ScanTarget target, boolean notifyPlayer) {
 
+        var structures = io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge
+                .structuresForController(target.catalystId());
+        if (!structures.isEmpty()) {
+            List<ScanEntry> entries = masterfulEntries(runtime, structures);
+            if (entries.isEmpty()) {
+                if (target.replacementLibraryId() != null) uploadRefresh(List.of(), target);
+                else if (notifyPlayer) show("message.aeallpattern.generator.no_jei_recipes");
+                return true;
+            }
+            activeJob = new ScanJob(runtime, runtime.getJeiHelpers().getFocusFactory().getEmptyFocusGroup(),
+                    entries, target, notifyPlayer);
+            if (notifyPlayer) show("message.aeallpattern.generator.scan_started");
+            return true;
+        }
+
         var focusFactory = runtime.getJeiHelpers().getFocusFactory();
         IFocus<ItemStack> catalystFocus = focusFactory.createFocus(
                 RecipeIngredientRole.CATALYST, VanillaTypes.ITEM_STACK, catalyst);
@@ -265,6 +280,35 @@ public final class ClientJeiAggregateScanner {
             show("message.aeallpattern.generator.scan_started");
         }
         return true;
+    }
+
+    /** Resolve ALL processing categories owned by this controller, never the blueprint/structure category. */
+    static List<ScanEntry> masterfulEntries(IJeiRuntime runtime, Set<ResourceLocation> structures) {
+        List<ScanEntry> entries = new ArrayList<>();
+        runtime.getRecipeManager().createRecipeCategoryLookup().get()
+                .filter(io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge::isProcessingCategory)
+                .filter(category -> io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge
+                        .categoryMatches(category, structures))
+                .sorted(Comparator.comparing(category -> category.getRecipeType().getUid().toString()))
+                .forEach(category -> {
+                    for (Object recipe : runtime.getRecipeManager().createRecipeLookup(category.getRecipeType()).get().toList()) {
+                        if (io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge.recipeMatches(recipe, structures)) {
+                            entries.add(new ScanEntry(category, AggregatePatternKind.PROCESSING,
+                                    category.getRecipeType().getUid(), recipe));
+                        }
+                    }
+                });
+        return entries;
+    }
+
+    /** Opt-in client fixture uses the production encoder without sending a synthetic network packet. */
+    static List<AggregateRecipe> encodeMasterfulFixture(IJeiRuntime runtime, ResourceLocation controller) {
+        if (!Boolean.getBoolean("aeallpattern.compatibilitySmokeTest")) throw new IllegalStateException("Test is disabled");
+        var structures = io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge.structuresForController(controller);
+        var job = new ScanJob(runtime, runtime.getJeiHelpers().getFocusFactory().getEmptyFocusGroup(),
+                masterfulEntries(runtime, structures), new ScanTarget(BlockPos.ZERO, controller, "fixture", null), false);
+        while (!job.step()) { /* Same tick-budgeted encoder, bounded fixture input. */ }
+        return List.copyOf(job.destination);
     }
 
     /** Worker-thread scan of vanilla crafting/stonecutting recipes. */
@@ -522,15 +566,15 @@ public final class ClientJeiAggregateScanner {
         return pages;
     }
 
-    /** Resumable scan of one JEI category, one recipe per loop iteration. */
+    record ScanEntry(IRecipeCategory<?> category, AggregatePatternKind kind, ResourceLocation categoryId, Object recipe) {
+    }
+
+    /** Resumable scan across categories, with one shared limit, deduplication set and upload. */
     @SuppressWarnings("rawtypes")
     private static final class ScanJob {
         private final IJeiRuntime runtime;
-        private final IRecipeCategory category;
         private final IFocusGroup emptyFocus;
-        private final AggregatePatternKind kind;
-        private final ResourceLocation categoryId;
-        private final List<?> categoryRecipes;
+        private final List<ScanEntry> categoryRecipes;
         private final ScanTarget target;
         private final boolean notifyPlayer;
         private final int recipeLimit = AggregatePatternData.configuredRecipeLimit();
@@ -549,12 +593,15 @@ public final class ClientJeiAggregateScanner {
                 List<?> categoryRecipes,
                 ScanTarget target,
                 boolean notifyPlayer) {
+            this(runtime, emptyFocus, categoryRecipes.stream()
+                    .map(recipe -> new ScanEntry(category, kind, categoryId, recipe)).toList(), target, notifyPlayer);
+        }
+
+        private ScanJob(IJeiRuntime runtime, IFocusGroup emptyFocus, List<ScanEntry> entries,
+                ScanTarget target, boolean notifyPlayer) {
             this.runtime = runtime;
-            this.category = category;
             this.emptyFocus = emptyFocus;
-            this.kind = kind;
-            this.categoryId = categoryId;
-            this.categoryRecipes = categoryRecipes;
+            this.categoryRecipes = entries;
             this.target = target;
             this.notifyPlayer = notifyPlayer;
         }
@@ -593,7 +640,11 @@ public final class ClientJeiAggregateScanner {
         }
 
         @SuppressWarnings({"unchecked"})
-        private void scanOne(Object recipe, int position) {
+        private void scanOne(ScanEntry entry, int position) {
+            IRecipeCategory category = entry.category();
+            AggregatePatternKind kind = entry.kind();
+            ResourceLocation categoryId = entry.categoryId();
+            Object recipe = entry.recipe();
             IRecipeManager manager = runtime.getRecipeManager();
             var drawable = manager.createRecipeLayoutDrawable(category, recipe, emptyFocus);
             if (drawable.isEmpty()) {
@@ -609,6 +660,10 @@ public final class ClientJeiAggregateScanner {
                     AggregateInputSlot.configuredAlternativeLimit(),
                     AggregateRecipe.MAX_TOTAL_INPUT_ALTERNATIVES / Math.max(1, inputViews.size()));
             for (IRecipeSlotView slot : inputViews) {
+                // MM exposes machine power in JEI INPUT slots. AE cannot transport FE;
+                // as with a powered furnace, the automation must supply it separately.
+                if (io.github.langqi99.aeallpattern.compat.masterful.MasterfulMachineryBridge.isProcessingCategory(category)
+                        && isMasterfulPowerSlot(slot)) continue;
                 Optional<AggregateInputSlot> input = chooseInputSlot(slot, alternativesPerSlot);
                 if (input.isPresent()) {
                     inputSlots.add(input.orElseThrow());
@@ -947,6 +1002,12 @@ public final class ClientJeiAggregateScanner {
                     "AE JEI converter rejected ingredient type {}", typed.getType(), error);
             return Optional.empty();
         }
+    }
+
+    private static boolean isMasterfulPowerSlot(IRecipeSlotView slot) {
+        var ingredients = slot.getAllIngredients().map(ITypedIngredient::getIngredient).toList();
+        return !ingredients.isEmpty() && ingredients.stream().allMatch(ingredient ->
+                ingredient.getClass().getName().equals("io.ticticboom.mods.mm.compat.jei.ingredient.energy.EnergyStack"));
     }
 
     private static String normalize(GenericStack stack) {

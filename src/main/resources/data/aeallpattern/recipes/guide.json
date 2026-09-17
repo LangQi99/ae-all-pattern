@@ -1,0 +1,5 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [{"item": "minecraft:book"}, {"item": "ae2:certus_quartz_crystal"}],
+  "result": {"item": "aeallpattern:guide", "count": 1}
+}

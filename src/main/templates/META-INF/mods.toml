@@ -46,6 +46,13 @@ ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
+modId="guideme"
+mandatory=true
+versionRange="[20.1.7,21.0.0)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
 modId="jei"
 mandatory=false
 versionRange="[15.0.0,16.0.0)"

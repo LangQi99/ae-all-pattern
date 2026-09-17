@@ -22,6 +22,10 @@ AE All Pattern removes the repetitive work of encoding and maintaining hundreds�
 
 ### Quick start: Aggregate Patterns
 
+**In-game guide:** craft a book with a Certus Quartz Crystal to make the AE All Pattern Guide.
+Right-click it for English/Chinese tutorials, or use GuideME's Open Guide key while hovering one of our items.
+The guide explains the Generator, Aggregate Patterns, Linker/Binder, Tianshu Router and multiblock troubleshooting.
+
 1. Hold an **All Pattern Generator** and sneak-right-click a machine.
 2. The generated **Aggregate Pattern** contains every encodable recipe discovered for that machine. Very large catalogs are transferred and stored in bounded pages instead of one oversized packet or item tag. Existing catalogs are rescanned once per server startup by the first available JEI or EMI/TMRV client, and their server-library UUID is updated in place.
 3. Insert it into an AE2 Pattern Provider or a supported provider add-on. AE sees the selected child recipes as normal crafting or processing patterns.
@@ -108,6 +112,10 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 - **天枢样板路由器：** 当同一产物存在多种配方时，根据当前订单动态选择路线。
 
 ### 聚合样板：一张装下一整套配方
+
+**游戏内指南：** 用一本书和一个赛特斯石英水晶合成 AE 全样板指南，手持右键打开。
+也可在本模组物品上悬停，按 GuideME 的“打开指南”快捷键进入对应教程。
+指南提供中英文内容，说明生成器、聚合样板、链接器/绑定器、天枢路由器以及多方块排查。
 
 1. 手持**全样板生成器**，潜行右击一台机器。
 2. 生成的**聚合样板**会包含这台机器可编码的全部配方。面对数百、数千条配方时，数据会分批传输并分页保存在服务端，不会全部塞进一次网络包或物品 NBT。每次服务端启动后，首个可用的 JEI 或 EMI/TMRV 客户端会扫描一次已有目录，并在不改变服务端 UUID 的前提下更新内容。

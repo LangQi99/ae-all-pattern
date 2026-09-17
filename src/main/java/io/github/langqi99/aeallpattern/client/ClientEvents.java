@@ -49,6 +49,13 @@ public final class ClientEvents {
         }
         Minecraft minecraft = Minecraft.getInstance();
         boolean screenSmoke = Boolean.getBoolean("aeallpattern.clientScreenSmokeTest");
+        if (Boolean.getBoolean("aeallpattern.compatibilitySmokeTest")) {
+            if (CompatibilityClientSmokeTest.tick(minecraft)) {
+                AeAllPattern.LOGGER.info("CLIENT_SMOKE_TEST_PASSED");
+                minecraft.stop();
+            }
+            return;
+        }
         if (screenSmoke
                 && !ProductionScreenSmokeTest.tick(minecraft)) {
             return;

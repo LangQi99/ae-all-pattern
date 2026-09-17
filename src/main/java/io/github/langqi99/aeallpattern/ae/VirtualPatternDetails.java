@@ -48,11 +48,12 @@ public final class VirtualPatternDetails implements IPatternDetails {
 
     @Override
     public boolean equals(Object other) {
-        return this == other || other instanceof VirtualPatternDetails pattern && key.equals(pattern.key);
+        return this == other || other instanceof VirtualPatternDetails pattern && key.equals(pattern.key)
+                && getDefinition().equals(pattern.getDefinition());
     }
 
     @Override
     public int hashCode() {
-        return key.hashCode();
+        return 31 * key.hashCode() + getDefinition().hashCode();
     }
 }

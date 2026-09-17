@@ -102,6 +102,12 @@ public final class VanillaFurnaceAdapter implements MachineAdapter {
     }
 
     @Override
+    public boolean isInputBlocked(ServerLevel level, BindingRecord binding) {
+        return !(level.getBlockEntity(binding.target().pos()) instanceof AbstractFurnaceBlockEntity furnace)
+                || !furnace.getItem(0).isEmpty();
+    }
+
+    @Override
     public ItemStack extractAnyOutput(
             ServerLevel level, BindingRecord binding, boolean simulate) {
         var handler = ItemHandlerTransfer.find(level, binding.target().pos(), Direction.DOWN);

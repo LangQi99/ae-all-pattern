@@ -1,6 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.2.6-beta.1 - 2026-09-17
+
+- Lower the Forge runtime minimum from 47.4.20 to 47.1.25, independently of the build toolchain. Use the backwards-compatible configuration-screen factory constructor and add minimum-version production-client CI coverage.
+
+- Fix ECO aggregate publication for the separate catalog introduced in Neo ECO 21.2.0-beta3; choose old/new integration by class availability and remove marker patterns before publishing children.
+- Guard deferred ECO catalog refreshes while their AE node is destroyed; the normal ready lifecycle restores publication.
+- Allow aggregate items in Useless Mod's ME Pattern Assembly while retaining the formed furnace's per-recipe validation (the current Forge release does not contain this multiblock).
+- Add real-addon slot/publication/dispatch tests and fresh-process save/reopen regressions for ECO and the formed alloy furnace. The reported need to reinsert after rejoining has not reproduced in these fixtures; do not treat the compatibility fixes as a confirmed fix for every rejoin report.
+
+- Added Linker right-click controls for blocking mode (off), smart batch dispatch (on), and automatic output return (on), with persistent per-Linker settings.
+- Smart dispatch ramps already-owned same-recipe crafts up to 64 per tick, backs off on rejection, and keeps a bounded recoverable queue. Disabled batching sends one craft per tick; blocking remains an independent setting.
+- Added vanilla/Mekanism input-occupancy checks and regression coverage for menu permissions, settings migration, batching, queue recovery, and full-network output return.
+- Fixed live Linker pattern-option refresh identity and input-NBT variant validation during provider delivery.
 
 ## 0.2.5-beta.1 - 2026-09-17
 

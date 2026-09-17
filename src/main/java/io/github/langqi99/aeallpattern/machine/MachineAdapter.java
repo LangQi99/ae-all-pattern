@@ -22,6 +22,26 @@ public interface MachineAdapter {
     /** Returns true only when the complete stack was accepted. */
     boolean insert(ServerLevel level, BindingRecord binding, ItemStack stack);
 
+    /** Non-mutating blocking check. Unknown inventories fail closed in blocking mode. */
+    default boolean isInputBlocked(ServerLevel level, BindingRecord binding) {
+        var target = level.getBlockEntity(binding.target().pos());
+        if (target == null) return true;
+        boolean found = false;
+        java.util.List<net.minecraft.core.Direction> sides =
+                new java.util.ArrayList<>(java.util.Arrays.asList(net.minecraft.core.Direction.values()));
+        sides.add(null);
+        for (var side : sides) {
+            var handler = target.getCapability(net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER, side).orElse(null);
+            if (handler == null) continue;
+            found = true;
+            for (int slot = 0; slot < handler.getSlots(); slot++) {
+                ItemStack stack = handler.getStackInSlot(slot);
+                if (!stack.isEmpty() && handler.isItemValid(slot, stack)) return true;
+            }
+        }
+        return !found;
+    }
+
     /** Atomically accepts every input for one recipe. */
     default boolean insertRecipe(
             ServerLevel level, BindingRecord binding, RecipeSnapshot recipe, List<ItemStack> inputs) {

@@ -33,9 +33,19 @@ public final class IncomingBuffer {
     private final List<RecoveredOutput> recoveredOutputs = new ArrayList<>();
     /** O(1) outstanding-work counter per binding, kept in sync with queue and pending. */
     private final java.util.Map<UUID, Integer> workCount = new java.util.HashMap<>();
+    private final java.util.Map<UUID, AdaptiveDispatchBudget> dispatchBudgets = new java.util.HashMap<>();
+
+    public void resetDispatchBudgets() { dispatchBudgets.clear(); }
+
+    public boolean canAccept(UUID bindingId, String patternKey, boolean parallel) {
+        if (queue.size() + pending.size() >= MAX_QUEUED_CRAFTS) return false;
+        if (!parallel) return !hasWork(bindingId);
+        return queue.stream().noneMatch(input -> input.bindingId.equals(bindingId) && !input.patternKey.equals(patternKey))
+                && pending.stream().noneMatch(input -> input.bindingId.equals(bindingId) && !input.patternKey.equals(patternKey));
+    }
 
     public boolean canAccept(UUID bindingId) {
-        return queue.size() < MAX_QUEUED_CRAFTS && !hasWork(bindingId);
+        return canAccept(bindingId, "", false);
     }
 
     public boolean hasWork(UUID bindingId) {
@@ -70,7 +80,13 @@ public final class IncomingBuffer {
             List<ItemStack> inputs,
             ItemStack output,
             int processingTicks) {
-        if (!canAccept(binding.bindingId())) {
+        enqueue(binding, patternKey, recipe, inputs, output, processingTicks, false);
+    }
+
+    public void enqueue(
+            BindingRecord binding, String patternKey, RecipeSnapshot recipe, List<ItemStack> inputs,
+            ItemStack output, int processingTicks, boolean parallel) {
+        if (!canAccept(binding.bindingId(), patternKey, parallel)) {
             throw new IllegalStateException("buffer cannot accept another craft for " + binding.bindingId());
         }
         queue.add(new BufferedInput(
@@ -81,14 +97,24 @@ public final class IncomingBuffer {
 
     public boolean tick(ServerLevel linkerLevel, PatternLinkerBlockEntity linker) {
         boolean changed = flushRecoveredOutputs(linker);
-        changed |= drainBoundMachineOutput(linkerLevel, linker);
+        if (linker.getOperationOptions().autoReturn()) changed |= drainBoundMachineOutput(linkerLevel, linker);
         changed |= releaseFinishedCrafts(linkerLevel);
         if (queue.isEmpty()) {
             return changed;
         }
 
-        for (int index = 0; index < queue.size(); index++) {
+        var options = linker.getOperationOptions();
+        java.util.Map<UUID, Integer> accepted = new java.util.HashMap<>();
+        java.util.Set<UUID> blocked = new java.util.HashSet<>();
+        int attempts = 0;
+        for (int index = 0; index < queue.size() && attempts < AdaptiveDispatchBudget.MAX; index++) {
             BufferedInput buffered = queue.get(index);
+            AdaptiveDispatchBudget budget = dispatchBudgets.computeIfAbsent(buffered.bindingId, ignored -> new AdaptiveDispatchBudget());
+            int limit = budget.limit(buffered.patternKey, options.smartBatching());
+            if (blocked.contains(buffered.bindingId)
+                    || accepted.getOrDefault(buffered.bindingId, 0) >= limit) continue;
+            if (!options.allowsParallelQueue()
+                    && pending.stream().anyMatch(craft -> craft.bindingId.equals(buffered.bindingId))) continue;
             Optional<BindingRecord> binding =
                     BindingSavedData.get(linkerLevel.getServer()).find(buffered.bindingId);
             if (binding.isEmpty()) {
@@ -113,11 +139,15 @@ public final class IncomingBuffer {
                     new RecipeFingerprint(record.adapterId(), buffered.patternKey,
                             buffered.inputs.toString(), buffered.output.toString(), record.adapterSchema()),
                     buffered.processingTicks);
-            if (adapter.isEmpty() || !adapter.get().insertRecipe(targetLevel, record, recipe, buffered.inputs)) {
+            attempts++;
+            if (adapter.isEmpty()
+                    || (options.blocking() && adapter.get().isInputBlocked(targetLevel, record))
+                    || !adapter.get().insertRecipe(targetLevel, record, recipe, buffered.inputs)) {
+                blocked.add(buffered.bindingId);
                 continue;
             }
 
-            queue.remove(index);
+            queue.remove(index--);
             pending.add(new PendingCraft(
                     record.bindingId(),
                     buffered.patternKey,
@@ -125,8 +155,13 @@ public final class IncomingBuffer {
                     targetLevel.getGameTime() + buffered.processingTicks + 40L));
             // Work counter stays unchanged: the queue entry moved into pending.
             PerformanceMetrics.machineInputInserted(buffered.inputs.stream().mapToInt(ItemStack::getCount).sum());
-            return true;
+            accepted.merge(buffered.bindingId, 1, Integer::sum);
+            changed = true;
         }
+        java.util.Set<UUID> attempted = new java.util.HashSet<>(accepted.keySet());
+        attempted.addAll(blocked);
+        for (UUID id : attempted) dispatchBudgets.get(id).completed(
+                accepted.getOrDefault(id, 0), blocked.contains(id), options.smartBatching());
         return changed;
     }
 
@@ -150,6 +185,7 @@ public final class IncomingBuffer {
         pending.removeIf(craft -> craft.bindingId.equals(bindingId));
         recoveredOutputs.removeIf(output -> output.bindingId.equals(bindingId));
         workCount.remove(bindingId);
+        dispatchBudgets.remove(bindingId);
         return List.copyOf(recovered);
     }
 
@@ -158,6 +194,7 @@ public final class IncomingBuffer {
         pending.clear();
         recoveredOutputs.clear();
         workCount.clear();
+        dispatchBudgets.clear();
     }
 
     public void save(CompoundTag parent) {

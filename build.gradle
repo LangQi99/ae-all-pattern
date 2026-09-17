@@ -346,6 +346,7 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             forge_version          : forge_version,
+            forge_version_range    : forge_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,
@@ -366,6 +367,7 @@ sourceSets.main.resources.srcDir generateModMetadata
 legacyForge.ideSyncTask generateModMetadata
 
 def releaseVersion = providers.gradleProperty('mod_version')
+def forgeRuntimeRange = providers.gradleProperty('forge_version_range')
 def generatedMetadataFile = layout.buildDirectory.file(
         'generated/sources/modMetadata/META-INF/mods.toml')
 def readmeFile = layout.projectDirectory.file('README.md')
@@ -373,6 +375,7 @@ def readmeFile = layout.projectDirectory.file('README.md')
 def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
     dependsOn(generateModMetadata)
     inputs.property('releaseVersion', releaseVersion)
+    inputs.property('forgeRuntimeRange', forgeRuntimeRange)
     inputs.file('gradle.properties')
     inputs.file(readmeFile)
     inputs.file('src/main/templates/META-INF/mods.toml')
@@ -382,6 +385,9 @@ def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
             throw new GradleException('Release version must not use the -dev suffix')
         }
         def metadata = generatedMetadataFile.get().asFile.text
+        if (!metadata.contains("versionRange=\"${forgeRuntimeRange.get()}\"")) {
+            throw new GradleException('Forge runtime minimum must be independent of the build toolchain')
+        }
         if (!metadata.contains("version=\"${expectedVersion}\"")) {
             throw new GradleException('Generated mod metadata does not match the project version')
         }

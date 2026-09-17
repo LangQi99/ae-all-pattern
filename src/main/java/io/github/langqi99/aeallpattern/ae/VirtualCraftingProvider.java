@@ -55,7 +55,8 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
             return false;
         }
         PatternRoute route = routes.get(virtual);
-        if (route == null || !buffer.canAccept(route.binding.bindingId())) {
+        if (route == null || !buffer.canAccept(route.binding.bindingId(),
+                route.recipe.fingerprint().stableKey(), linker.getOperationOptions().allowsParallelQueue())) {
             PerformanceMetrics.pushRejected();
             return false;
         }
@@ -70,13 +71,22 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
             PerformanceMetrics.pushRejected();
             return false;
         }
+        if (linker.getOperationOptions().blocking()) {
+            var targetLevel = ((ServerLevel) linker.getLevel()).getServer().getLevel(route.binding.target().dimension());
+            var adapter = MachineAdapterRegistry.byId(ResourceLocation.tryParse(route.binding.adapterId()));
+            if (targetLevel == null || adapter.isEmpty()
+                    || adapter.get().isInputBlocked(targetLevel, route.binding)) {
+                PerformanceMetrics.pushRejected();
+                return false;
+            }
+        }
         buffer.enqueue(
                 route.binding,
                 route.recipe.fingerprint().stableKey(),
                 route.recipe,
                 inputs,
                 route.recipe.output(),
-                route.recipe.processingTicks());
+                route.recipe.processingTicks(), linker.getOperationOptions().allowsParallelQueue());
         linker.saveChanges();
         PerformanceMetrics.pushAccepted();
         return true;
@@ -87,7 +97,8 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
         if (routes.isEmpty()) {
             return true;
         }
-        return routes.values().stream().allMatch(route -> buffer.hasWork(route.binding.bindingId()));
+        return routes.values().stream().allMatch(route -> !buffer.canAccept(route.binding.bindingId(),
+                route.recipe.fingerprint().stableKey(), linker.getOperationOptions().allowsParallelQueue()));
     }
 
     public long catalogGeneration() {
@@ -103,7 +114,8 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
             // recipe machine never stalls the server thread. GameTest keeps the synchronous
             // contract via refreshSync().
             RefreshJob job = refreshJob;
-            if (job == null || job.generation != RecipeIndexService.generation()) {
+            if (job == null || job.generation != RecipeIndexService.generation()
+                    || !job.options.equals(linker.getPatternOptions())) {
                 refreshJob = new RefreshJob(linker, serverLevel);
             }
             return;
@@ -175,6 +187,7 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
     }
 
     private void commit(Map<VirtualPatternDetails, PatternRoute> rebuilt) {
+        boolean patternsChanged = !routes.keySet().equals(rebuilt.keySet());
         Set<BindingPatternKey> oldKeys = routes.keySet().stream().map(VirtualPatternDetails::key).collect(java.util.stream.Collectors.toSet());
         Set<BindingPatternKey> newKeys = rebuilt.keySet().stream().map(VirtualPatternDetails::key).collect(java.util.stream.Collectors.toSet());
         routes = Map.copyOf(rebuilt);
@@ -183,7 +196,7 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
         int diffSize = com.google.common.collect.Sets.symmetricDifference(oldKeys, newKeys).size();
         PerformanceMetrics.providerRefreshed(diffSize);
         boolean available = linker.getMainNode().isActive();
-        if ((!oldKeys.equals(newKeys) || available != lastAvailable) && linker.getMainNode().isReady()) {
+        if ((patternsChanged || available != lastAvailable) && linker.getMainNode().isReady()) {
             ICraftingProvider.requestUpdate(linker.getMainNode());
         }
         lastAvailable = available;
@@ -239,7 +252,9 @@ public final class VirtualCraftingProvider implements ICraftingProvider {
             }
             long required = -1;
             for (var possible : expected[index].getPossibleInputs()) {
-                if (possible.what().equals(key)) {
+                if (possible.what().equals(key)
+                        || (expected[index] instanceof io.github.langqi99.aeallpattern.aggregate.IgnoreInputNbtInput
+                            && possible.what() instanceof AEItemKey template && template.getItem() == key.getItem())) {
                     required = possible.amount() * expected[index].getMultiplier();
                     break;
                 }

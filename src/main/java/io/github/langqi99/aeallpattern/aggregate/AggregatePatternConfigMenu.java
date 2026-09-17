@@ -32,6 +32,9 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
     public static final int TOGGLE_SWAP_FIRST_AND_LAST_INPUTS = 11;
     public static final int TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES = 12;
     public static final int TOGGLE_IGNORE_INPUT_COMPONENTS = 13;
+    public static final int TOGGLE_LINKER_BLOCKING = 100;
+    public static final int TOGGLE_LINKER_SMART_BATCHING = 101;
+    public static final int TOGGLE_LINKER_AUTO_RETURN = 102;
 
     private final Inventory inventory;
     @Nullable
@@ -39,6 +42,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
     @Nullable
     private final BlockPos linkerPos;
     private int optionFlags;
+    private int operationFlags;
 
     public AggregatePatternConfigMenu(int id, Inventory inventory, FriendlyByteBuf data) {
         this(id, inventory, readTarget(data));
@@ -58,6 +62,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
         this.hand = target.hand;
         this.linkerPos = target.linkerPos;
         optionFlags = currentOptions().flags();
+        operationFlags = currentOperations().flags();
         addDataSlot(new DataSlot() {
             @Override
             public int get() {
@@ -69,10 +74,28 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
                 optionFlags = value & 16383;
             }
         });
+        addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                return inventory.player.level().isClientSide() ? operationFlags : currentOperations().flags();
+            }
+            @Override
+            public void set(int value) { operationFlags = value & 7; }
+        });
     }
 
     public AggregatePatternOptions getOptions() {
         return AggregatePatternOptions.fromFlags(optionFlags);
+    }
+
+    public io.github.langqi99.aeallpattern.linker.LinkerOperationOptions getOperationOptions() {
+        return io.github.langqi99.aeallpattern.linker.LinkerOperationOptions.fromFlags(operationFlags);
+    }
+
+    private io.github.langqi99.aeallpattern.linker.LinkerOperationOptions currentOperations() {
+        if (linkerPos != null && inventory.player.level().getBlockEntity(linkerPos)
+                instanceof PatternLinkerBlockEntity linker) return linker.getOperationOptions();
+        return io.github.langqi99.aeallpattern.linker.LinkerOperationOptions.DEFAULT;
     }
 
     public ItemStack stack() {
@@ -85,6 +108,21 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
 
     @Override
     public boolean clickMenuButton(@NotNull Player player, int id) {
+        if (!stillValid(player)) return false;
+        if (id >= TOGGLE_LINKER_BLOCKING && id <= TOGGLE_LINKER_AUTO_RETURN) {
+            if (linkerPos == null) return false;
+            int mask = 1 << (id - TOGGLE_LINKER_BLOCKING);
+            if (player.level().isClientSide()) {
+                operationFlags ^= mask;
+                return true;
+            }
+            PatternLinkerBlockEntity linker = linker(player);
+            if (linker == null) return false;
+            operationFlags = linker.getOperationOptions().flags() ^ mask;
+            linker.setOperationOptions(getOperationOptions());
+            broadcastChanges();
+            return true;
+        }
         if (id < TOGGLE_SPLIT_SAME_ITEMS || id > TOGGLE_IGNORE_INPUT_COMPONENTS) {
             return false;
         }

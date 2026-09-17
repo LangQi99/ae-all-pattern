@@ -1,7 +1,7 @@
 # AE All Pattern | AE 全样板
 
 [![Minecraft 1.20.1](https://img.shields.io/badge/Minecraft-1.20.1-62b47a?style=flat-square)](https://www.minecraft.net/)
-[![Forge](https://img.shields.io/badge/Forge-47.4.20-e96d4f?style=flat-square)](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html)
+[![Forge](https://img.shields.io/badge/Forge-47.1.25%2B-e96d4f?style=flat-square)](https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html)
 [![AE2](https://img.shields.io/badge/Applied%20Energistics%202-15.4.10-7b62a3?style=flat-square)](https://github.com/AppliedEnergistics/Applied-Energistics-2)
 [![Release](https://img.shields.io/github/v/release/LangQi99/ae-all-pattern?style=flat-square)](https://github.com/LangQi99/ae-all-pattern/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
@@ -81,9 +81,9 @@ The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tec
 
 | Component | Support |
 | --- | --- |
-| AE All Pattern | 0.2.5-beta.1 |
+| AE All Pattern | 0.2.6-beta.1 |
 | Minecraft | 1.20.1 |
-| Mod loader | Forge 47.4.20 (tested) |
+| Mod loader | Forge 47.1.25+ (build: 47.4.20) |
 | Java | 17 |
 | Applied Energistics 2 | 15.4.10 (required) |
 | Recipe viewers | JEI 15.x, or EMI + TooManyRecipeViewers |
@@ -98,7 +98,7 @@ For precise boundaries and tested versions, see the [support matrix](docs/produc
 
 ### Installation
 
-1. Install Minecraft 1.20.1, Forge 47.4.20, Java 17, and Applied Energistics 2 15.4.10.
+1. Install Minecraft 1.20.1, Forge 47.1.25+, Java 17, and Applied Energistics 2 15.4.10.
 2. Add JEI, or EMI together with TooManyRecipeViewers, if you want the universal Aggregate Pattern Generator workflow.
 3. Put the AE All Pattern JAR in the `mods` folder on both client and server.
 4. Add only the optional machine and AE add-ons used by your pack.
@@ -172,9 +172,9 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 | 组件 | 支持情况 |
 | --- | --- |
-| AE 全样板 | 0.2.5-beta.1 |
+| AE 全样板 | 0.2.6-beta.1 |
 | Minecraft | 1.20.1 |
-| 模组加载器 | Forge 47.4.20（已测试） |
+| 模组加载器 | Forge 47.1.25+（编译：47.4.20） |
 | Java | 17 |
 | Applied Energistics 2 | 15.4.10（必需） |
 | 配方查看器 | JEI 15.x，或 EMI + TooManyRecipeViewers |
@@ -189,7 +189,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 ### 安装
 
-1. 安装 Minecraft 1.20.1、Forge 47.4.20、Java 17 与 Applied Energistics 2 15.4.10。
+1. 安装 Minecraft 1.20.1、Forge 47.1.25+、Java 17 与 Applied Energistics 2 15.4.10。
 2. 若要使用通用聚合样板扫描，请安装 JEI，或同时安装 EMI 与 TooManyRecipeViewers。
 3. 把 AE 全样板 JAR 同时放入客户端与服务端的 `mods` 文件夹。
 4. 再按整合包需求添加机器模组和 AE 附属；它们都不是本模组的强制依赖。

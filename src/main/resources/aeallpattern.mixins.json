@@ -18,6 +18,8 @@
     "PackagedAutoPackagingProviderBlockEntityMixin",
     "PackagedAutoPackagingProviderItemHandlerMixin",
     "ECOCraftingPatternBusBlockEntityMixin",
+    "ECOCraftingPatternBusCatalogMixin",
+    "compat.useless.MePatternAssemblyBlockEntityMixin",
     "MatrixPatternStorageBlockEntityMixin",
     "ExtendedAeAssemblerMatrixPatternMixin",
     "ExtendedAeAssemblerMatrixFilterMixin",

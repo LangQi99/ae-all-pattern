@@ -16,7 +16,8 @@ public final class AeAllPatternConfigScreen {
     public static void register() {
         ModLoadingContext.get().registerExtensionPoint(
                 ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new ConfigScreenHandler.ConfigScreenFactory(AeAllPatternConfigScreen::create));
+                // Use the original BiFunction constructor, also available on Forge 47.1.x.
+                () -> new ConfigScreenHandler.ConfigScreenFactory((minecraft, parent) -> create(parent)));
     }
 
     public static Screen create(Screen parent) {

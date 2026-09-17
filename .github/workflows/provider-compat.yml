@@ -1,0 +1,55 @@
+name: Provider compatibility and save reopen
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  providers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: eco-forge
+            eco: TYrXvWwv
+            alloy: 'false'
+            expected: neoecoae
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Seed then reopen in a fresh server process
+        shell: bash
+        run: |
+          for phase in seed verify; do
+            ./gradlew runGameTestServer --stacktrace \
+              -Pgametest_directory=run-gametest-providers \
+              -Ppersistence_phase="$phase" \
+              -Pneoecoae_runtime_version=${{ matrix.eco }} \
+              -Pruntime_useless=${{ matrix.alloy }} \
+              -Pexpected_test_mods=${{ matrix.expected }} \
+              -Pruntime_neoecoae=true -Pruntime_jei=false -Pruntime_emi=false \
+              -Pruntime_mekanism=false -Pruntime_create=false \
+              -Pruntime_industrial_foregoing=false -Pruntime_mystical_agriculture=false
+            # The dev launcher can exit zero on a loading crash: require actual test markers.
+            grep -E 'All [0-9]+ required tests passed' run-gametest-providers/logs/latest.log
+            grep -F "ECO_RESTART_${phase}_PASSED" run-gametest-providers/logs/latest.log
+            grep -F "VANILLA_ASYNC_RESTART_${phase}_PASSED" run-gametest-providers/logs/latest.log
+            if [ '${{ matrix.alloy }}' = true ]; then
+              grep -F "ALLOY_RESTART_${phase}_PASSED" run-gametest-providers/logs/latest.log
+            fi
+            cp run-gametest-providers/logs/latest.log "run-gametest-providers/${phase}.log"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: provider-regression-${{ matrix.name }}
+          path: |
+            run-gametest-providers/*.log
+            run-gametest-providers/logs/**
+            run-gametest-providers/crash-reports/**

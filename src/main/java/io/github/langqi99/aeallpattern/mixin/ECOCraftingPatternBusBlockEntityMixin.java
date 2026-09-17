@@ -43,6 +43,7 @@ public abstract class ECOCraftingPatternBusBlockEntityMixin {
                     owner -> ((ECOCraftingPatternBusBlockEntityMixin) owner)
                             .aeallpattern$rerunUpdatePatternDetails());
         }
+        patternDetails.removeIf(io.github.langqi99.aeallpattern.aggregate.AggregatePatternMarkerDetails.class::isInstance);
         boolean cold = false;
         for (var stack : inventory) {
             var expanded = AggregatePatternExpander.expandScheduled(

@@ -26,3 +26,5 @@ Binding requires an implemented machine adapter. Seeing a machine's recipes in J
 Check that the Linker is online, its channel is available, the machine/chunk is loaded, and the configured distance/dimension rules allow the binding.
 
 [Generator workflow](aggregate_patterns.md) · [Routing](tianshu_router.md) · [Overview](index.md)
+
+Right-click the Linker to configure **Blocking mode** (off by default), **Smart batching** (on), and **Auto-return outputs** (on). Blocking waits for occupied inputs / earlier dispatched work; supported furnace and Mekanism adapters exclude fuel/energy and output slots. Smart batching ramps already-supplied same-recipe crafts from 1 to 2, 4, up to 64 per tick and backs off on rejection; it does not duplicate materials or outputs. Blocking takes priority. Disabling auto-return leaves new outputs in the machine, so use another return path for AE crafting completion. Previously buffered returned items still go back to ME storage. Queued inputs are retained when settings change, and the total owned queue/pending work is bounded at 64 crafts.

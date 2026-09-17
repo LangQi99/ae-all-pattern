@@ -19,7 +19,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
             Component title) {
         super(menu, inventory, title);
         imageWidth = 354;
-        imageHeight = 186;
+        imageHeight = menu.isLinkerConfiguration() ? 226 : 186;
         titleLabelX = 34;
         titleLabelY = 10;
     }
@@ -27,6 +27,14 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
     @Override
     protected void init() {
         super.init();
+        if (menu.isLinkerConfiguration()) {
+            addOperation(12, 38, "blocking", () -> menu.getOperationOptions().blocking(),
+                    AggregatePatternConfigMenu.TOGGLE_LINKER_BLOCKING);
+            addOperation(178, 38, "smart_batching", () -> menu.getOperationOptions().smartBatching(),
+                    AggregatePatternConfigMenu.TOGGLE_LINKER_SMART_BATCHING);
+            addOperation(12, 56, "auto_return", () -> menu.getOperationOptions().autoReturn(),
+                    AggregatePatternConfigMenu.TOGGLE_LINKER_AUTO_RETURN);
+        }
         addOption(12, 38, 164,
                 "gui.aeallpattern.aggregate_config.split_same_items",
                 "gui.aeallpattern.aggregate_config.split_same_items.tooltip",
@@ -109,7 +117,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
             int toggleId) {
         addRenderableWidget(new AggregateConfigOptionButton(
                 leftPos + x,
-                topPos + y,
+                topPos + y + (menu.isLinkerConfiguration() ? 40 : 0),
                 width,
                 Component.translatable(labelKey),
                 Component.translatable(tooltipKey),
@@ -125,12 +133,23 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
         minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
     }
 
+    private void addOperation(int x, int y, String key, java.util.function.BooleanSupplier enabled, int id) {
+        addRenderableWidget(new AggregateConfigOptionButton(
+                leftPos + x, topPos + y, 164,
+                Component.translatable("gui.aeallpattern.linker_config." + key),
+                Component.translatable("gui.aeallpattern.linker_config." + key + ".tooltip"),
+                enabled, () -> toggle(id)));
+    }
+
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, 0xFFD8D8E2);
         graphics.renderOutline(leftPos, topPos, imageWidth, imageHeight, 0xFF4B4B61);
         graphics.renderOutline(leftPos + 3, topPos + 3, imageWidth - 6, imageHeight - 6, 0xFFF2F2F7);
         graphics.fill(leftPos + 8, topPos + 31, leftPos + imageWidth - 8, topPos + 32, 0xFF777789);
+        if (menu.isLinkerConfiguration()) {
+            graphics.fill(leftPos + 8, topPos + 75, leftPos + imageWidth - 8, topPos + 76, 0xFF777789);
+        }
 
         ItemStack machine = machineStack();
         if (!machine.isEmpty()) {
@@ -147,7 +166,7 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
                         ? "gui.aeallpattern.linker_config.hint"
                         : "gui.aeallpattern.aggregate_config.hint"),
                 12,
-                170,
+                imageHeight - 16,
                 0xFF67677A,
                 false);
     }

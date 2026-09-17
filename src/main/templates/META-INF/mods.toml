@@ -20,7 +20,7 @@ Bind a supported machine once and expose its deterministic recipes to AE2 as vir
 [[dependencies.${mod_id}]]
 modId="forge"
 mandatory=true
-versionRange="[${forge_version},)"
+versionRange="${forge_version_range}"
 ordering="NONE"
 side="BOTH"
 

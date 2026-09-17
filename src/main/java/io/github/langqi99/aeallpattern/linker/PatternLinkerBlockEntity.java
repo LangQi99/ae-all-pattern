@@ -35,6 +35,7 @@ import org.jetbrains.annotations.NotNull;
 public final class PatternLinkerBlockEntity extends AENetworkBlockEntity implements MenuProvider {
     private static final String OWNER_TAG = "Owner";
     private static final String OPTIONS_TAG = "PatternOptions";
+    private static final String OPERATIONS_TAG = "LinkerOperations";
     private static final double IDLE_POWER_USAGE = 2.0;
 
     @Nullable
@@ -42,6 +43,17 @@ public final class PatternLinkerBlockEntity extends AENetworkBlockEntity impleme
     private final IncomingBuffer incomingBuffer = new IncomingBuffer();
     private final VirtualCraftingProvider craftingProvider;
     private AggregatePatternOptions patternOptions = AggregatePatternOptions.DEFAULT;
+    private LinkerOperationOptions operationOptions = LinkerOperationOptions.DEFAULT;
+
+    public LinkerOperationOptions getOperationOptions() { return operationOptions; }
+
+    public void setOperationOptions(LinkerOperationOptions options) {
+        if (!operationOptions.equals(options)) {
+            operationOptions = options;
+            incomingBuffer.resetDispatchBudgets();
+            saveChanges();
+        }
+    }
 
     public PatternLinkerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PATTERN_LINKER.get(), pos, state);
@@ -128,6 +140,9 @@ public final class PatternLinkerBlockEntity extends AENetworkBlockEntity impleme
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
         ownerId = tag.hasUUID(OWNER_TAG) ? tag.getUUID(OWNER_TAG) : null;
+        operationOptions = tag.contains(OPERATIONS_TAG)
+                ? LinkerOperationOptions.fromFlags(tag.getInt(OPERATIONS_TAG))
+                : LinkerOperationOptions.DEFAULT;
         patternOptions = tag.contains(OPTIONS_TAG)
                 ? AggregatePatternOptions.fromFlags(tag.getInt(OPTIONS_TAG))
                 : AggregatePatternOptions.DEFAULT;
@@ -141,6 +156,7 @@ public final class PatternLinkerBlockEntity extends AENetworkBlockEntity impleme
             tag.putUUID(OWNER_TAG, ownerId);
         }
         tag.putInt(OPTIONS_TAG, patternOptions.flags());
+        tag.putInt(OPERATIONS_TAG, operationOptions.flags());
         incomingBuffer.save(tag);
     }
 

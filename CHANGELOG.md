@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.5-beta.1 - 2026-09-17
+
+- Added an opt-in **Ignore input NBT** option to aggregate-pattern and Linker configuration (Issue #20).
+- Processing item inputs can match same-item NBT/component variants without stripping data from actual delivered stacks. Both native AE2 planning and the Tianshu planner support stocked and craftable variants.
+- Defaults remain strict, including existing saved patterns. Fluid/chemical matching and crafting-table recipe validation are unchanged. Enable only when the target machine accepts those variants; names, enchantments and damage are ignored too.
+- Added persistence/flag, menu-toggle, planner, input-delivery, splitting, alternatives and non-item regression coverage on both Minecraft versions.
+
 ## 0.2.4-beta.1 - 2026-09-17
 
 - Added structure-aware Masterful Machinery aggregate scanning for multiple controllers and recipe categories, excluding unrelated structures and external FE requirements.

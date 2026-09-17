@@ -26,3 +26,5 @@ Large catalogs are stored in the server library and transferred in bounded pages
 Disabling a recipe removes it from the published catalog. Encoding options such as removing fluids, chemicals or catalysts can make patterns unsuitable for the real machine: enable them only when your automation supplies those requirements separately.
 
 [Back to overview](index.md)
+
+**Ignore input NBT** is off by default. For processing item inputs only, it accepts the same item regardless of NBT/components, including names, enchantments and damage. Actual delivered stacks keep their data. It does not relax fluids, chemicals or crafting-table recipe validation, and cannot force a machine to accept an invalid ingredient. Enable it only for machines whose recipes accept those variants. The input and output options are independent.

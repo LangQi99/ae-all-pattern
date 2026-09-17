@@ -24,13 +24,27 @@ public final class AggregatePatternDetails implements IPatternDetails, RoutingPa
             IPatternDetails delegate,
             int processingTicks,
             List<AggregateInputSlot> configuredSlots) {
+        this(patternId, definition, delegate, processingTicks, configuredSlots, false);
+    }
+
+    public AggregatePatternDetails(
+            String patternId, AEItemKey definition, IPatternDetails delegate,
+            int processingTicks, List<AggregateInputSlot> configuredSlots, boolean ignoreInputComponents) {
         this.patternId = Objects.requireNonNull(patternId, "patternId");
         this.definition = Objects.requireNonNull(definition, "definition");
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.processingTicks = Math.max(1, processingTicks);
-        this.configuredInputs = configuredSlots == null || configuredSlots.isEmpty()
+        IInput[] inputs = configuredSlots == null || configuredSlots.isEmpty()
                 ? null
                 : configuredSlots.stream().map(AlternativeInput::new).toArray(IInput[]::new);
+        this.configuredInputs = ignoreInputComponents
+                ? java.util.Arrays.stream(inputs == null ? delegate.getInputs() : inputs)
+                        .map(input -> input.getPossibleInputs().length > 0
+                                && java.util.Arrays.stream(input.getPossibleInputs())
+                                        .allMatch(stack -> stack.what() instanceof AEItemKey)
+                                ? new IgnoreInputNbtInput(input) : input)
+                        .toArray(IInput[]::new)
+                : inputs;
     }
 
     @Override

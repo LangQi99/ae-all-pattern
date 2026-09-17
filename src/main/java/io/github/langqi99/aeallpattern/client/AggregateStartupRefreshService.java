@@ -4,6 +4,7 @@ import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.aggregate.AggregateMetadataView;
 import io.github.langqi99.aeallpattern.compat.emi.EmiAggregateScanner;
 import io.github.langqi99.aeallpattern.compat.jei.AeAllPatternJeiPlugin;
+import io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
@@ -74,6 +75,12 @@ public final class AggregateStartupRefreshService {
         boolean started;
         if (useEmi) {
             started = EmiAggregateScanner.refresh(entry);
+            // The EMI pass only fails when it cannot map the machine to a category. The JEI/TMRV
+            // runtime is the same source used for generation, so reuse it instead of leaving the
+            // catalog stale.
+            if (!started && !EmiAggregateScanner.isBusy()) {
+                started = ClientJeiAggregateScanner.startRefresh(entry);
+            }
         } else {
             started = ClientJeiAggregateScanner.startRefresh(entry);
         }
@@ -88,6 +95,9 @@ public final class AggregateStartupRefreshService {
             Collection<AggregateMetadataView.Entry> entries) {
         return entries.stream()
                 .filter(entry -> entry.batchCount() == 1 && entry.startupRefreshRequired())
+                // The rotary direction is live machine state that a position-less refresh cannot
+                // read, so these catalogs keep the direction chosen when they were generated.
+                .filter(entry -> !RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId()))
                 .toList();
     }
 

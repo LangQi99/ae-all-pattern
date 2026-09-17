@@ -54,7 +54,8 @@ public final class ClientRecipeMachineResolver {
             alias("packagedavaritia", "sculk_crafter", "avaritia", "sculk_crafting_table"),
             alias("packagedavaritia", "nether_crafter", "avaritia", "nether_crafting_table"),
             alias("packagedavaritia", "end_crafter", "avaritia", "end_crafting_table"),
-            alias("packagedavaritia", "extreme_crafter", "avaritia", "extreme_crafting_table"));
+            alias("packagedavaritia", "extreme_crafter", "avaritia", "extreme_crafting_table"),
+            alias("mekmm", "large_rotary_condensentrator", "mekanism", "rotary_condensentrator"));
 
     private ClientRecipeMachineResolver() {
     }

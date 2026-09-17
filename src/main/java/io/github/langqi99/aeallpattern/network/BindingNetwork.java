@@ -29,6 +29,20 @@ public final class BindingNetwork {
                     }
                 }));
         registrar.playToServer(
+                RotaryDirectionQueryPayload.TYPE,
+                RotaryDirectionQueryPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    if (context.player() instanceof net.minecraft.server.level.ServerPlayer player) {
+                        RotaryDirectionService.handle(player, payload.pos());
+                    }
+                }));
+        registrar.playToClient(
+                RotaryDirectionPayload.TYPE,
+                RotaryDirectionPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() ->
+                        io.github.langqi99.aeallpattern.client.ClientJeiAggregateScanner
+                                .acceptRotaryDirection(payload)));
+        registrar.playToServer(
                 AggregateSearchPayload.TYPE,
                 AggregateSearchPayload.STREAM_CODEC,
                 (payload, context) -> context.enqueueWork(() -> {

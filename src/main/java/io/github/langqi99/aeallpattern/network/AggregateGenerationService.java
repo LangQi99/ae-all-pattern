@@ -5,7 +5,9 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternExpander;
 import io.github.langqi99.aeallpattern.aggregate.AggregateProviderRefreshService;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
+import io.github.langqi99.aeallpattern.compat.mekanism.RotaryCondensentratorSupport;
 import io.github.langqi99.aeallpattern.machine.MachineAdapterRegistry;
+import io.github.langqi99.aeallpattern.machine.MachineTargetResolver;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
 import io.github.langqi99.aeallpattern.registry.ModItems;
 import java.util.ArrayList;
@@ -18,6 +20,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -62,7 +65,7 @@ public final class AggregateGenerationService {
                 ? library.replace(player.getServer(), payload.replacementLibraryId(),
                         payload.catalystId(), payload.machineTranslationKey(), recipes)
                 : library.put(player.getServer(), payload.catalystId(),
-                        payload.machineTranslationKey(), recipes);
+                        payload.machineTranslationKey(), machineVariant(player.serverLevel(), payload), recipes);
         AggregateStartupRefreshState.markComplete(player.getServer(), ref.libraryId());
         AggregatePatternExpander.clearCaches();
         AggregateProviderRefreshService.requestRefresh(player.getServer());
@@ -83,6 +86,27 @@ public final class AggregateGenerationService {
         player.displayClientMessage(Component.translatable(
                 "message.aeallpattern.generator.created",
                 Component.translatable(payload.machineTranslationKey()), recipes.size()), true);
+    }
+
+    /**
+     * The machine state that decides which recipe set a catalog holds.
+     *
+     * <p>Only state-dependent machines have one: the rotary condensentrator runs either
+     * condensentrating or decondensentrating recipes, and both catalogs must survive side by side
+     * instead of overwriting each other. Read from the server, which owns the rotary mode.</p>
+     */
+    private static String machineVariant(ServerLevel level, GenerateAggregatePayload payload) {
+        if (!RotaryCondensentratorSupport.isRotaryCondensentrator(payload.catalystId())) {
+            return AggregatePatternLibrary.Entry.DEFAULT_VARIANT;
+        }
+        BlockPos pos = MachineTargetResolver.resolvePosition(level, payload.machinePos());
+        Boolean direction = RotaryCondensentratorSupport.condensentrating(level, pos);
+        if (direction == null) {
+            return "unknown";
+        }
+        return direction
+                ? RotaryCondensentratorSupport.CONDENSENTRATING
+                : RotaryCondensentratorSupport.DECONDENSENTRATING;
     }
 
     private static boolean validTarget(GenerateAggregatePayload payload, ServerPlayer player) {

@@ -124,7 +124,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         searchBox.setMaxLength(64);
         searchBox.setBordered(false);
         searchBox.setTextColor(0xFF303044);
-        searchBox.setHint(Component.translatable("gui.aeallpattern.aggregate_selection.search_hint"));
+        searchBox.setTextColorUneditable(0xFF303044);
+        searchBox.setTextShadow(false);
+        // Draw the hint ourselves below without the vanilla EditBox shadow.
+        searchBox.setHint(Component.empty());
         searchBox.setValue(retainedSearch);
         searchBox.setResponder(text -> {
             searchDirty = true;
@@ -733,7 +736,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             return ItemStack.EMPTY;
         }
         AEKey key = entry.outputs().getFirst().what();
-        return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
+        return key.wrapForDisplayOrFilter();
     }
 
     private static ItemStack primaryInput(AggregatePatternSelectionMenu.Entry entry) {
@@ -741,7 +744,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             return ItemStack.EMPTY;
         }
         AEKey key = entry.inputs().getFirst().what();
-        return key instanceof AEItemKey itemKey ? itemKey.toStack() : ItemStack.EMPTY;
+        return key.wrapForDisplayOrFilter();
     }
 
     @Override
@@ -784,6 +787,15 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                         "gui.aeallpattern.aggregate_selection.selected_count",
                         menu.selectedCount(), menu.totalRecipeCount())
                 .getString();
+        if (searchBox != null && searchBox.getValue().isEmpty()) {
+            graphics.drawString(
+                    font,
+                    Component.translatable("gui.aeallpattern.aggregate_selection.search_hint"),
+                    14,
+                    SEARCH_TOP + 4,
+                    0xFF67677A,
+                    false);
+        }
         int countX = allButton != null
                 ? (allButton.getX() - leftPos + allButton.getWidth() + 8)
                 : 82;

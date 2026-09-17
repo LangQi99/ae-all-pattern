@@ -46,12 +46,30 @@ public final class AggregatePatternLibrary extends SavedData {
             ResourceLocation catalystId,
             String machineTranslationKey,
             List<AggregateRecipe> recipes) {
+        return put(server, catalystId, machineTranslationKey, "", recipes);
+    }
+
+    /**
+     * Creates or updates the catalog for one machine variant.
+     *
+     * <p>A machine whose state picks between different recipe categories must not share a catalog
+     * with its other states: the rotary condensentrator runs either condensentrating or
+     * decondensentrating recipes, and a shared entry would silently overwrite the item generated
+     * for the other direction.</p>
+     */
+    public AggregatePatternRef put(
+            MinecraftServer server,
+            ResourceLocation catalystId,
+            String machineTranslationKey,
+            String variant,
+            List<AggregateRecipe> recipes) {
         if (recipes.isEmpty() || recipes.size() > AggregatePatternData.configuredRecipeLimit()) {
             throw new IllegalArgumentException("invalid aggregate library recipe count: " + recipes.size());
         }
         String hash = contentHash(recipes);
         Entry entry = entries.values().stream()
                 .filter(candidate -> candidate.catalystId().equals(catalystId)
+                        && candidate.variant().equals(variant)
                         && candidate.batchCount() == 1)
                 .findFirst().orElse(null);
         UUID id = entry == null ? UUID.randomUUID() : entry.libraryId();
@@ -63,7 +81,7 @@ public final class AggregatePatternLibrary extends SavedData {
             storage.set(pageName(id, pageIndex), new Page(recipes.subList(from, to)));
         }
         Entry updated = new Entry(id, catalystId, machineTranslationKey, hash, recipes.size(), pageCount,
-                hash, recipes.size(), 0, 1, recipes.size());
+                hash, recipes.size(), 0, 1, recipes.size(), variant);
         entries.put(id, updated);
         setDirty();
         return updated.toRef();
@@ -94,7 +112,7 @@ public final class AggregatePatternLibrary extends SavedData {
         }
         Entry updated = new Entry(
                 libraryId, catalystId, machineTranslationKey, hash, recipes.size(), pageCount,
-                hash, Math.max(1, recipes.size()), 0, 1, recipes.size());
+                hash, Math.max(1, recipes.size()), 0, 1, recipes.size(), existing.variant());
         entries.put(libraryId, updated);
         setDirty();
         return updated.toRef();
@@ -137,6 +155,7 @@ public final class AggregatePatternLibrary extends SavedData {
             raw.putUUID("LibraryId", entry.libraryId());
             raw.putString("CatalystId", entry.catalystId().toString());
             raw.putString("MachineTranslationKey", entry.machineTranslationKey());
+            raw.putString("Variant", entry.variant());
             raw.putString("ContentHash", entry.contentHash());
             raw.putInt("RecipeCount", entry.recipeCount());
             raw.putInt("PageCount", entry.pageCount());
@@ -168,7 +187,9 @@ public final class AggregatePatternLibrary extends SavedData {
                         numbered ? raw.getInt("BatchSize") : Math.max(1, recipeCount),
                         numbered ? raw.getInt("BatchIndex") : 0,
                         numbered ? raw.getInt("BatchCount") : 1,
-                        numbered ? raw.getInt("TotalRecipeCount") : recipeCount);
+                        numbered ? raw.getInt("TotalRecipeCount") : recipeCount,
+                        // Older saves have no variant; they only ever held one catalog per machine.
+                        raw.contains("Variant", Tag.TAG_STRING) ? raw.getString("Variant") : "");
                 library.entries.put(entry.libraryId(), entry);
             } catch (RuntimeException error) {
                 AeAllPattern.LOGGER.warn("Skipping unreadable aggregate library entry", error);
@@ -209,10 +230,34 @@ public final class AggregatePatternLibrary extends SavedData {
             int batchSize,
             int batchIndex,
             int batchCount,
-            int totalRecipeCount) {
+            int totalRecipeCount,
+            String variant) {
+        /** Variant of a machine that only runs one recipe set. */
+        public static final String DEFAULT_VARIANT = "";
+
+        /** Convenience for the single-state machines, which are the vast majority. */
+        public Entry(
+                UUID libraryId,
+                ResourceLocation catalystId,
+                String machineTranslationKey,
+                String contentHash,
+                int recipeCount,
+                int pageCount,
+                String seriesHash,
+                int batchSize,
+                int batchIndex,
+                int batchCount,
+                int totalRecipeCount) {
+            this(libraryId, catalystId, machineTranslationKey, contentHash, recipeCount, pageCount,
+                    seriesHash, batchSize, batchIndex, batchCount, totalRecipeCount, DEFAULT_VARIANT);
+        }
+
         public Entry {
             if (recipeCount < 0 || pageCount != Math.ceilDiv(recipeCount, PAGE_SIZE)) {
                 throw new IllegalArgumentException("invalid aggregate library metadata");
+            }
+            if (variant == null) {
+                throw new IllegalArgumentException("invalid aggregate library variant");
             }
             if (recipeCount == 0) {
                 if (seriesHash == null || seriesHash.length() != 64 || batchSize != 1

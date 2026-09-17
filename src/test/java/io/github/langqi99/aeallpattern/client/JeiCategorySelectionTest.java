@@ -32,6 +32,15 @@ class JeiCategorySelectionTest {
     }
 
     @Test
+    void rotaryModeSelectsMatchingMekanismDirection() {
+        var categories = List.of(id("mekanism:decondensentrating"), id("mekanism:condensentrating"));
+        assertEquals(id("mekanism:condensentrating"), ClientJeiAggregateScanner.pickCategoryId(
+                categories, id("mekanism:rotary_condensentrator"), true));
+        assertEquals(id("mekanism:decondensentrating"), ClientJeiAggregateScanner.pickCategoryId(
+                categories, id("mekmm:large_rotary_condensentrator"), false));
+    }
+
+    @Test
     void onlyOxidizingMachinesEncodeItemToChemicalRecipes() {
         assertEquals(true, ClientJeiAggregateScanner.allowsCategory(
                 id("mekanism:chemical_oxidizer"), id("mekanism:oxidizing")));

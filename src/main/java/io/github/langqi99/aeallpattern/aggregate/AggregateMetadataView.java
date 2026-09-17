@@ -46,6 +46,25 @@ public final class AggregateMetadataView {
             int batchIndex,
             int batchCount,
             int totalRecipeCount,
+            String variant,
             boolean startupRefreshRequired) {
+
+        /** Convenience for callers that do not care about the machine variant. */
+        public Entry(
+                UUID libraryId,
+                ResourceLocation catalystId,
+                String machineTranslationKey,
+                String contentHash,
+                int recipeCount,
+                String seriesHash,
+                int batchSize,
+                int batchIndex,
+                int batchCount,
+                int totalRecipeCount,
+                boolean startupRefreshRequired) {
+            this(libraryId, catalystId, machineTranslationKey, contentHash, recipeCount, seriesHash,
+                    batchSize, batchIndex, batchCount, totalRecipeCount,
+                    AggregatePatternLibrary.Entry.DEFAULT_VARIANT, startupRefreshRequired);
+        }
     }
 }

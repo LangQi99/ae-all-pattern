@@ -55,3 +55,7 @@ GameTest 的条件跳过使用 succeed 返回，因此总数不是每个附属�
 Forge 分支使用 -Pruntime_neoecoae=true 与 -Pexpected_test_mods=neoecoae，不设置 runtime_useless。
 
 上述修复纳入 0.2.6 / 0.2.6-beta.1 发布；平台发布状态以对应 Release 页面为准。
+
+后续远程 Forge 冷区块测试曾在固定 45 tick 时节点仍未初始化而失败；
+双版本测试改用非持久、无短期过期的 START 区块票，在 600 tick 上限内等待原始断言全部满足。
+不手动调用 onReady、刷新或重新插入，不降低 AE 网络可合成断言。

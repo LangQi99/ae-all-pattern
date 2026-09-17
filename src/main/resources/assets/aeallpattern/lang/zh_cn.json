@@ -1,4 +1,10 @@
 {
+  "gui.aeallpattern.linker_config.blocking": "阻挡模式",
+  "gui.aeallpattern.linker_config.blocking.tooltip": "机器输入槽或上一批投料仍占用时等待；支持的适配器不会把燃料槽和输出槽当作输入。",
+  "gui.aeallpattern.linker_config.smart_batching": "智能翻倍",
+  "gui.aeallpattern.linker_config.smart_batching.tooltip": "每轮成功投料后按 1、2、4 至最多 64 批递增，堵塞时回退；只使用 AE 已提供的材料，不额外复制产物。阻挡模式优先。",
+  "gui.aeallpattern.linker_config.auto_return": "产物自动回收",
+  "gui.aeallpattern.linker_config.auto_return.tooltip": "自动将机器可提取的产物送回 ME 网络。关闭后不再抽取新产物，已经暂存的回收物仍会安全送回。",
   "gui.aeallpattern.aggregate_config.ignore_input_nbt": "忽略输入 NBT",
   "gui.aeallpattern.aggregate_config.ignore_input_nbt.tooltip": "仅加工物品输入：同种物品忽略 NBT/组件匹配（含耐久、名称、附魔），实际投入保留原数据。可能消耗贵重物品；不会绕过机器自身配方规则。",
   "item.aeallpattern.guide": "AE 全样板指南",

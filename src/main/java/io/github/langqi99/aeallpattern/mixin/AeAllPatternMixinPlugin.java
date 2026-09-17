@@ -16,7 +16,13 @@ public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
             return loaded("ae2cs");
         }
         if (mixin.endsWith("ECOCraftingPatternBusBlockEntityMixin")) {
-            return loaded("neoecoae");
+            return loaded("neoecoae") && !ecoHasCatalog();
+        }
+        if (mixin.endsWith("ECOCraftingPatternBusCatalogMixin")) {
+            return loaded("neoecoae") && ecoHasCatalog();
+        }
+        if (mixin.endsWith("MePatternAssemblyBlockEntityMixin")) {
+            return loaded("useless_mod");
         }
         if (mixin.endsWith("MatrixPatternStorageBlockEntityMixin")) {
             return loaded("ae2lt");
@@ -48,6 +54,11 @@ public final class AeAllPatternMixinPlugin implements IMixinConfigPlugin {
     }
     private static boolean loaded(String modId) {
         return FMLLoader.getLoadingModList().getModFileById(modId) != null;
+    }
+    private static boolean ecoHasCatalog() {
+        var mod = FMLLoader.getLoadingModList().getModFileById("neoecoae");
+        return mod != null && java.nio.file.Files.exists(mod.getFile().findResource(
+                "cn/dancingsnow/neoecoae/blocks/entity/crafting/ECOCraftingPatternBusCatalog.class"));
     }
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }

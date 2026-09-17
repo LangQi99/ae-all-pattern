@@ -1,7 +1,7 @@
 # AE All Pattern | AE 全样板
 
 [![Minecraft 1.21.1](https://img.shields.io/badge/Minecraft-1.21.1-62b47a?style=flat-square)](https://www.minecraft.net/)
-[![NeoForge](https://img.shields.io/badge/NeoForge-21.1.219%2B-e96d4f?style=flat-square)](https://neoforged.net/)
+[![NeoForge](https://img.shields.io/badge/NeoForge-21.1.233%2B-e96d4f?style=flat-square)](https://neoforged.net/)
 [![AE2](https://img.shields.io/badge/Applied%20Energistics%202-19.2.17-7b62a3?style=flat-square)](https://github.com/AppliedEnergistics/Applied-Energistics-2)
 [![Release](https://img.shields.io/github/v/release/LangQi99/ae-all-pattern?style=flat-square)](https://github.com/LangQi99/ae-all-pattern/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
@@ -81,9 +81,9 @@ The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tec
 
 | Component | Support |
 | --- | --- |
-| AE All Pattern | 0.2.5 |
+| AE All Pattern | 0.2.6 |
 | Minecraft | 1.21.1 |
-| Mod loader | NeoForge 21.1.219+ |
+| Mod loader | NeoForge 21.1.233+ |
 | Java | 21 |
 | Applied Energistics 2 | 19.2.17 (required) |
 | Recipe viewers | JEI 19.x, or EMI + TooManyRecipeViewers |
@@ -172,9 +172,9 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 | 组件 | 支持情况 |
 | --- | --- |
-| AE 全样板 | 0.2.5 |
+| AE 全样板 | 0.2.6 |
 | Minecraft | 1.21.1 |
-| 模组加载器 | NeoForge 21.1.219+ |
+| 模组加载器 | NeoForge 21.1.233+ |
 | Java | 21 |
 | Applied Energistics 2 | 19.2.17（必需） |
 | 配方查看器 | JEI 19.x，或 EMI + TooManyRecipeViewers |

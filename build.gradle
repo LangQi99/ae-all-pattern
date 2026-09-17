@@ -214,10 +214,13 @@ dependencies {
         localRuntime "maven.modrinth:industrial-foregoing:7otXKx1D"
     }
     if (project.property('runtime_neoecoae').toBoolean()) {
-        // Neo ECO 21.1.1 is built against LDLib2 2.2.8. Keep both runtime-only:
-        // the optional compatibility mixin is selected by mod id at launch.
+        // ECO beta3 needs the MixinExtras version bundled with NeoForge 21.1.233.
+        // Override neoecoae_runtime_version=gWMhHBje for the 21.1.1 regression profile.
         localRuntime "maven.modrinth:B1CBVXHX:xmPYPfWU"
-        localRuntime "maven.modrinth:udZtKfzP:gWMhHBje"
+        localRuntime "maven.modrinth:udZtKfzP:${providers.gradleProperty('neoecoae_runtime_version').getOrElse('1vKpC42G')}"
+    }
+    if (providers.gradleProperty('runtime_useless').getOrElse('false').toBoolean()) {
+        localRuntime "curse.maven:some-useless-things-1401600:8892864"
     }
 
     // Optional AE provider compatibility fixture. These versions are pinned to

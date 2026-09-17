@@ -1,4 +1,10 @@
 {
+  "gui.aeallpattern.linker_config.blocking": "Blocking mode",
+  "gui.aeallpattern.linker_config.blocking.tooltip": "Wait while machine input slots or a previous dispatch are occupied. Fuel/output slots are excluded by supported adapters.",
+  "gui.aeallpattern.linker_config.smart_batching": "Smart batching",
+  "gui.aeallpattern.linker_config.smart_batching.tooltip": "Ramp completed dispatches from 1 to 2, 4 and up to 64 per tick; back off when blocked. Uses only AE-supplied materials. Blocking mode takes priority.",
+  "gui.aeallpattern.linker_config.auto_return": "Auto-return outputs",
+  "gui.aeallpattern.linker_config.auto_return.tooltip": "Automatically move extractable machine outputs into ME storage. Disabled: leave new outputs in the machine; previously buffered returns are still delivered.",
   "gui.aeallpattern.aggregate_config.ignore_input_nbt": "Ignore input NBT",
   "gui.aeallpattern.aggregate_config.ignore_input_nbt.tooltip": "Processing item inputs only: accept the same item regardless of NBT/components (including damage, names and enchantments). Original data is preserved. May consume valuable items; does not bypass machine recipe rules.",
   "item.aeallpattern.guide": "AE All Pattern Guide",

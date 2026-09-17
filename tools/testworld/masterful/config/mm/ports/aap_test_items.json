@@ -1,0 +1,15 @@
+{
+  "id": "aap_test_items",
+  "controllerIds": [
+    "mm:aap_test_primary",
+    "mm:aap_test_secondary",
+    "mm:aap_test_unrelated"
+  ],
+  "name": "AAP Test Item Port",
+  "type": "mm:item",
+  "config": {
+    "rows": 1,
+    "columns": 3
+  }
+}
+

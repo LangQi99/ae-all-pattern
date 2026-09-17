@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ClientJeiAggregateScanner.class)
 public abstract class ClientJeiAggregateScannerMixin {
-    @Redirect(method = {"chooseStack", "chooseInputSlot"}, at = @At(value = "INVOKE",
+    @Redirect(method = {"chooseStack", "chooseInputSlot", "isMasterfulPowerSlot"}, at = @At(value = "INVOKE",
             target = "Lmezz/jei/api/gui/ingredient/IRecipeSlotView;getAllIngredients()Ljava/util/stream/Stream;"))
     private static Stream<?> tmrvIngredients(IRecipeSlotView slot) {
         if (slot instanceof TMRVSlotWidget widget) {

@@ -22,6 +22,8 @@ public final class ModItems {
 
     public static final DeferredItem<PatternBinderItem> PATTERN_BINDER = ITEMS.registerItem(
             "pattern_binder", PatternBinderItem::new, new Item.Properties().stacksTo(1));
+    public static final DeferredItem<io.github.langqi99.aeallpattern.guide.PatternGuideItem> GUIDE = ITEMS.registerItem(
+            "guide", io.github.langqi99.aeallpattern.guide.PatternGuideItem::new, new Item.Properties().stacksTo(1));
     public static final DeferredItem<BlockItem> PATTERN_LINKER = ITEMS.registerSimpleBlockItem(
             "pattern_linker", ModBlocks.PATTERN_LINKER, new Item.Properties());
     public static final DeferredItem<TianshuPatternSelectorItem> TIANSHU_PATTERN_SELECTOR = ITEMS.registerItem(
@@ -44,6 +46,7 @@ public final class ModItems {
                     .title(Component.translatable("itemGroup.aeallpattern"))
                     .icon(() -> PATTERN_BINDER.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
+                        output.accept(GUIDE.get());
                         output.accept(PATTERN_BINDER.get());
                         output.accept(PATTERN_LINKER.get());
                         output.accept(TIANSHU_PATTERN_SELECTOR.get());

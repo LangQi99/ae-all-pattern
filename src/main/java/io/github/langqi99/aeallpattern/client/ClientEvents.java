@@ -41,6 +41,13 @@ public final class ClientEvents {
 
     private static void runClientSmokeTest(net.neoforged.neoforge.client.event.ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (Boolean.getBoolean("aeallpattern.compatibilitySmokeTest")) {
+            if (CompatibilityClientSmokeTest.tick(minecraft)) {
+                AeAllPattern.LOGGER.info("CLIENT_SMOKE_TEST_PASSED");
+                minecraft.stop();
+            }
+            return;
+        }
         if (minecraft.screen == null || ++smokeTestTicks < 20) {
             return;
         }

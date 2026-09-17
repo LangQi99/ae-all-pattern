@@ -1,0 +1,20 @@
+{
+  "name": "AAP unrelated",
+  "controllerIds": [
+    "mm:aap_test_unrelated"
+  ],
+  "layout": [
+    [
+      "PCO"
+    ]
+  ],
+  "key": {
+    "P": {
+      "block": "mm:aap_test_items_input"
+    },
+    "O": {
+      "block": "mm:aap_test_items_output"
+    }
+  }
+}
+

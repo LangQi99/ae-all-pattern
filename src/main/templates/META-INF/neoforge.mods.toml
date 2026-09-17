@@ -51,6 +51,14 @@ ordering="AFTER"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
+modId="guideme"
+type="required"
+reason="Provides the in-game AE All Pattern guide."
+versionRange="[21.1.1,22.0.0)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
 modId="jei"
 type="optional"
 reason="Provides universal recipe discovery for aggregate patterns."

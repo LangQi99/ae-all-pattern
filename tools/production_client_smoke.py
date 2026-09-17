@@ -20,6 +20,11 @@ parser.add_argument('--jei', action='store_true', help='Include the public JEI r
 args = parser.parse_args()
 root = args.directory.resolve()
 root.mkdir(parents=True, exist_ok=True)
+# A new Minecraft 1.20.1 directory otherwise stops at accessibility onboarding,
+# never reaching the title screen that the smoke-test completion gate requires.
+options_path = root / 'options.txt'
+if not options_path.exists():
+    options_path.write_text('onboardAccessibility:false\n', encoding='utf-8')
 mods = root / 'mods'
 mods.mkdir(exist_ok=True)
 # Refuse to mix artifacts from earlier tests with this exact release JAR.

@@ -63,3 +63,11 @@ AE2 15.4.10 要求 47.1.3+，GuideME 20.1.7 要求 47.1.0+。
 旧版编译找出配置页单参数构造函数不兼容，已改用新旧版都有的 BiFunction 构造函数。
 本地 Forge 47.1.25 最小运行配置 73 项 GameTest 通过；47.4.20 发布构建和 257 项单元测试通过。
 CI production-client 新增 47.1.25，用同一份正式重混淆 JAR 验证实际客户端加载。
+
+正式 0.2.6-beta.1 JAR 已在本机独立安装的 Forge 47.1.25 客户端通过
+`PRODUCTION_CLIENT_SMOKE_TEST_PASSED`（包含 Cloth Config，验证旧配置注册 API）。
+CF / Modrinth 下载回来的双版本 JAR 的 SHA-256 与 GitHub / 本地产物一致。
+
+远程 Forge 冷区块测试曾在固定 45 tick 时节点仍未初始化而失败。本机全新存档通过；
+后续测试改用非持久、无短期过期的 START 区块票，并在 600 tick 上限内等待原始断言全部满足。
+没有手动调用 onReady、刷新或重新插入，也没有降低 AE 网络可合成断言。

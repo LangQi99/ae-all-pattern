@@ -155,14 +155,15 @@ public final class ProviderCompatibilityGameTests {
         });
     }
 
-    @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 160)
+    @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 600)
     public static void ecoAggregateSurvivesRealServerRestart(GameTestHelper helper) {
         String phase = System.getProperty("aeallpattern.persistencePhase", "");
         var block = BuiltInRegistries.BLOCK.getOptional(id("neoecoae:crafting_pattern_bus"));
         if (phase.isEmpty() || block.isEmpty()) { helper.succeed(); return; }
         var level = helper.getLevel();
-        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL,
-                new net.minecraft.world.level.ChunkPos(ECO_RESTART), 3, ECO_RESTART, true);
+        // Non-persisted ticket: keep cold-chunk generation alive on slower CI workers.
+        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.START,
+                new net.minecraft.world.level.ChunkPos(ECO_RESTART), 3, net.minecraft.util.Unit.INSTANCE, true);
         level.getChunkAt(ECO_RESTART);
         if (phase.equals("seed")) {
             level.setBlockAndUpdate(ECO_RESTART, block.get().defaultBlockState());
@@ -180,7 +181,7 @@ public final class ProviderCompatibilityGameTests {
                     bus.setChanged();
                 }
                 // Verify must not touch the inventory or call a refresh method.
-                helper.runAfterDelay(30, () -> {
+                helper.succeedWhen(() -> {
                     try {
                         helper.assertTrue(inventory.getStackInSlot(0).is(ModItems.AGGREGATE_PATTERN.get()),
                                 "ECO lost aggregate on restart");
@@ -193,21 +194,20 @@ public final class ProviderCompatibilityGameTests {
                                         + (node.getNode() != null) + ", active=" + node.isActive()
                                         + ", online=" + node.isOnline() + ", grid=" + (node.getGrid() != null));
                         AeAllPattern.LOGGER.info("ECO_RESTART_{}_PASSED", phase);
-                        helper.succeed();
                     } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
                 });
             } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
         });
     }
 
-    @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 120)
+    @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 600)
     public static void vanillaAsyncAggregateSurvivesRestart(GameTestHelper helper) {
         String phase = System.getProperty("aeallpattern.persistencePhase", "");
         if (phase.isEmpty()) { helper.succeed(); return; }
         var pos = new BlockPos(1096, 80, 1032);
         var level = helper.getLevel();
-        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.PORTAL,
-                new net.minecraft.world.level.ChunkPos(pos), 3, pos, true);
+        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.START,
+                new net.minecraft.world.level.ChunkPos(pos), 3, net.minecraft.util.Unit.INSTANCE, true);
         level.getChunkAt(pos);
         if (phase.equals("seed")) {
             level.setBlockAndUpdate(pos, appeng.core.definitions.AEBlocks.PATTERN_PROVIDER.block().defaultBlockState());
@@ -220,14 +220,13 @@ public final class ProviderCompatibilityGameTests {
                 provider.getLogic().getPatternInv().setItemDirect(0, craftingAggregate(helper, "-vanilla-restart"));
                 provider.setChanged();
             }
-            helper.runAfterDelay(30, () -> {
+            helper.succeedWhen(() -> {
                 helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 2,
                         "Vanilla provider needs reinsertion after cold asynchronous load");
                 var grid = provider.getMainNode().getGrid();
                 helper.assertTrue(grid != null && grid.getCraftingService().isCraftable(AEItemKey.of(Items.BIRCH_PLANKS)),
                         "Vanilla provider did not republish to the AE network after cold load");
                 AeAllPattern.LOGGER.info("VANILLA_ASYNC_RESTART_{}_PASSED", phase);
-                helper.succeed();
             });
         });
     }

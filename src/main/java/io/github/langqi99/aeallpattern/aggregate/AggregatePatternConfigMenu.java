@@ -30,6 +30,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
     public static final int TOGGLE_REMOVE_OUTPUT_CHEMICALS = 10;
     public static final int TOGGLE_SWAP_FIRST_AND_LAST_INPUTS = 11;
     public static final int TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES = 12;
+    public static final int TOGGLE_IGNORE_INPUT_COMPONENTS = 13;
 
     private final Inventory inventory;
     @Nullable
@@ -64,7 +65,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
 
             @Override
             public void set(int value) {
-                optionFlags = value & 8191;
+                optionFlags = value & 16383;
             }
         });
     }
@@ -83,7 +84,7 @@ public final class AggregatePatternConfigMenu extends AbstractContainerMenu {
 
     @Override
     public boolean clickMenuButton(@NotNull Player player, int id) {
-        if (id < TOGGLE_SPLIT_SAME_ITEMS || id > TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES) {
+        if (id < TOGGLE_SPLIT_SAME_ITEMS || id > TOGGLE_IGNORE_INPUT_COMPONENTS) {
             return false;
         }
         ItemStack stack = stack();

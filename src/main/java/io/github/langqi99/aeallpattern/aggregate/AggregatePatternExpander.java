@@ -418,7 +418,8 @@ public final class AggregatePatternExpander {
                     recipe.patternId(), definition, assemblerPattern, recipe.processingTicks());
         }
         return new AggregatePatternDetails(
-                recipe.patternId(), definition, delegate, recipe.processingTicks(), configuredInputs);
+                recipe.patternId(), definition, delegate, recipe.processingTicks(), configuredInputs,
+                options.ignoreInputComponents() && recipe.kind() == AggregatePatternKind.PROCESSING);
     }
 
     /**

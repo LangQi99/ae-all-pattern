@@ -92,6 +92,11 @@ public final class AggregatePatternConfigScreen extends AbstractContainerScreen<
                 "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes.tooltip",
                 () -> menu.getOptions().skipDurabilityConsumingRecipes(),
                 AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES);
+        addOption(178, 146, 164,
+                "gui.aeallpattern.aggregate_config.ignore_input_nbt",
+                "gui.aeallpattern.aggregate_config.ignore_input_nbt.tooltip",
+                () -> menu.getOptions().ignoreInputComponents(),
+                AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS);
     }
 
     private void addOption(

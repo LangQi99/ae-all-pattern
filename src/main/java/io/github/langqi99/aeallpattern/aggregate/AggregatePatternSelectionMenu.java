@@ -90,7 +90,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
 
             @Override
             public void set(int value) {
-                optionFlags = value & 8191;
+                optionFlags = value & 16383;
             }
         });
     }
@@ -232,7 +232,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     public boolean clickMenuButton(@NotNull Player player, int id) {
         int optionIndex = OPTION_BUTTON_BASE - id;
         if (optionIndex >= AggregatePatternConfigMenu.TOGGLE_SPLIT_SAME_ITEMS
-                && optionIndex <= AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES) {
+                && optionIndex <= AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS) {
             return toggleOption(player, optionIndex);
         }
 

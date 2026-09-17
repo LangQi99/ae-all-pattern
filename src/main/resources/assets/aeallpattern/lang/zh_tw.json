@@ -1,4 +1,6 @@
 {
+  "gui.aeallpattern.aggregate_config.ignore_input_nbt": "忽略輸入 NBT",
+  "gui.aeallpattern.aggregate_config.ignore_input_nbt.tooltip": "僅加工物品輸入：同種物品忽略 NBT/元件比對（含耐久、名稱、附魔），實際投入保留原資料。可能消耗貴重物品；不會繞過機器自身配方規則。",
   "item.aeallpattern.pattern_binder": "全樣板綁定器",
   "item.aeallpattern.all_pattern_generator": "全樣板產生器",
   "item.aeallpattern.aggregate_pattern": "聚合樣板",

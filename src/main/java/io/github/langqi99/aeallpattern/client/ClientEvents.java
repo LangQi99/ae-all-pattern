@@ -48,6 +48,10 @@ public final class ClientEvents {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
+        if (Boolean.getBoolean("aeallpattern.immersiveCatalystTest")) {
+            if (ImmersiveCatalystClientTest.tick(minecraft)) minecraft.stop();
+            return;
+        }
         boolean screenSmoke = Boolean.getBoolean("aeallpattern.clientScreenSmokeTest");
         if (Boolean.getBoolean("aeallpattern.compatibilitySmokeTest")) {
             if (CompatibilityClientSmokeTest.tick(minecraft)) {

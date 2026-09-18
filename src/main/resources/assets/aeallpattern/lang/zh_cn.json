@@ -99,7 +99,7 @@
   "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts": "不编码概率副产物",
   "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts.tooltip": "副产物为概率产出时，不把该副产物标记为样板产物",
   "gui.aeallpattern.aggregate_config.remove_processing_catalysts": "移除处理配方催化剂",
-  "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip": "移除物品标签中可重复使用的处理配方催化剂；合成样板不受影响",
+  "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip": "移除查看器明确标记或催化剂标签中的处理配方输入；机器需预放催化剂，合成样板不受影响",
   "gui.aeallpattern.aggregate_config.allow_item_substitutions": "允许物品替换",
   "gui.aeallpattern.aggregate_config.allow_item_substitutions.tooltip": "使用 AE2 原生的合成、切石与锻造样板物品替换功能",
   "gui.aeallpattern.aggregate_config.allow_fluid_substitutions": "允许流体替换",

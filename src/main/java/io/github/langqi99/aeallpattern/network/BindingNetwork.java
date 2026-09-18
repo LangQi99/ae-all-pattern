@@ -16,7 +16,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** Forge 1.20.1 SimpleChannel transport for the same bounded payloads as main. */
 public final class BindingNetwork {
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "2";
     private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(AeAllPattern.MOD_ID, "main"),
             () -> PROTOCOL,

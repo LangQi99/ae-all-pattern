@@ -10,7 +10,7 @@ public final class BindingNetwork {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
+        var registrar = event.registrar("2");
         registrar.playToClient(
                 BindingSyncPayload.TYPE,
                 BindingSyncPayload.STREAM_CODEC,

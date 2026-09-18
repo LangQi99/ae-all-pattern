@@ -21,7 +21,8 @@ import net.minecraft.world.level.Level;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public record AggregateInputSlot(
         List<GenericStack> alternatives,
-        Optional<ResourceLocation> itemTag) {
+        Optional<ResourceLocation> itemTag,
+        boolean viewerCatalyst) {
     public static final int MAX_ALTERNATIVES = Integer.MAX_VALUE;
 
     public static int configuredAlternativeLimit() {
@@ -32,7 +33,8 @@ public record AggregateInputSlot(
             .validate(AggregateInputSlot::validateAlternatives);
     public static final Codec<AggregateInputSlot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ALTERNATIVES_CODEC.fieldOf("alternatives").forGetter(AggregateInputSlot::alternatives),
-            ResourceLocation.CODEC.optionalFieldOf("item_tag").forGetter(AggregateInputSlot::itemTag)
+            ResourceLocation.CODEC.optionalFieldOf("item_tag").forGetter(AggregateInputSlot::itemTag),
+            Codec.BOOL.optionalFieldOf("viewer_catalyst", false).forGetter(AggregateInputSlot::viewerCatalyst)
     ).apply(instance, AggregateInputSlot::new));
     public static final StreamCodec<RegistryFriendlyByteBuf, AggregateInputSlot> STREAM_CODEC = StreamCodec.of(
             AggregateInputSlot::encode,
@@ -43,6 +45,15 @@ public record AggregateInputSlot(
         if (itemTag.isPresent() && !(alternatives.getFirst().what() instanceof AEItemKey)) {
             throw new IllegalArgumentException("only item inputs can reference an item tag");
         }
+    }
+
+    /** Old callers and saved catalogs have no positive viewer evidence. */
+    public AggregateInputSlot(List<GenericStack> alternatives, Optional<ResourceLocation> itemTag) {
+        this(alternatives, itemTag, false);
+    }
+
+    public AggregateInputSlot withViewerCatalyst(boolean value) {
+        return new AggregateInputSlot(alternatives, itemTag, value);
     }
 
     public static AggregateInputSlot exact(GenericStack stack) {
@@ -93,11 +104,11 @@ public record AggregateInputSlot(
     public List<AggregateInputSlot> splitUnits(Level level) {
         List<GenericStack> resolved = resolve(level);
         if (resolved.stream().anyMatch(stack -> !(stack.what() instanceof AEItemKey))) {
-            return List.of(new AggregateInputSlot(resolved, Optional.empty()));
+            return List.of(new AggregateInputSlot(resolved, Optional.empty(), viewerCatalyst));
         }
         long amount = resolved.getFirst().amount();
         if (amount <= 1 || resolved.stream().anyMatch(stack -> stack.amount() != amount)) {
-            return List.of(new AggregateInputSlot(resolved, Optional.empty()));
+            return List.of(new AggregateInputSlot(resolved, Optional.empty(), viewerCatalyst));
         }
         if (amount > AggregatePatternExpander.MAX_SPLIT_ITEM_INPUTS) {
             throw new IllegalArgumentException("split input exceeds safety limit: " + amount);
@@ -105,7 +116,7 @@ public record AggregateInputSlot(
         List<GenericStack> units = resolved.stream()
                 .map(stack -> new GenericStack(stack.what(), 1))
                 .toList();
-        AggregateInputSlot unit = new AggregateInputSlot(units, Optional.empty());
+        AggregateInputSlot unit = new AggregateInputSlot(units, Optional.empty(), viewerCatalyst);
         List<AggregateInputSlot> result = new ArrayList<>((int) amount);
         for (int index = 0; index < amount; index++) {
             result.add(unit);
@@ -137,6 +148,7 @@ public record AggregateInputSlot(
         slot.alternatives.forEach(stack -> GenericStack.STREAM_CODEC.encode(buffer, stack));
         buffer.writeBoolean(slot.itemTag.isPresent());
         slot.itemTag.ifPresent(buffer::writeResourceLocation);
+        buffer.writeBoolean(slot.viewerCatalyst);
     }
 
     private static AggregateInputSlot decode(RegistryFriendlyByteBuf buffer) {
@@ -151,6 +163,6 @@ public record AggregateInputSlot(
         Optional<ResourceLocation> tag = buffer.readBoolean()
                 ? Optional.of(buffer.readResourceLocation())
                 : Optional.empty();
-        return new AggregateInputSlot(alternatives, tag);
+        return new AggregateInputSlot(alternatives, tag, buffer.readBoolean());
     }
 }

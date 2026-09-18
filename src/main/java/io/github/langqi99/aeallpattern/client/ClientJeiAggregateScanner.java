@@ -374,6 +374,18 @@ public final class ClientJeiAggregateScanner {
         return List.copyOf(job.destination);
     }
 
+    /** Uses real viewer layouts and the production encoder in the opt-in IE regression client. */
+    static List<AggregateRecipe> encodeImmersiveFixture(IJeiRuntime runtime, IRecipeCategory<?> category) {
+        if (!Boolean.getBoolean("aeallpattern.immersiveCatalystTest")) throw new IllegalStateException("Test is disabled");
+        var categoryId = category.getRecipeType().getUid();
+        var entries = runtime.getRecipeManager().createRecipeLookup(category.getRecipeType()).get()
+                .map(recipe -> new ScanEntry(category, AggregatePatternKind.PROCESSING, categoryId, recipe)).toList();
+        var job = new ScanJob(runtime, runtime.getJeiHelpers().getFocusFactory().getEmptyFocusGroup(),
+                entries, new ScanTarget(BlockPos.ZERO, categoryId, "fixture", null), false);
+        while (!job.step()) { /* Bounded real recipe set; no upload into the user's library. */ }
+        return List.copyOf(job.destination);
+    }
+
     /** Worker-thread scan of vanilla crafting/stonecutting recipes. */
     private static void startVanillaScan(
             AggregatePatternKind kind, ScanTarget target, boolean notifyPlayer) {
@@ -719,6 +731,7 @@ public final class ClientJeiAggregateScanner {
                     (mezz.jei.api.gui.IRecipeLayoutDrawable<?>) drawable.orElseThrow();
             var slots = layout.getRecipeSlotsView();
             List<AggregateInputSlot> inputSlots = new ArrayList<>();
+            List<Boolean> completeInputEvidence = new ArrayList<>();
             boolean valid = true;
             List<IRecipeSlotView> inputViews = slots.getSlotViews(RecipeIngredientRole.INPUT);
             int alternativesPerSlot = Math.min(
@@ -732,6 +745,8 @@ public final class ClientJeiAggregateScanner {
                 Optional<AggregateInputSlot> input = chooseInputSlot(slot, alternativesPerSlot);
                 if (input.isPresent()) {
                     inputSlots.add(input.orElseThrow());
+                    completeInputEvidence.add(input.orElseThrow().itemTag().isEmpty()
+                            && slot.getAllIngredients().count() == input.orElseThrow().alternatives().size());
                 } else if (!slot.isEmpty()) {
                     valid = false;
                     return;
@@ -743,6 +758,21 @@ public final class ClientJeiAggregateScanner {
                     .limit(AggregateRecipe.MAX_OUTPUTS)
                     .toList();
             List<GenericStack> outputs = scannedOutputs.stream().map(ScannedOutput::stack).toList();
+            if (kind == AggregatePatternKind.PROCESSING) {
+                // Only per-recipe slot declarations; category/workstation icons are not inputs.
+                List<AggregateInputSlot> catalystSlots = slots.getSlotViews(RecipeIngredientRole.CATALYST).stream()
+                        .map(slot -> chooseInputSlot(slot, AggregateInputSlot.MAX_ALTERNATIVES)
+                                .filter(input -> input.itemTag().isEmpty()
+                                        && slot.getAllIngredients().count() == input.alternatives().size()))
+                        .flatMap(Optional::stream).toList();
+                for (int slotIndex = 0; slotIndex < inputSlots.size(); slotIndex++) {
+                    if (completeInputEvidence.get(slotIndex)) {
+                        inputSlots.set(slotIndex,
+                                io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                                        inputSlots.get(slotIndex), catalystSlots, outputs, false));
+                    }
+                }
+            }
             if (inputSlots.isEmpty() || outputs.isEmpty() || inputSlots.size() > AggregateRecipe.MAX_INPUTS) {
                 return;
             }

@@ -199,7 +199,14 @@ public final class AggregatePatternLibrary extends SavedData {
     }
 
     public static String contentHash(List<AggregateRecipe> recipes) {
-        return hashPatternIds(recipes.stream().map(AggregateRecipe::patternId).sorted().toList());
+        // Evidence changes must invalidate expansion caches without changing recipe IDs,
+        // which are also the player's persistent selection keys.
+        return hashPatternIds(recipes.stream().map(recipe -> {
+            if (recipe.inputSlots().stream().noneMatch(AggregateInputSlot::viewerCatalyst)) return recipe.patternId();
+            String signature = recipe.inputSlots().stream().map(slot -> slot.viewerCatalyst() ? "1" : "0")
+                    .reduce("", String::concat);
+            return recipe.patternId() + ":viewer-catalysts:" + signature;
+        }).sorted().toList());
     }
 
     private static String hashPatternIds(List<String> patternIds) {
@@ -340,6 +347,7 @@ public final class AggregatePatternLibrary extends SavedData {
                             alternatives.add(GenericStack.writeTag(registries, stack)));
                     slotTag.put("Alternatives", alternatives);
                     slot.itemTag().ifPresent(tagId -> slotTag.putString("ItemTag", tagId.toString()));
+                    slotTag.putBoolean("ViewerCatalyst", slot.viewerCatalyst());
                     inputSlots.add(slotTag);
                 }
                 raw.put("InputSlots", inputSlots);
@@ -416,7 +424,8 @@ public final class AggregatePatternLibrary extends SavedData {
                 Optional<ResourceLocation> itemTag = slotTag.contains("ItemTag", Tag.TAG_STRING)
                         ? Optional.of(ResourceLocation.parse(slotTag.getString("ItemTag")))
                         : Optional.empty();
-                slots.add(AggregateInputSlot.fromSavedData(alternatives, itemTag));
+                slots.add(AggregateInputSlot.fromSavedData(alternatives, itemTag)
+                        .withViewerCatalyst(slotTag.getBoolean("ViewerCatalyst")));
             }
             return List.copyOf(slots);
         }

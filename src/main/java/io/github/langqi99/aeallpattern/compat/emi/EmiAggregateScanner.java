@@ -224,6 +224,21 @@ public final class EmiAggregateScanner {
         }
         ResourceLocation id = backing == null ? recipe.getId() : backing.id();
         if (id == null) return Optional.empty();
+        if (kind(backing) == AggregatePatternKind.PROCESSING) {
+            // getCatalysts may contain workstation icons. Never append them to inputs.
+            List<AggregateInputSlot> catalysts = recipe.getCatalysts().stream()
+                    .map(i -> input(i, AggregateInputSlot.MAX_ALTERNATIVES)
+                            .filter(slot -> slot.alternatives().size() == i.getEmiStacks().size()))
+                    .flatMap(Optional::stream).toList();
+            List<AggregateInputSlot> marked = new ArrayList<>();
+            for (int index = 0; index < inputs.size(); index++) {
+                boolean complete = inputs.get(index).alternatives().size()
+                        == recipeInputs.get(index).getEmiStacks().size();
+                marked.add(ViewerCatalystSlots.mark(inputs.get(index), complete ? catalysts : List.of(), outputs,
+                        hasExactViewerRemainder(recipeInputs.get(index))));
+            }
+            inputs = List.copyOf(marked);
+        }
         String patternId = patternId(recipe.getCategory().getId() + "/" + id);
         if (!ids.add(patternId)) return Optional.empty();
         return Optional.of(new AggregateRecipe(patternId, id, kind(backing),
@@ -254,6 +269,19 @@ public final class EmiAggregateScanner {
                 .map(s -> stack(s.copy().setAmount(ingredient.getAmount())))
                 .flatMap(Optional::stream).limit(limit).toList();
         return alternatives.isEmpty() ? Optional.empty() : Optional.of(new AggregateInputSlot(alternatives, Optional.empty()));
+    }
+
+    private static boolean hasExactViewerRemainder(EmiIngredient ingredient) {
+        if (ingredient.getEmiStacks().isEmpty()) return false;
+        return ingredient.getEmiStacks().stream().allMatch(candidate -> {
+            EmiStack remainder = candidate.getRemainder();
+            if (remainder.isEmpty() || candidate.getChance() != 1F) return false;
+            GenericStack before = stack(candidate.copy().setAmount(ingredient.getAmount())).orElse(null);
+            GenericStack after = stack(remainder).orElse(null);
+            return before != null && before.what() instanceof appeng.api.stacks.AEItemKey
+                    && ViewerCatalystEvidence.exactRemainder(before, after,
+                            ingredient.getChance(), remainder.getChance());
+        });
     }
 
     private static Optional<GenericStack> stack(EmiStack stack) {

@@ -103,7 +103,7 @@
   "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts": "Skip chance byproducts",
   "gui.aeallpattern.aggregate_config.ignore_probabilistic_byproducts.tooltip": "Do not expose chance-based byproducts as pattern outputs",
   "gui.aeallpattern.aggregate_config.remove_processing_catalysts": "Remove processing catalysts",
-  "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip": "Remove inputs tagged as reusable processing catalysts; crafting patterns are unchanged",
+  "gui.aeallpattern.aggregate_config.remove_processing_catalysts.tooltip": "Remove processing inputs explicitly identified by the recipe viewer or catalyst tags; preinstall catalysts in the machine. Crafting patterns are unchanged",
   "gui.aeallpattern.aggregate_config.allow_item_substitutions": "Item substitution",
   "gui.aeallpattern.aggregate_config.allow_item_substitutions.tooltip": "Use AE2's native item substitution for crafting, stonecutting, and smithing patterns",
   "gui.aeallpattern.aggregate_config.allow_fluid_substitutions": "Fluid substitution",

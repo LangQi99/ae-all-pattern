@@ -564,6 +564,9 @@ public final class AggregatePatternExpander {
 
     private static boolean removeInput(
             AggregateInputSlot slot, AggregatePatternOptions options, Level level) {
+        if (options.removeProcessingCatalysts() && slot.viewerCatalyst()) {
+            return true;
+        }
         return slot.resolve(level).stream().allMatch(stack -> {
             AEKey key = stack.what();
             return options.removeInputFluids() && key instanceof AEFluidKey

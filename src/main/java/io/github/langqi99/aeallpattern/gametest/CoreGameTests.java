@@ -1439,6 +1439,79 @@ public final class CoreGameTests {
         helper.succeed();
     }
 
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateViewerCatalystEvidenceSurvivesAndHonorsToggle(GameTestHelper helper) {
+        GenericStack tool = new GenericStack(AEItemKey.of(Items.FLINT), 1);
+        GenericStack iron = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1);
+        GenericStack gold = new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1);
+        var ordinary = AggregateInputSlot.exact(tool);
+        var marked = io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(ordinary), List.of(gold), false);
+        helper.assertTrue(marked.viewerCatalyst(), "explicit viewer catalyst was not captured");
+        helper.assertTrue(!io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(), List.of(gold), false).viewerCatalyst(), "ordinary input was guessed");
+        helper.assertTrue(!io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(ordinary), List.of(gold, tool), true).viewerCatalyst(),
+                "viewer tool also published as output would become a phantom product");
+        var recipe = new AggregateRecipe("viewer-catalyst-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "viewer_catalyst_test"),
+                AggregatePatternKind.PROCESSING, List.of(tool, iron),
+                List.of(marked, AggregateInputSlot.exact(iron)), List.of(gold), 1);
+        var disabled = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.fromFlags(0),
+                helper.getLevel(), "viewer-off");
+        var unmarked = new AggregateRecipe(recipe.patternId(), recipe.recipeId(), recipe.kind(),
+                recipe.inputs(), List.of(ordinary, AggregateInputSlot.exact(iron)), recipe.outputs(), 1);
+        helper.assertTrue(!AggregatePatternLibrary.contentHash(List.of(recipe))
+                .equals(AggregatePatternLibrary.contentHash(List.of(unmarked))),
+                "changed viewer evidence did not invalidate the library hash");
+        helper.assertTrue(disabled.getInputs().length == 2, "disabled toggle removed a viewer catalyst");
+        var enabled = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.fromFlags(16),
+                helper.getLevel(), "viewer-on");
+        helper.assertTrue(enabled.getInputs().length == 1
+                && enabled.getInputs()[0].isValid(iron.what(), helper.getLevel()), "viewer catalyst was not removed");
+        helper.assertTrue(enabled.getOutputs().equals(List.of(gold)), "catalyst removal changed products");
+        var onlyTool = new AggregateRecipe("viewer-only-tool", recipe.recipeId(), AggregatePatternKind.PROCESSING,
+                List.of(tool), List.of(marked), List.of(gold), 1);
+        helper.assertTrue(AggregatePatternExpander.expandRecipe(onlyTool, AggregatePatternOptions.fromFlags(16),
+                helper.getLevel(), "viewer-only") == null, "catalyst-only pattern became free production");
+        var ops = helper.getLevel().registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE);
+        var json = AggregateInputSlot.CODEC.encodeStart(ops, marked).result().orElseThrow();
+        helper.assertTrue(AggregateInputSlot.CODEC.parse(ops, json).result().orElseThrow().viewerCatalyst(),
+                "codec lost viewer evidence");
+        json.getAsJsonObject().remove("viewer_catalyst");
+        helper.assertTrue(!AggregateInputSlot.CODEC.parse(ops, json).result().orElseThrow().viewerCatalyst(),
+                "old catalog inferred viewer evidence");
+        var buffer = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(),
+                helper.getLevel().registryAccess());
+        try {
+            AggregateInputSlot.STREAM_CODEC.encode(buffer, marked);
+            helper.assertTrue(AggregateInputSlot.STREAM_CODEC.decode(buffer).equals(marked) && buffer.readableBytes() == 0,
+                    "network codec lost viewer evidence");
+        } finally { buffer.release(); }
+        try {
+            Class<?> pageType = Class.forName(AggregatePatternLibrary.class.getName() + "$Page");
+            var constructor = pageType.getDeclaredConstructor(List.class);
+            constructor.setAccessible(true);
+            Object page = constructor.newInstance(List.of(recipe));
+            var save = pageType.getDeclaredMethod("save", net.minecraft.nbt.CompoundTag.class,
+                    net.minecraft.core.HolderLookup.Provider.class);
+            save.setAccessible(true);
+            var data = (net.minecraft.nbt.CompoundTag) save.invoke(page, new net.minecraft.nbt.CompoundTag(),
+                    helper.getLevel().registryAccess());
+            var load = pageType.getDeclaredMethod("load", net.minecraft.nbt.CompoundTag.class,
+                    net.minecraft.core.HolderLookup.Provider.class);
+            load.setAccessible(true);
+            Object loaded = load.invoke(null, data, helper.getLevel().registryAccess());
+            var recipes = pageType.getDeclaredMethod("recipes");
+            recipes.setAccessible(true);
+            helper.assertTrue(((List<?>) recipes.invoke(loaded)).equals(List.of(recipe)),
+                    "saved library page lost viewer evidence");
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("viewer catalyst page roundtrip failed", error);
+        }
+        helper.succeed();
+    }
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void aggregateDecoderIgnoresEmptyMolecularAssemblerSlot(GameTestHelper helper) {
         new AggregatePatternDecoder().decodePattern((AEItemKey) null, helper.getLevel());

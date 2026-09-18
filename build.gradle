@@ -51,6 +51,12 @@ neoForge {
     runs {
         client {
             client()
+            if (providers.gradleProperty('immersive_catalyst_test').getOrElse('false').toBoolean()) {
+                gameDirectory = file('run-immersive-catalyst-test')
+                systemProperty 'aeallpattern.immersiveCatalystTest', 'true'
+                systemProperty 'aeallpattern.clientSmokeTest', 'true'
+                programArguments.addAll '--quickPlaySingleplayer', 'CatalystTest'
+            }
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             def stressItemCount = providers.gradleProperty('stress_item_count')
             if (stressItemCount.isPresent()) {
@@ -152,6 +158,9 @@ configurations {
 }
 
 dependencies {
+    if (providers.gradleProperty('immersive_catalyst_test').getOrElse('false').toBoolean()) {
+        localRuntime 'maven.modrinth:immersiveengineering:uNRARSH2'
+    }
     implementation 'org.appliedenergistics:guideme:21.1.1'
     if (providers.gradleProperty('runtime_masterful').getOrElse('false').toBoolean()) {
         localRuntime 'curse.maven:masterful-machinery-upgraded-1643402:8852200'

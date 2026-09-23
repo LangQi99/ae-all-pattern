@@ -224,6 +224,20 @@ final class MekanismItemToItemAdapter implements MachineAdapter {
         return forceExtractMekanismOutput(level, binding, simulate);
     }
 
+    /** Checks recipe inputs only; energy and output slots do not trigger blocking. */
+    @Override
+    public boolean isInputBlocked(ServerLevel level, BindingRecord binding) {
+        if (!(level.getBlockEntity(binding.target().pos()) instanceof IMekanismInventory inventory)) return true;
+        boolean found = false;
+        for (IInventorySlot slot : inventory.getInventorySlots(null)) {
+            if (isSlotType(slot, "mekanism.common.inventory.slot.InputInventorySlot")) {
+                found = true;
+                if (!slot.isEmpty()) return true;
+            }
+        }
+        return found ? false : MachineAdapter.super.isInputBlocked(level, binding);
+    }
+
     /**
      * Deliberately bypasses Mekanism's side configuration while retaining the machine's own
      * input-slot recipe validation. This is the Linker's "force input" contract.

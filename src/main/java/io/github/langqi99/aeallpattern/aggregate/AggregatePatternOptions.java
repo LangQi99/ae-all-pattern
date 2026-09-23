@@ -19,7 +19,23 @@ public record AggregatePatternOptions(
         boolean removeInputChemicals,
         boolean removeOutputChemicals,
         boolean swapFirstAndLastInputs,
-        boolean skipDurabilityConsumingRecipes) {
+        boolean skipDurabilityConsumingRecipes,
+        boolean ignoreInputComponents) {
+    /** Existing constructors and saved patterns keep strict input matching. */
+    public AggregatePatternOptions(
+            boolean splitSameItems, boolean ignoreOutputComponents,
+            boolean skipProbabilisticMainOutput, boolean ignoreProbabilisticByproducts,
+            boolean removeProcessingCatalysts, boolean allowItemSubstitutions,
+            boolean allowFluidSubstitutions, boolean removeInputFluids,
+            boolean removeOutputFluids, boolean removeInputChemicals,
+            boolean removeOutputChemicals, boolean swapFirstAndLastInputs,
+            boolean skipDurabilityConsumingRecipes) {
+        this(splitSameItems, ignoreOutputComponents, skipProbabilisticMainOutput,
+                ignoreProbabilisticByproducts, removeProcessingCatalysts,
+                allowItemSubstitutions, allowFluidSubstitutions, removeInputFluids,
+                removeOutputFluids, removeInputChemicals, removeOutputChemicals,
+                swapFirstAndLastInputs, skipDurabilityConsumingRecipes, false);
+    }
     public static final AggregatePatternOptions DEFAULT =
             new AggregatePatternOptions(
                     false, true, true, true, false, true, true,
@@ -116,7 +132,9 @@ public record AggregatePatternOptions(
             Codec.BOOL.optionalFieldOf("swap_first_and_last_inputs", false)
                     .forGetter(AggregatePatternOptions::swapFirstAndLastInputs),
             Codec.BOOL.optionalFieldOf("skip_durability_consuming_recipes", true)
-                    .forGetter(AggregatePatternOptions::skipDurabilityConsumingRecipes)
+                    .forGetter(AggregatePatternOptions::skipDurabilityConsumingRecipes),
+            Codec.BOOL.optionalFieldOf("ignore_input_components", false)
+                    .forGetter(AggregatePatternOptions::ignoreInputComponents)
     ).apply(instance, AggregatePatternOptions::new));
     public static final StreamCodec<RegistryFriendlyByteBuf, AggregatePatternOptions> STREAM_CODEC = StreamCodec.of(
             (buffer, options) -> buffer.writeVarInt(options.flags()),
@@ -135,7 +153,8 @@ public record AggregatePatternOptions(
                 | (removeInputChemicals ? 512 : 0)
                 | (removeOutputChemicals ? 1024 : 0)
                 | (swapFirstAndLastInputs ? 2048 : 0)
-                | (skipDurabilityConsumingRecipes ? 4096 : 0);
+                | (skipDurabilityConsumingRecipes ? 4096 : 0)
+                | (ignoreInputComponents ? 8192 : 0);
     }
 
     public static AggregatePatternOptions fromFlags(int flags) {
@@ -152,6 +171,7 @@ public record AggregatePatternOptions(
                 (flags & 512) != 0,
                 (flags & 1024) != 0,
                 (flags & 2048) != 0,
-                (flags & 4096) != 0);
+                (flags & 4096) != 0,
+                (flags & 8192) != 0);
     }
 }

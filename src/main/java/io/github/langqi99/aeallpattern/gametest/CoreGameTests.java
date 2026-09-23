@@ -199,12 +199,18 @@ public final class CoreGameTests {
                 "linker option button was rejected");
         helper.assertTrue(linker.getPatternOptions().removeInputFluids(),
                 "linker did not store the configured aggregate option");
+        helper.assertTrue(menu.clickMenuButton(
+                        player, AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS),
+                "linker rejected ignore-input-NBT toggle");
+        helper.assertTrue(linker.getPatternOptions().ignoreInputComponents(),
+                "linker did not store ignore-input-NBT");
 
         var saved = linker.saveWithFullMetadata(helper.getLevel().registryAccess());
         BlockEntity restored = BlockEntity.loadStatic(
                 linker.getBlockPos(), helper.getBlockState(pos), saved, helper.getLevel().registryAccess());
         helper.assertTrue(restored instanceof PatternLinkerBlockEntity restoredLinker
-                        && restoredLinker.getPatternOptions().removeInputFluids(),
+                        && restoredLinker.getPatternOptions().removeInputFluids()
+                        && restoredLinker.getPatternOptions().ignoreInputComponents(),
                 "linker pattern options did not survive block entity persistence");
         helper.succeed();
     }
@@ -435,6 +441,116 @@ public final class CoreGameTests {
         return Objects.requireNonNull(
                 PatternDetailsHelper.decodePattern(encoded, helper.getLevel()),
                 "test processing pattern could not be decoded");
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void ignoreInputNbtMatchesAndPushesOriginalStock(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            ItemStack named = new ItemStack(Items.DIAMOND);
+            named.set(DataComponents.CUSTOM_NAME, Component.literal("NBT variant"));
+            AEItemKey variant = AEItemKey.of(named);
+            AggregateRecipe recipe = new AggregateRecipe(
+                    "ignore-input-nbt-stock", ResourceLocation.fromNamespaceAndPath("aeallpattern", "ignore_input_nbt"),
+                    AggregatePatternKind.PROCESSING, List.of(stack(Items.DIAMOND, 3)),
+                    List.of(stack(Items.EMERALD, 1)), 1);
+            var strict = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.DEFAULT,
+                    helper.getLevel(), "ignore-input-test");
+            var relaxed = AggregatePatternExpander.expandRecipe(recipe,
+                    AggregatePatternOptions.fromFlags(AggregatePatternOptions.DEFAULT.flags() | 8192),
+                    helper.getLevel(), "ignore-input-test");
+            helper.assertFalse(strict.getInputs()[0].isValid(variant, helper.getLevel()),
+                    "disabled input option must reject different NBT");
+            helper.assertTrue(relaxed.getInputs()[0].isValid(variant, helper.getLevel()),
+                    "enabled input option must accept same-item NBT variants");
+            helper.assertFalse(relaxed.getInputs()[0].isValid(AEItemKey.of(Items.COAL), helper.getLevel()),
+                    "input option accepted an unrelated item");
+            helper.assertFalse(strict.getDefinition().equals(relaxed.getDefinition()),
+                    "option toggle reused the strict cached pattern definition");
+            KeyCounter holder = new KeyCounter();
+            holder.add(variant, 3);
+            KeyCounter delivered = new KeyCounter();
+            relaxed.pushInputsToExternalInventory(new KeyCounter[]{holder}, delivered::add);
+            helper.assertValueEqual(delivered.get(variant), 3L, "push changed NBT or input quantity");
+            helper.assertValueEqual(delivered.get(AEItemKey.of(Items.DIAMOND)), 0L, "push stripped original NBT");
+            var service = getService(List.of(relaxed), router, Map.of(variant, 3L));
+            awaitPlan(helper, beginCalculation(service, helper, requester(router),
+                    AEItemKey.of(Items.EMERALD), 1, CraftingRoutePolicy.DEFAULT), plan -> {
+                helper.assertTrue(plan.missingItems().isEmpty(), "planner missed differently-tagged stock");
+                helper.assertValueEqual(plan.usedItems().get(variant), 3L, "planner charged wrong NBT or quantity");
+                helper.assertValueEqual(plan.patternTimes().getOrDefault(relaxed, 0L), 1L,
+                        "planner did not schedule the relaxed recipe");
+                awaitPlan(helper, service.beginCraftingCalculation(helper.getLevel(), requester(router),
+                        AEItemKey.of(Items.EMERALD), 1, CalculationStrategy.REPORT_MISSING_ITEMS), vanilla -> {
+                    helper.assertTrue(vanilla.missingItems().isEmpty(), "native AE planner missed NBT stock");
+                    helper.assertTrue(vanilla.usedItems().get(variant) == 3L, "native AE charged wrong stock");
+                    helper.succeed();
+                }, 0);
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void ignoreInputNbtFindsCraftableVariants(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            ItemStack named = new ItemStack(Items.DIAMOND);
+            named.set(DataComponents.CUSTOM_NAME, Component.literal("NBT variant"));
+            AEItemKey variant = AEItemKey.of(named);
+            AggregateRecipe recipe = new AggregateRecipe(
+                    "ignore-input-nbt-craftable", ResourceLocation.fromNamespaceAndPath("aeallpattern", "ignore_input_nbt"),
+                    AggregatePatternKind.PROCESSING, List.of(stack(Items.DIAMOND, 1)),
+                    List.of(stack(Items.EMERALD, 1)), 1);
+            var relaxed = AggregatePatternExpander.expandRecipe(recipe,
+                    AggregatePatternOptions.fromFlags(AggregatePatternOptions.DEFAULT.flags() | 8192),
+                    helper.getLevel(), "ignore-input-producer-test");
+            var producer = processingPattern(helper, List.of(stack(Items.COAL, 1)),
+                    List.of(new GenericStack(variant, 1)));
+            var service = getService(List.of(relaxed, producer), router, Map.of(AEItemKey.of(Items.COAL), 1L));
+            awaitPlan(helper, beginCalculation(service, helper, requester(router),
+                    AEItemKey.of(Items.EMERALD), 1, CraftingRoutePolicy.DEFAULT), plan -> {
+                helper.assertTrue(plan.missingItems().isEmpty(), "planner missed craftable NBT variant");
+                helper.assertValueEqual(plan.patternTimes().getOrDefault(producer, 0L), 1L,
+                        "planner did not schedule the NBT variant producer");
+                awaitPlan(helper, service.beginCraftingCalculation(helper.getLevel(), requester(router),
+                        AEItemKey.of(Items.EMERALD), 1, CalculationStrategy.REPORT_MISSING_ITEMS), vanilla -> {
+                    helper.assertTrue(vanilla.missingItems().isEmpty(), "native AE missed craftable NBT variant");
+                    helper.succeed();
+                }, 0);
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void ignoreInputNbtPreservesAlternativesSplittingAndFluids(GameTestHelper helper) {
+        ItemStack named = new ItemStack(Items.DIAMOND);
+        named.set(DataComponents.CUSTOM_NAME, Component.literal("NBT variant"));
+        AEItemKey variant = AEItemKey.of(named);
+        GenericStack water = new GenericStack(appeng.api.stacks.AEFluidKey.of(net.minecraft.world.level.material.Fluids.WATER), 1000);
+        AggregateRecipe recipe = new AggregateRecipe(
+                "ignore-input-nbt-boundaries",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "ignore_input_boundaries"),
+                AggregatePatternKind.PROCESSING,
+                List.of(stack(Items.DIAMOND, 2), water),
+                List.of(new AggregateInputSlot(List.of(stack(Items.DIAMOND, 2), stack(Items.COAL, 2)), Optional.empty()),
+                        new AggregateInputSlot(List.of(water), Optional.empty())),
+                List.of(new GenericStack(variant, 1)), 0, 1);
+        // Only splitting and input-NBT matching enabled: output data must remain untouched.
+        var pattern = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.fromFlags(8193),
+                helper.getLevel(), "ignore-input-boundaries");
+        helper.assertTrue(pattern.getInputs().length == 3, "split item inputs or fluid slot changed");
+        for (int i = 0; i < 2; i++) {
+            var input = pattern.getInputs()[i];
+            helper.assertTrue(input.isValid(variant, helper.getLevel()), "split slot lost NBT matching");
+            helper.assertTrue(input.isValid(AEItemKey.of(Items.COAL), helper.getLevel()), "declared alternative lost");
+            helper.assertFalse(input.isValid(AEItemKey.of(Items.IRON_INGOT), helper.getLevel()), "unlisted alternative accepted");
+            helper.assertTrue(input.getMultiplier() == 1, "split quantity changed");
+        }
+        var fluid = pattern.getInputs()[2];
+        helper.assertFalse(fluid instanceof io.github.langqi99.aeallpattern.aggregate.IgnoreInputNbtInput,
+                "fluid input was wrapped in item-NBT matching");
+        helper.assertFalse(fluid.isValid(appeng.api.stacks.AEFluidKey.of(net.minecraft.world.level.material.Fluids.LAVA),
+                helper.getLevel()), "unrelated fluid accepted");
+        helper.assertTrue(pattern.getOutputs().get(0).what().equals(variant), "input option stripped output NBT");
+        helper.succeed();
     }
 
     private static ICraftingSimulationRequester requester(TianshuPatternSelectorBlockEntity router) {
@@ -1323,6 +1439,79 @@ public final class CoreGameTests {
         helper.succeed();
     }
 
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateViewerCatalystEvidenceSurvivesAndHonorsToggle(GameTestHelper helper) {
+        GenericStack tool = new GenericStack(AEItemKey.of(Items.FLINT), 1);
+        GenericStack iron = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1);
+        GenericStack gold = new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1);
+        var ordinary = AggregateInputSlot.exact(tool);
+        var marked = io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(ordinary), List.of(gold), false);
+        helper.assertTrue(marked.viewerCatalyst(), "explicit viewer catalyst was not captured");
+        helper.assertTrue(!io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(), List.of(gold), false).viewerCatalyst(), "ordinary input was guessed");
+        helper.assertTrue(!io.github.langqi99.aeallpattern.aggregate.ViewerCatalystSlots.mark(
+                ordinary, List.of(ordinary), List.of(gold, tool), true).viewerCatalyst(),
+                "viewer tool also published as output would become a phantom product");
+        var recipe = new AggregateRecipe("viewer-catalyst-test",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "viewer_catalyst_test"),
+                AggregatePatternKind.PROCESSING, List.of(tool, iron),
+                List.of(marked, AggregateInputSlot.exact(iron)), List.of(gold), 1);
+        var disabled = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.fromFlags(0),
+                helper.getLevel(), "viewer-off");
+        var unmarked = new AggregateRecipe(recipe.patternId(), recipe.recipeId(), recipe.kind(),
+                recipe.inputs(), List.of(ordinary, AggregateInputSlot.exact(iron)), recipe.outputs(), 1);
+        helper.assertTrue(!AggregatePatternLibrary.contentHash(List.of(recipe))
+                .equals(AggregatePatternLibrary.contentHash(List.of(unmarked))),
+                "changed viewer evidence did not invalidate the library hash");
+        helper.assertTrue(disabled.getInputs().length == 2, "disabled toggle removed a viewer catalyst");
+        var enabled = AggregatePatternExpander.expandRecipe(recipe, AggregatePatternOptions.fromFlags(16),
+                helper.getLevel(), "viewer-on");
+        helper.assertTrue(enabled.getInputs().length == 1
+                && enabled.getInputs()[0].isValid(iron.what(), helper.getLevel()), "viewer catalyst was not removed");
+        helper.assertTrue(enabled.getOutputs().equals(List.of(gold)), "catalyst removal changed products");
+        var onlyTool = new AggregateRecipe("viewer-only-tool", recipe.recipeId(), AggregatePatternKind.PROCESSING,
+                List.of(tool), List.of(marked), List.of(gold), 1);
+        helper.assertTrue(AggregatePatternExpander.expandRecipe(onlyTool, AggregatePatternOptions.fromFlags(16),
+                helper.getLevel(), "viewer-only") == null, "catalyst-only pattern became free production");
+        var ops = helper.getLevel().registryAccess().createSerializationContext(com.mojang.serialization.JsonOps.INSTANCE);
+        var json = AggregateInputSlot.CODEC.encodeStart(ops, marked).result().orElseThrow();
+        helper.assertTrue(AggregateInputSlot.CODEC.parse(ops, json).result().orElseThrow().viewerCatalyst(),
+                "codec lost viewer evidence");
+        json.getAsJsonObject().remove("viewer_catalyst");
+        helper.assertTrue(!AggregateInputSlot.CODEC.parse(ops, json).result().orElseThrow().viewerCatalyst(),
+                "old catalog inferred viewer evidence");
+        var buffer = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(),
+                helper.getLevel().registryAccess());
+        try {
+            AggregateInputSlot.STREAM_CODEC.encode(buffer, marked);
+            helper.assertTrue(AggregateInputSlot.STREAM_CODEC.decode(buffer).equals(marked) && buffer.readableBytes() == 0,
+                    "network codec lost viewer evidence");
+        } finally { buffer.release(); }
+        try {
+            Class<?> pageType = Class.forName(AggregatePatternLibrary.class.getName() + "$Page");
+            var constructor = pageType.getDeclaredConstructor(List.class);
+            constructor.setAccessible(true);
+            Object page = constructor.newInstance(List.of(recipe));
+            var save = pageType.getDeclaredMethod("save", net.minecraft.nbt.CompoundTag.class,
+                    net.minecraft.core.HolderLookup.Provider.class);
+            save.setAccessible(true);
+            var data = (net.minecraft.nbt.CompoundTag) save.invoke(page, new net.minecraft.nbt.CompoundTag(),
+                    helper.getLevel().registryAccess());
+            var load = pageType.getDeclaredMethod("load", net.minecraft.nbt.CompoundTag.class,
+                    net.minecraft.core.HolderLookup.Provider.class);
+            load.setAccessible(true);
+            Object loaded = load.invoke(null, data, helper.getLevel().registryAccess());
+            var recipes = pageType.getDeclaredMethod("recipes");
+            recipes.setAccessible(true);
+            helper.assertTrue(((List<?>) recipes.invoke(loaded)).equals(List.of(recipe)),
+                    "saved library page lost viewer evidence");
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("viewer catalyst page roundtrip failed", error);
+        }
+        helper.succeed();
+    }
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void aggregateDecoderIgnoresEmptyMolecularAssemblerSlot(GameTestHelper helper) {
         new AggregatePatternDecoder().decodePattern((AEItemKey) null, helper.getLevel());
@@ -2055,6 +2244,15 @@ public final class CoreGameTests {
                         ModDataComponents.AGGREGATE_PATTERN_OPTIONS.get(), AggregatePatternOptions.DEFAULT)
                         .removeInputFluids(),
                 "unified menu did not store the configured aggregate option");
+        helper.assertTrue(menu.clickMenuButton(player, AggregatePatternSelectionMenu.optionButtonId(
+                        AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS)),
+                "unified menu rejected ignore-input-NBT");
+        helper.assertTrue(menu.getOptions().ignoreInputComponents(), "menu lost the 14th option bit");
+        var reopened = new AggregatePatternConfigMenu(2, player.getInventory(), InteractionHand.MAIN_HAND);
+        helper.assertTrue(reopened.getOptions().ignoreInputComponents(), "reopened menu lost saved input option");
+        helper.assertTrue(reopened.clickMenuButton(player, AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS),
+                "configuration menu could not disable input option");
+        helper.assertFalse(reopened.getOptions().ignoreInputComponents(), "input option did not toggle off");
 
         // Toggling the remaining enabled pattern must disable it on the held stack.
         helper.assertTrue(menu.clickMenuButton(player, 1), "menu rejected a pattern toggle");

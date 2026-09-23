@@ -15,6 +15,17 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 java.modularity.inferModulePath = false
 
+// Isolated, opt-in real-mod fixture. Never add test recipes to the release resources.
+if (providers.gradleProperty('masterful_fixture').getOrElse('false').toBoolean()) {
+    def fixtureDirectory = providers.gradleProperty('gametest_directory').getOrElse('run-gametest')
+    def prepareMasterfulFixture = tasks.register('prepareMasterfulFixture', Copy) {
+        from('tools/testworld/masterful/config') { into 'config' }
+        from('tools/testworld/masterful/datapack') { into 'world/datapacks/aap_masterful_test' }
+        into layout.projectDirectory.dir(fixtureDirectory)
+    }
+    tasks.matching { it.name == 'runGameTestServer' }.configureEach { dependsOn prepareMasterfulFixture }
+}
+
 repositories {
     mavenCentral()
     maven { url = 'https://api.modrinth.com/maven' }
@@ -40,6 +51,12 @@ neoForge {
     runs {
         client {
             client()
+            if (providers.gradleProperty('immersive_catalyst_test').getOrElse('false').toBoolean()) {
+                gameDirectory = file('run-immersive-catalyst-test')
+                systemProperty 'aeallpattern.immersiveCatalystTest', 'true'
+                systemProperty 'aeallpattern.clientSmokeTest', 'true'
+                programArguments.addAll '--quickPlaySingleplayer', 'CatalystTest'
+            }
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
             def stressItemCount = providers.gradleProperty('stress_item_count')
             if (stressItemCount.isPresent()) {
@@ -75,6 +92,7 @@ neoForge {
 
         gameTestServer {
             type = 'gameTestServer'
+            systemProperty 'aeallpattern.masterfulFixture', providers.gradleProperty('masterful_fixture').getOrElse('false')
             programArgument '--nogui'
             // Keep dependency-matrix tests away from the playable lab save. A
             // minimal run intentionally omits optional block registries and
@@ -140,6 +158,13 @@ configurations {
 }
 
 dependencies {
+    if (providers.gradleProperty('immersive_catalyst_test').getOrElse('false').toBoolean()) {
+        localRuntime 'maven.modrinth:immersiveengineering:uNRARSH2'
+    }
+    implementation 'org.appliedenergistics:guideme:21.1.1'
+    if (providers.gradleProperty('runtime_masterful').getOrElse('false').toBoolean()) {
+        localRuntime 'curse.maven:masterful-machinery-upgraded-1643402:8852200'
+    }
     // AE2 is required and supplies the public crafting-provider API.
     implementation "org.appliedenergistics:appliedenergistics2:${ae2_version}"
 
@@ -198,10 +223,13 @@ dependencies {
         localRuntime "maven.modrinth:industrial-foregoing:7otXKx1D"
     }
     if (project.property('runtime_neoecoae').toBoolean()) {
-        // Neo ECO 21.1.1 is built against LDLib2 2.2.8. Keep both runtime-only:
-        // the optional compatibility mixin is selected by mod id at launch.
+        // ECO beta3 needs the MixinExtras version bundled with NeoForge 21.1.233.
+        // Override neoecoae_runtime_version=gWMhHBje for the 21.1.1 regression profile.
         localRuntime "maven.modrinth:B1CBVXHX:xmPYPfWU"
-        localRuntime "maven.modrinth:udZtKfzP:gWMhHBje"
+        localRuntime "maven.modrinth:udZtKfzP:${providers.gradleProperty('neoecoae_runtime_version').getOrElse('1vKpC42G')}"
+    }
+    if (providers.gradleProperty('runtime_useless').getOrElse('false').toBoolean()) {
+        localRuntime "curse.maven:some-useless-things-1401600:8892864"
     }
 
     // Optional AE provider compatibility fixture. These versions are pinned to

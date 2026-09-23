@@ -4,6 +4,7 @@ out/
 run/
 run-gametest/
 run-gametest-*/
+run-immersive-catalyst-test/
 run-data/
 .idea/
 *.iml

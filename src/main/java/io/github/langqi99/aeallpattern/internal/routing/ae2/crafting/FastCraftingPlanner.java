@@ -435,7 +435,7 @@ public final class FastCraftingPlanner {
                                 CraftInput.of(chain.carrier(), usesPerFiring)))));
                         continue; // single deterministic option, never enqueued for crafting
                     }
-                    boolean idOnly = false;
+                    boolean idOnly = in instanceof io.github.langqi99.aeallpattern.aggregate.IgnoreInputNbtInput;
                     List<GenericStack> templates = idOnlyTemplates(
                             in, idOnly, snapshot, craftingService, craftableVariantCache);
                     templates = addConservativeDurabilityTemplates(

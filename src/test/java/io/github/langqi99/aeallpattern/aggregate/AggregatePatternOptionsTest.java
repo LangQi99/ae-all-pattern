@@ -7,6 +7,37 @@ import org.junit.jupiter.api.Test;
 
 class AggregatePatternOptionsTest {
     @Test
+    void ignoreInputNbtDefaultsOffAndOldSavedOptionsStayStrict() {
+        assertFalse(AggregatePatternOptions.DEFAULT.ignoreInputComponents());
+        var old = AggregatePatternOptions.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE,
+                new com.google.gson.JsonObject()).result().orElseThrow();
+        assertFalse(old.ignoreInputComponents());
+        assertFalse(new AggregatePatternOptions(true, false).ignoreInputComponents());
+        for (int flags = 0; flags < 8192; flags++) {
+            assertFalse(AggregatePatternOptions.fromFlags(flags).ignoreInputComponents());
+        }
+    }
+
+    @Test
+    void allFourteenFlagsRoundTripWithoutChangingExistingBits() {
+        for (int flags = 0; flags < 16384; flags++) {
+            org.junit.jupiter.api.Assertions.assertEquals(flags, AggregatePatternOptions.fromFlags(flags).flags());
+        }
+    }
+
+    @Test
+    void enabledInputOptionPersistsIndependentlyOfOutputOption() {
+        var options = AggregatePatternOptions.fromFlags(8192);
+        var json = AggregatePatternOptions.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, options)
+                .result().orElseThrow();
+        var decoded = AggregatePatternOptions.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, json)
+                .result().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(options, decoded);
+        assertTrue(decoded.ignoreInputComponents());
+        assertFalse(decoded.ignoreOutputComponents());
+    }
+
+    @Test
     void probabilitySafeguardsAreEnabledByDefault() {
         assertFalse(AggregatePatternOptions.DEFAULT.splitSameItems());
         assertTrue(AggregatePatternOptions.DEFAULT.ignoreOutputComponents());

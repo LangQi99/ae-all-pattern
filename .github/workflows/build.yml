@@ -174,6 +174,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Masterful-Machinery
+            properties: >-
+              -Pruntime_masterful=true -Pmasterful_fixture=true
+              -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_extendedae_plus=false
+              -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=aeallpattern,ae2,mm,jei,guideme
           - name: minimal-AE2
             properties: >-
               -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false

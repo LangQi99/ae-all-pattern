@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.2.6 - 2026-09-17
+
+- Update the NeoForge runtime requirement to 21.1.233 for the MixinExtras runtime required by current ECO.
+
+- Fix ECO aggregate publication for the separate catalog introduced in Neo ECO 21.2.0-beta3; choose old/new integration by class availability and remove marker patterns before publishing children.
+- Guard deferred ECO catalog refreshes while their AE node is destroyed; the normal ready lifecycle restores publication.
+- Allow aggregate items in Useless Mod's ME Pattern Assembly while retaining the formed furnace's per-recipe validation (the current Forge release does not contain this multiblock).
+- Add real-addon slot/publication/dispatch tests and fresh-process save/reopen regressions for ECO and the formed alloy furnace. The reported need to reinsert after rejoining has not reproduced in these fixtures; do not treat the compatibility fixes as a confirmed fix for every rejoin report.
+
+- Added Linker right-click controls for blocking mode (off), smart batch dispatch (on), and automatic output return (on), with persistent per-Linker settings.
+- Smart dispatch ramps already-owned same-recipe crafts up to 64 per tick, backs off on rejection, and keeps a bounded recoverable queue. Disabled batching sends one craft per tick; blocking remains an independent setting.
+- Added vanilla/Mekanism input-occupancy checks and regression coverage for menu permissions, settings migration, batching, queue recovery, and full-network output return.
+- Fixed live Linker pattern-option refresh identity and input-NBT variant validation during provider delivery.
+
+## 0.2.5 - 2026-09-17
+
+- Added an opt-in **Ignore input NBT** option to aggregate-pattern and Linker configuration (Issue #20).
+- Processing item inputs can match same-item NBT/component variants without stripping data from actual delivered stacks. Both native AE2 planning and the Tianshu planner support stocked and craftable variants.
+- Defaults remain strict, including existing saved patterns. Fluid/chemical matching and crafting-table recipe validation are unchanged. Enable only when the target machine accepts those variants; names, enchantments and damage are ignored too.
+- Added persistence/flag, menu-toggle, planner, input-delivery, splitting, alternatives and non-item regression coverage on both Minecraft versions.
+
+## 0.2.4 - 2026-09-17
+
+- Added structure-aware Masterful Machinery aggregate scanning for multiple controllers and recipe categories, excluding unrelated structures and external FE requirements.
+- Added a craftable GuideME guide with five English and Simplified Chinese pages covering aggregate patterns, the All Pattern Linker, the Tianshu Pattern Router, and multiblock troubleshooting.
+- Added reproducible Masterful Machinery fixtures, dedicated-server regression tests, and real-client guide/encoding checks.
+- GuideME is now an explicit required dependency. Back up existing worlds before upgrading.
 
 ## 0.2.3 - 2026-09-12
 

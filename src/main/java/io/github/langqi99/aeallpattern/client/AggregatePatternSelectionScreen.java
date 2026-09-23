@@ -233,6 +233,11 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
                 "gui.aeallpattern.aggregate_config.skip_durability_consuming_recipes.tooltip",
                 () -> menu.getOptions().skipDurabilityConsumingRecipes(),
                 AggregatePatternConfigMenu.TOGGLE_SKIP_DURABILITY_CONSUMING_RECIPES);
+        addOption(rightX, 143, optionWidth,
+                "gui.aeallpattern.aggregate_config.ignore_input_nbt",
+                "gui.aeallpattern.aggregate_config.ignore_input_nbt.tooltip",
+                () -> menu.getOptions().ignoreInputComponents(),
+                AggregatePatternConfigMenu.TOGGLE_IGNORE_INPUT_COMPONENTS);
     }
 
     /** Uses a bounded share of the screen instead of growing to nearly full-screen. */

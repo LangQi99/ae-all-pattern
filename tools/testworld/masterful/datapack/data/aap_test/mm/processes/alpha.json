@@ -1,0 +1,31 @@
+{
+  "ticks": 20,
+  "structureId": "aap_test:alpha",
+  "inputs": [
+    {
+      "type": "mm:input/consume",
+      "ingredient": {
+        "type": "mm:energy",
+        "amount": 1000
+      }
+    },
+    {
+      "type": "mm:input/consume",
+      "ingredient": {
+        "type": "mm:item",
+        "item": "minecraft:iron_ingot",
+        "count": 2
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "mm:output/simple",
+      "ingredient": {
+        "type": "mm:item",
+        "item": "minecraft:gold_ingot",
+        "count": 1
+      }
+    }
+  ]
+}

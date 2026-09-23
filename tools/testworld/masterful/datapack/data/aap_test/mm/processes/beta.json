@@ -1,0 +1,25 @@
+{
+  "ticks": 20,
+  "structureId": "aap_test:beta",
+  "inputs": [
+    {
+      "type": "mm:input/consume",
+      "ingredient": {
+        "type": "mm:item",
+        "item": "minecraft:copper_ingot",
+        "count": 2
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "mm:output/simple",
+      "ingredient": {
+        "type": "mm:item",
+        "item": "minecraft:diamond",
+        "count": 1
+      }
+    }
+  ]
+}
+

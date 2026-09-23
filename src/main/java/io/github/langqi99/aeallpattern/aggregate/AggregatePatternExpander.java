@@ -418,7 +418,8 @@ public final class AggregatePatternExpander {
                     recipe.patternId(), definition, assemblerPattern, recipe.processingTicks());
         }
         return new AggregatePatternDetails(
-                recipe.patternId(), definition, delegate, recipe.processingTicks(), configuredInputs);
+                recipe.patternId(), definition, delegate, recipe.processingTicks(), configuredInputs,
+                options.ignoreInputComponents() && recipe.kind() == AggregatePatternKind.PROCESSING);
     }
 
     /**
@@ -563,6 +564,9 @@ public final class AggregatePatternExpander {
 
     private static boolean removeInput(
             AggregateInputSlot slot, AggregatePatternOptions options, Level level) {
+        if (options.removeProcessingCatalysts() && slot.viewerCatalyst()) {
+            return true;
+        }
         return slot.resolve(level).stream().allMatch(stack -> {
             AEKey key = stack.what();
             return options.removeInputFluids() && key instanceof AEFluidKey

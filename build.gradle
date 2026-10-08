@@ -27,6 +27,10 @@ if (providers.gradleProperty('masterful_fixture').getOrElse('false').toBoolean()
 }
 
 repositories {
+    maven {
+        url = 'https://repo.expandium.net/releases'
+        content { includeVersionByRegex 'appeng', 'appliedenergistics2-forge', '.*-uelm' }
+    }
     mavenCentral()
     maven {
         url = 'https://www.cursemaven.com'
@@ -116,6 +120,8 @@ legacyForge {
             systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'aeallpattern.expectedTestMods',
                     providers.gradleProperty('expected_test_mods').getOrElse('')
+            systemProperty 'aeallpattern.expectedAe2Version',
+                    providers.gradleProperty('expected_ae2_version').getOrElse('')
             systemProperty 'aeallpattern.forbiddenTestMods',
                     providers.gradleProperty('forbidden_test_mods').getOrElse('')
             systemProperty 'aeallpattern.persistencePhase',
@@ -193,7 +199,14 @@ dependencies {
         modRuntimeOnly 'curse.maven:masterful-machinery-fork-1361830:8803045'
     }
     // AE2 is required and supplies the public crafting-provider API.
-    modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    if (providers.gradleProperty('runtime_ae2_uelm').getOrElse('false').toBoolean()) {
+        // Compile against upstream's supported API and exercise the same addon
+        // bytecode against UELM's widened crafting amounts at runtime.
+        modCompileOnly "appeng:appliedenergistics2-forge:${ae2_version}"
+        modRuntimeOnly 'appeng:appliedenergistics2-forge:15.5.5-uelm'
+    } else {
+        modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
+    }
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
     compileOnly "io.github.llamalad7:mixinextras-common:0.4.1"
     implementation "io.github.llamalad7:mixinextras-forge:0.4.1"

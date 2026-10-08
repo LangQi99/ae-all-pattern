@@ -234,6 +234,17 @@ jobs:
               -Pruntime_mekanism_addons=false
               -Pexpected_test_mods=aeallpattern,ae2
               -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,mekanism,appmek,create,industrialforegoing,mysticalagriculture,neoecoae,expatternprovider,extendedae_plus,advanced_ae,ae2cs,ae2lt,packagedauto
+          - name: AE2-UELM-15.5.5
+            properties: >-
+              -Pruntime_ae2_uelm=true
+              -Pexpected_ae2_version=15.5.5-uelm
+              -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false
+              -Pruntime_mystical_agriculture=false -Pruntime_create=false
+              -Pruntime_industrial_foregoing=false -Pruntime_neoecoae=false
+              -Pruntime_ae_provider_addons=false -Pruntime_extendedae_plus=false
+              -Pruntime_packaged_addons=false -Pruntime_mekanism_addons=false
+              -Pexpected_test_mods=aeallpattern,ae2,guideme
+              -Pforbidden_test_mods=jei,emi,toomanyrecipeviewers,mekanism,appmek
           - name: JEI-only
             properties: >-
               -Pruntime_jei=true -Pruntime_emi=false -Pruntime_mekanism=false
@@ -324,7 +335,7 @@ jobs:
       - name: Download profile mods and run the no-GUI game server
         run: ./gradlew runGameTestServer ${{ matrix.properties }} --stacktrace
       - name: Confirm that all required GameTests ran
-        run: grep -F 'All 73 required tests passed :)' run-gametest/logs/latest.log
+        run: grep -F 'All 77 required tests passed :)' run-gametest/logs/latest.log
       - name: Upload GameTest failure logs
         if: failure()
         uses: actions/upload-artifact@v4

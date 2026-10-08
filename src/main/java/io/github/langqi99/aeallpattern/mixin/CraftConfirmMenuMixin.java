@@ -32,16 +32,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
     private static final String AEALLPATTERN_UPDATE_ROUTE_POLICY = "aeallpattern:updateRoutePolicy";
 
     @Shadow
-    private AEKey whatToCraft;
-
-    @Shadow
-    private int amount;
-
-    @Shadow
     private ICraftingPlan result;
-
-    @Shadow
-    public abstract boolean planJob(AEKey what, int amount, CalculationStrategy strategy);
 
     @Unique
     @GuiSync(40)
@@ -78,6 +69,12 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
     @Unique
     private boolean aeallpattern$policyInitialized;
 
+    @Unique
+    private boolean aeallpattern$hasRequest;
+
+    @Unique
+    private boolean aeallpattern$replanning;
+
     @Inject(method = "<init>", at = @At("TAIL"))
     private void aeallpattern$registerRoutingAction(CallbackInfo ci) {
         ((AEBaseMenuAccessor) this).aeallpattern$registerClientAction(
@@ -89,7 +86,6 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
 
     @Inject(method = "planJob", at = @At("HEAD"))
     private void aeallpattern$loadNetworkDefault(
-            AEKey what, int amount, CalculationStrategy strategy,
             CallbackInfoReturnable<Boolean> cir) {
         CraftConfirmMenu self = (CraftConfirmMenu) (Object) this;
         if (self.isClientSide()) {
@@ -123,12 +119,15 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
             long requestedAmount,
             CalculationStrategy strategy,
             Operation<Future<ICraftingPlan>> original) {
+        aeallpattern$hasRequest = true;
+        CalculationStrategy effectiveStrategy = aeallpattern$replanning
+                ? CalculationStrategy.REPORT_MISSING_ITEMS : strategy;
         if (!aeallpattern$routingAvailable) {
-            return original.call(service, level, requester, what, requestedAmount, strategy);
+            return original.call(service, level, requester, what, requestedAmount, effectiveStrategy);
         }
         return CraftingRoutePolicyContext.withPolicy(
                 aeallpattern$getRoutePolicy(),
-                () -> original.call(service, level, requester, what, requestedAmount, strategy));
+                () -> original.call(service, level, requester, what, requestedAmount, effectiveStrategy));
     }
 
     // CraftConfirmMenu overrides AbstractContainerMenu#broadcastChanges. Unlike AE2-owned
@@ -200,8 +199,15 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
 
     @Unique
     private void aeallpattern$replan() {
-        if (whatToCraft != null) {
-            planJob(whatToCraft, amount, CalculationStrategy.REPORT_MISSING_ITEMS);
+        if (aeallpattern$hasRequest) {
+            // Let AE retain its own request and amount. UELM widens these to long;
+            // shadowing the upstream int field/method prevents the menu loading.
+            aeallpattern$replanning = true;
+            try {
+                ((CraftConfirmMenu) (Object) this).replan();
+            } finally {
+                aeallpattern$replanning = false;
+            }
         }
     }
 

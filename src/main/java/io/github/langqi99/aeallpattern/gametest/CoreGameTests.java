@@ -7,8 +7,10 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.crafting.*;
+import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -18,6 +20,8 @@ import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
+import appeng.menu.ISubMenu;
+import appeng.menu.me.crafting.CraftConfirmMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternData;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternDecoder;
@@ -49,6 +53,7 @@ import io.github.langqi99.aeallpattern.tianshu.TianshuPatternSelectorBlock;
 import io.github.langqi99.aeallpattern.tianshu.TianshuPatternSelectorBlockEntity;
 import io.github.langqi99.aeallpattern.tianshu.TianshuRoutingPolicies;
 import io.github.langqi99.aeallpattern.tianshu.TianshuRoutingMenu;
+import io.github.langqi99.aeallpattern.tianshu.CraftConfirmRoutingMenu;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.ByproductPlanWarnings;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicy;
 import io.github.langqi99.aeallpattern.internal.routing.ae2.crafting.CraftingRoutePolicyContext;
@@ -63,7 +68,6 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.tags.ItemTags;
@@ -71,7 +75,9 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
@@ -105,6 +111,13 @@ public final class CoreGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void ciDependencyProfileIsActuallyLoaded(GameTestHelper helper) {
+        String expectedAe2Version = System.getProperty("aeallpattern.expectedAe2Version", "");
+        if (!expectedAe2Version.isEmpty()) {
+            String actualAe2Version = ModList.get().getModContainerById("ae2").orElseThrow()
+                    .getModInfo().getVersion().toString();
+            assertValueEqual(helper, actualAe2Version, expectedAe2Version,
+                    "CI profile loaded the wrong AE2 implementation");
+        }
         for (String modId : configuredModIds("aeallpattern.expectedTestMods")) {
             helper.assertTrue(ModList.get().isLoaded(modId),
                     "CI profile expected mod '" + modId + "' but it was not loaded");
@@ -261,6 +274,182 @@ public final class CoreGameTests {
                         .getValue(TianshuPatternSelectorBlock.FACING) == Direction.DOWN,
                 "Tianshu router rejected downward facing");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 320)
+    public static void craftingConfirmationAppliesRoutePriorityAndPathPolicyEndToEnd(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            IPatternDetails aggregate = AggregatePatternExpander.expandRecipe(
+                    new AggregateRecipe(
+                            "menu-route-priority",
+                            new ResourceLocation(AeAllPattern.MOD_ID, "menu_route_priority"),
+                            AggregatePatternKind.PROCESSING,
+                            List.of(stack(Items.COBBLESTONE, 1)),
+                            List.of(stack(Items.EMERALD, 1)),
+                            1),
+                    AggregatePatternOptions.DEFAULT, helper.getLevel(), "menu-route-priority");
+            IPatternDetails ordinary = processingPattern(
+                    helper, List.of(stack(Items.DIAMOND, 1)), List.of(stack(Items.EMERALD, 1)));
+            IPatternDetails shortPath = processingPattern(
+                    helper, List.of(stack(Items.IRON_INGOT, 1)), List.of(stack(Items.GOLD_INGOT, 1)));
+            IPatternDetails longPath = processingPattern(
+                    helper, List.of(stack(Items.QUARTZ, 1)), List.of(stack(Items.GOLD_INGOT, 1)));
+            IPatternDetails makeIntermediate = processingPattern(
+                    helper, List.of(stack(Items.LAPIS_LAZULI, 1)), List.of(stack(Items.QUARTZ, 1)));
+
+            getService(List.of(aggregate, ordinary, shortPath, longPath, makeIntermediate), router,
+                    Map.of(
+                            AEItemKey.of(Items.COBBLESTONE), 1L,
+                            AEItemKey.of(Items.DIAMOND), 1L,
+                            AEItemKey.of(Items.IRON_INGOT), 1L,
+                            AEItemKey.of(Items.LAPIS_LAZULI), 1L));
+            Player player = helper.makeMockPlayer();
+            TestCraftingMenuHost host = new TestCraftingMenuHost(
+                    router.getType(), router.getBlockPos(), router.getBlockState(),
+                    router.getMainNode().getNode());
+            CraftConfirmMenu menu = new CraftConfirmMenu(1, player.getInventory(), host);
+            CraftConfirmRoutingMenu routingMenu = (CraftConfirmRoutingMenu) menu;
+
+            helper.assertTrue(planMenuJob(menu, AEItemKey.of(Items.EMERALD), 1,
+                            CalculationStrategy.REPORT_MISSING_ITEMS),
+                    "AE crafting confirmation refused the priority test order");
+            awaitPlan(helper, currentMenuJob(menu), first -> {
+                assertValueEqual(helper, first.patternTimes().getOrDefault(ordinary, 0L), 1L,
+                        "default aggregate priority did not prefer the ordinary pattern");
+                assertValueEqual(helper, first.patternTimes().getOrDefault(aggregate, 0L), 0L,
+                        "default aggregate priority unexpectedly selected the aggregate pattern");
+
+                routingMenu.aeallpattern$updateRoutePolicy(
+                        CraftingRoutePolicy.DEFAULT.withAggregatePriority(1));
+                awaitPlan(helper, currentMenuJob(menu), priorityRaised -> {
+                    assertValueEqual(helper, priorityRaised.patternTimes().getOrDefault(aggregate, 0L), 1L,
+                            "confirmation-screen priority change did not replan to the aggregate pattern");
+                    assertValueEqual(helper, priorityRaised.patternTimes().getOrDefault(ordinary, 0L), 0L,
+                            "raised aggregate priority still selected the ordinary pattern");
+
+                    CraftingRoutePolicy pathFirst = CraftingRoutePolicy.DEFAULT
+                            .withAggregatePriority(0)
+                            .withStockSurplusPreference(0)
+                            .withYieldPreference(0)
+                            .withFast(false)
+                            .withPathPreference(-1)
+                            .moveCriterion(2, 0);
+                    routingMenu.aeallpattern$updateRoutePolicy(pathFirst);
+                    awaitPlan(helper, currentMenuJob(menu), ignored -> {
+                        helper.assertTrue(planMenuJob(menu, AEItemKey.of(Items.GOLD_INGOT), 1,
+                                        CalculationStrategy.REPORT_MISSING_ITEMS),
+                                "AE crafting confirmation refused the path test order");
+                        awaitPlan(helper, currentMenuJob(menu), shortPlan -> {
+                            assertValueEqual(helper, shortPlan.patternTimes().getOrDefault(shortPath, 0L), 1L,
+                                    "path-first short preference did not select the direct route");
+                            assertValueEqual(helper, shortPlan.patternTimes().getOrDefault(longPath, 0L), 0L,
+                                    "path-first short preference selected the longer route");
+
+                            routingMenu.aeallpattern$updateRoutePolicy(pathFirst.withPathPreference(1));
+                            awaitPlan(helper, currentMenuJob(menu), longPlan -> {
+                                assertValueEqual(helper, longPlan.patternTimes().getOrDefault(longPath, 0L), 1L,
+                                        "path-first long preference did not select the two-step route");
+                                assertValueEqual(helper, longPlan.patternTimes().getOrDefault(makeIntermediate, 0L), 1L,
+                                        "long route did not include its required intermediate recipe");
+                                assertValueEqual(helper, longPlan.patternTimes().getOrDefault(shortPath, 0L), 0L,
+                                        "path-first long preference still selected the direct route");
+                                helper.succeed();
+                            }, 0);
+                        }, 0);
+                    }, 0);
+                }, 0);
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 320)
+    public static void craftingConfirmationPolicyReplanKeepsFullRequestedAmount(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            long requestedAmount = supportsLongMenuAmounts() ? 3_000_000_000L : 17L;
+            IPatternDetails pattern = processingPattern(helper,
+                    List.of(stack(Items.COBBLESTONE, 1)), List.of(stack(Items.EMERALD, 1)));
+            getService(List.of(pattern), router, Map.of(AEItemKey.of(Items.COBBLESTONE), 1L));
+            Player player = helper.makeMockPlayer();
+            TestCraftingMenuHost host = new TestCraftingMenuHost(
+                    router.getType(), router.getBlockPos(), router.getBlockState(),
+                    router.getMainNode().getNode());
+            CraftConfirmMenu menu = new CraftConfirmMenu(1, player.getInventory(), host);
+            helper.assertTrue(planMenuJob(menu, AEItemKey.of(Items.EMERALD), requestedAmount,
+                            CalculationStrategy.REPORT_MISSING_ITEMS),
+                    "AE confirmation refused the amount-preservation test order");
+            awaitPlan(helper, currentMenuJob(menu), first -> {
+                assertValueEqual(helper, first.finalOutput().amount(), requestedAmount,
+                        "initial confirmation calculation truncated the order amount");
+                ((CraftConfirmRoutingMenu) menu).aeallpattern$updateRoutePolicy(
+                        CraftingRoutePolicy.DEFAULT.withAggregatePriority(1));
+                awaitPlan(helper, currentMenuJob(menu), replanned -> {
+                    assertValueEqual(helper, replanned.finalOutput().amount(), requestedAmount,
+                            "policy replan truncated or partially crafted the order");
+                    assertValueEqual(helper, replanned.missingItems().get(AEItemKey.of(Items.COBBLESTONE)),
+                            requestedAmount - 1, "policy replan lost the full missing-material report");
+                    helper.assertTrue(replanned.simulation(),
+                            "policy replan submitted a partial order instead of reporting missing materials");
+                    helper.succeed();
+                }, 0);
+            }, 0);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 1_300)
+    public static void twelveThousandReachablePatternsPlanThroughRealAeService(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            final int leafCount = 6_000;
+            List<IPatternDetails> patterns = new ArrayList<>(12_000);
+            List<AEItemKey> layer = new ArrayList<>(leafCount);
+            int nextNode = 0;
+            for (int i = 0; i < leafCount; i++) {
+                AEItemKey leaf = syntheticGraphKey("item", nextNode++);
+                layer.add(leaf);
+                patterns.add(new SyntheticProcessingPattern(
+                        "pattern-leaf-" + i, List.of(stack(Items.COBBLESTONE, 1)), stack(leaf, 1)));
+            }
+
+            while (layer.size() > 1) {
+                List<AEItemKey> nextLayer = new ArrayList<>((layer.size() + 1) / 2);
+                for (int i = 0; i < layer.size(); i += 2) {
+                    if (i + 1 == layer.size()) {
+                        nextLayer.add(layer.get(i));
+                    } else {
+                        AEItemKey parent = syntheticGraphKey("item", nextNode++);
+                        nextLayer.add(parent);
+                        patterns.add(new SyntheticProcessingPattern(
+                                "pattern-join-" + nextNode,
+                                List.of(stack(layer.get(i), 1), stack(layer.get(i + 1), 1)),
+                                stack(parent, 1)));
+                    }
+                }
+                layer = nextLayer;
+            }
+            patterns.add(new SyntheticProcessingPattern(
+                    "pattern-final", List.of(stack(layer.get(0), 1)), stack(Items.EMERALD, 1)));
+            assertValueEqual(helper, patterns.size(), 12_000,
+                    "stress fixture did not create exactly 12,000 reachable recipes");
+
+            ICraftingService service = getService(
+                    patterns, router, Map.of(AEItemKey.of(Items.COBBLESTONE), (long) leafCount));
+            long startedAt = System.nanoTime();
+            Future<ICraftingPlan> future = beginCalculation(
+                    service, helper, requester(router), AEItemKey.of(Items.EMERALD), 1,
+                    CraftingRoutePolicy.DEFAULT);
+            awaitPlan(helper, future, plan -> {
+                long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000L;
+                helper.assertTrue(plan.missingItems().isEmpty(),
+                        "12,000-pattern AE service plan unexpectedly missed materials: " + plan.missingItems());
+                assertValueEqual(helper, plan.patternTimes().size(), 12_000,
+                        "large real AE service plan omitted recipes from the reachable dependency tree");
+                assertValueEqual(helper, plan.patternTimes().values().stream().mapToLong(Long::longValue).sum(),
+                        12_000L, "large plan used the wrong total recipe firing count");
+                assertValueEqual(helper, plan.usedItems().get(AEItemKey.of(Items.COBBLESTONE)),
+                        (long) leafCount, "large plan did not conserve the shared leaf material");
+                AeAllPattern.LOGGER.info("12,000-pattern no-GUI AE planning GameTest completed in {} ms", elapsedMillis);
+                helper.succeed();
+            }, 0, 600);
+        });
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
@@ -431,6 +620,10 @@ public final class CoreGameTests {
         return new GenericStack(AEItemKey.of(item), amount);
     }
 
+    private static GenericStack stack(AEKey key, long amount) {
+        return new GenericStack(key, amount);
+    }
+
     private static IPatternDetails processingPattern(
             GameTestHelper helper, List<GenericStack> inputs, List<GenericStack> outputs) {
         ItemStack encoded = PatternDetailsHelper.encodeProcessingPattern(
@@ -438,6 +631,126 @@ public final class CoreGameTests {
         return Objects.requireNonNull(
                 PatternDetailsHelper.decodePattern(encoded, helper.getLevel()),
                 "test processing pattern could not be decoded");
+    }
+
+    private static AEItemKey syntheticGraphKey(String kind, int index) {
+        return syntheticGraphKey(kind, Integer.toString(index));
+    }
+
+    private static AEItemKey syntheticGraphKey(String kind, String index) {
+        ItemStack stack = new ItemStack(Items.PAPER);
+        stack.setHoverName(Component.literal("AE planner " + kind + " " + index));
+        return AEItemKey.of(stack);
+    }
+
+    private static boolean supportsLongMenuAmounts() {
+        try {
+            CraftConfirmMenu.class.getMethod("planJob", AEKey.class, long.class, CalculationStrategy.class);
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
+    }
+
+    // Exercise one compiled test suite on upstream AE2 and UELM's widened API.
+    private static boolean planMenuJob(
+            CraftConfirmMenu menu, AEKey what, long amount, CalculationStrategy strategy) {
+        try {
+            if (supportsLongMenuAmounts()) {
+                return (boolean) CraftConfirmMenu.class
+                        .getMethod("planJob", AEKey.class, long.class, CalculationStrategy.class)
+                        .invoke(menu, what, amount, strategy);
+            }
+            return (boolean) CraftConfirmMenu.class
+                    .getMethod("planJob", AEKey.class, int.class, CalculationStrategy.class)
+                    .invoke(menu, what, Math.toIntExact(amount), strategy);
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("could not start the AE crafting confirmation calculation", error);
+        }
+    }
+
+    private static Future<ICraftingPlan> currentMenuJob(CraftConfirmMenu menu) {
+        try {
+            var jobField = CraftConfirmMenu.class.getDeclaredField("job");
+            jobField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Future<ICraftingPlan> job = (Future<ICraftingPlan>) jobField.get(menu);
+            return Objects.requireNonNull(job, "craft confirmation did not start a calculation");
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("could not inspect the active AE crafting calculation", error);
+        }
+    }
+
+    private static final class TestCraftingMenuHost extends BlockEntity implements IActionHost, appeng.api.storage.ISubMenuHost {
+        private final IGridNode node;
+
+        private TestCraftingMenuHost(
+                BlockEntityType<?> type, BlockPos pos, net.minecraft.world.level.block.state.BlockState state,
+                IGridNode node) {
+            super(type, pos, state);
+            this.node = node;
+        }
+
+        @Override
+        public IGridNode getActionableNode() {
+            return node;
+        }
+
+        @Override
+        public void returnToMainMenu(Player player, ISubMenu menu) {
+        }
+
+        @Override
+        public ItemStack getMainMenuIcon() {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private static final class SyntheticProcessingPattern implements IPatternDetails {
+        private final AEItemKey definition;
+        private final IInput[] inputs;
+        private final GenericStack[] outputs;
+
+        private SyntheticProcessingPattern(String id, List<GenericStack> inputStacks, GenericStack output) {
+            this.definition = syntheticGraphKey("pattern", id);
+            this.outputs = new GenericStack[]{output};
+            this.inputs = inputStacks.stream().map(input -> new IInput() {
+                @Override
+                public GenericStack[] getPossibleInputs() {
+                    return new GenericStack[]{input};
+                }
+
+                @Override
+                public long getMultiplier() {
+                    return 1;
+                }
+
+                @Override
+                public boolean isValid(AEKey key, net.minecraft.world.level.Level level) {
+                    return input.what().equals(key);
+                }
+
+                @Override
+                public AEKey getRemainingKey(AEKey key) {
+                    return null;
+                }
+            }).toArray(IInput[]::new);
+        }
+
+        @Override
+        public AEItemKey getDefinition() {
+            return definition;
+        }
+
+        @Override
+        public IInput[] getInputs() {
+            return inputs;
+        }
+
+        @Override
+        public GenericStack[] getOutputs() {
+            return outputs;
+        }
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
@@ -673,6 +986,15 @@ public final class CoreGameTests {
             Future<ICraftingPlan> future,
             Consumer<ICraftingPlan> success,
             int attempts) {
+        awaitPlan(helper, future, success, attempts, 30);
+    }
+
+    private static void awaitPlan(
+            GameTestHelper helper,
+            Future<ICraftingPlan> future,
+            Consumer<ICraftingPlan> success,
+            int attempts,
+            int maxAttempts) {
         if (future.isDone()) {
             try {
                 success.accept(future.get());
@@ -681,11 +1003,11 @@ public final class CoreGameTests {
             }
             return;
         }
-        if (attempts >= 30) {
-            helper.fail("byproduct route calculation timed out");
+        if (attempts >= maxAttempts) {
+            helper.fail("crafting route calculation timed out after " + maxAttempts + " polls");
             return;
         }
-        helper.runAfterDelay(2, () -> awaitPlan(helper, future, success, attempts + 1));
+        helper.runAfterDelay(2, () -> awaitPlan(helper, future, success, attempts + 1, maxAttempts));
     }
 
     @GameTest(template = "empty", timeoutTicks = 80)

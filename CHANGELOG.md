@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.7 - 2026-10-09
+
+- Fix Issue #23: AE2 UELM 15.5.5 widens crafting-confirmation amounts from int to long. Delegate order retention to AE2 and preserve the full missing-material report when routing settings trigger a recalculation. Synchronize the menu change across both Minecraft versions.
+- Preserve explicit JEI/EMI catalyst declarations and guaranteed exact EMI remainders in aggregate catalogs; keep ambiguous, durability-consuming and input/output-paired ingredients required. Update clients and servers together for network protocol 2.
+- Add real AE confirmation-menu regressions for routing priority, path preferences and order quantities, including a 3,000,000,000-item UELM order; add a 12,000-reachable-recipe dedicated-server planning test.
+- Add a pinned AE2 UELM 15.5.5 Forge no-GUI CI profile with an explicit loaded-version assertion. Each tested server profile now runs 77 required GameTests.
+
 ## 0.2.6 - 2026-09-17
 
 - Update the NeoForge runtime requirement to 21.1.233 for the MixinExtras runtime required by current ECO.

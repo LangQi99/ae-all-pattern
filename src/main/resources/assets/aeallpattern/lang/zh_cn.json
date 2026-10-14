@@ -178,5 +178,12 @@
   "gui.aeallpattern.aggregate_selection.search_by_output": "搜产物",
   "gui.aeallpattern.aggregate_selection.search_by_output.tooltip": "只在每个样板的输出产物中匹配搜索内容，不会修改样板",
   "gui.aeallpattern.aggregate_selection.search_no_results": "无匹配样板",
+  "gui.aeallpattern.aggregate_selection.search_by_all": "全部",
+  "gui.aeallpattern.aggregate_selection.search_by_all.tooltip": "匹配输入原料或输出产物；批量操作作用于所有分页中的匹配配方",
+  "gui.aeallpattern.aggregate_selection.search_hint_input": "搜索原料…",
+  "gui.aeallpattern.aggregate_selection.search_hint_output": "搜索产物…",
+  "gui.aeallpattern.aggregate_selection.search_scope_output": "产物",
+  "gui.aeallpattern.aggregate_selection.search_scope_input": "原料",
+  "gui.aeallpattern.aggregate_selection.search_scope_all": "全部",
   "gui.aeallpattern.aggregate_selection.search_hint": "搜索原料或产物…"
 }

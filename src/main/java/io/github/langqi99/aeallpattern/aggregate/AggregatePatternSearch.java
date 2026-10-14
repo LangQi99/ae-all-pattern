@@ -27,19 +27,8 @@ public final class AggregatePatternSearch {
     /** Filters the full recipe list; a blank query returns the leading recipes. */
     public static List<AggregatePatternSelectionMenu.Entry> filter(
             List<AggregateRecipe> recipes, String searchText, boolean searchOutputs, int limit) {
-        if (searchText == null || searchText.isBlank()) {
-            return AggregatePatternSelectionMenu.entriesFromRecipes(recipes);
-        }
-        List<AggregateRecipe> matched = new ArrayList<>(Math.min(limit, recipes.size()));
-        for (AggregateRecipe recipe : recipes) {
-            if (matched.size() >= limit) {
-                break;
-            }
-            if (matchesRecipe(recipe, searchText, searchOutputs)) {
-                matched.add(recipe);
-            }
-        }
-        return AggregatePatternSelectionMenu.entriesFromRecipes(matched);
+        return AggregatePatternSelectionMenu.entriesFromRecipes(filterRecipes(
+                recipes, searchText, searchOutputs ? AggregateSearchMode.OUTPUTS : AggregateSearchMode.INPUTS, limit));
     }
 
     /** Filters by inputs and outputs together, matching AE terminal search behavior. */
@@ -52,6 +41,12 @@ public final class AggregatePatternSearch {
     /** Returns matching recipes without converting them, allowing server-side UI paging. */
     public static List<AggregateRecipe> filterRecipesAny(
             List<AggregateRecipe> recipes, String searchText, int limit) {
+        return filterRecipes(recipes, searchText, AggregateSearchMode.ALL, limit);
+    }
+
+    /** Searches the complete catalog in the chosen scope before any UI paging is applied. */
+    public static List<AggregateRecipe> filterRecipes(
+            List<AggregateRecipe> recipes, String searchText, AggregateSearchMode mode, int limit) {
         int safeLimit = Math.max(0, limit);
         if (searchText == null || searchText.isBlank()) {
             return recipes.subList(0, Math.min(safeLimit, recipes.size()));
@@ -61,7 +56,8 @@ public final class AggregatePatternSearch {
             if (matched.size() >= safeLimit) {
                 break;
             }
-            if (matchesRecipe(recipe, searchText, false) || matchesRecipe(recipe, searchText, true)) {
+            if ((mode != AggregateSearchMode.OUTPUTS && matchesRecipe(recipe, searchText, false))
+                    || (mode != AggregateSearchMode.INPUTS && matchesRecipe(recipe, searchText, true))) {
                 matched.add(recipe);
             }
         }

@@ -182,5 +182,12 @@
   "gui.aeallpattern.aggregate_selection.search_by_output": "Find outputs",
   "gui.aeallpattern.aggregate_selection.search_by_output.tooltip": "Match search text against each pattern's output products; this does not modify the pattern",
   "gui.aeallpattern.aggregate_selection.search_no_results": "No matching patterns",
+  "gui.aeallpattern.aggregate_selection.search_by_all": "All",
+  "gui.aeallpattern.aggregate_selection.search_by_all.tooltip": "Match either input ingredients or output products; bulk actions affect all matching recipes on every page",
+  "gui.aeallpattern.aggregate_selection.search_hint_input": "Search inputs…",
+  "gui.aeallpattern.aggregate_selection.search_hint_output": "Search outputs…",
+  "gui.aeallpattern.aggregate_selection.search_scope_output": "Outputs",
+  "gui.aeallpattern.aggregate_selection.search_scope_input": "Inputs",
+  "gui.aeallpattern.aggregate_selection.search_scope_all": "All",
   "gui.aeallpattern.aggregate_selection.search_hint": "Search inputs or outputs…"
 }

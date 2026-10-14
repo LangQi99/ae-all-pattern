@@ -7,6 +7,7 @@ import appeng.client.gui.Icon;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternConfigMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternRef;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu;
+import io.github.langqi99.aeallpattern.aggregate.AggregateSearchMode;
 import io.github.langqi99.aeallpattern.network.AggregateSearchPayload;
 import io.github.langqi99.aeallpattern.network.AggregateSearchResultPayload;
 import io.github.langqi99.aeallpattern.registry.ModDataComponents;
@@ -81,7 +82,10 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     private Button previousPageButton;
     private Button nextPageButton;
     private EditBox searchBox;
+    private int searchFieldWidth;
     private final List<AggregateConfigOptionButton> optionButtons = new ArrayList<>();
+    private final List<AggregateSearchModeButton> searchModeButtons = new ArrayList<>();
+    private AggregateSearchMode searchMode = AggregateSearchMode.OUTPUTS;
     private boolean settingsPage = true;
     private boolean searchDirty;
     private long lastSearchAt;
@@ -112,15 +116,27 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         updateAdaptiveDimensions();
         super.init();
         optionButtons.clear();
+        searchModeButtons.clear();
         scrollOffset = 0;
+        int outputWidth = searchModeButtonWidth("output");
+        int inputWidth = searchModeButtonWidth("input");
+        int allWidth = searchModeButtonWidth("all");
+        // Keep the original search row: 10 px side insets, 4 px before scopes, 2 px between scopes.
+        searchFieldWidth = imageWidth - 28 - outputWidth - inputWidth - allWidth;
+        int modeX = leftPos + 10 + searchFieldWidth + 4;
+        addSearchModeButton(AggregateSearchMode.OUTPUTS, modeX, outputWidth, "output");
+        modeX += outputWidth + 2;
+        addSearchModeButton(AggregateSearchMode.INPUTS, modeX, inputWidth, "input");
+        modeX += inputWidth + 2;
+        addSearchModeButton(AggregateSearchMode.ALL, modeX, allWidth, "all");
         int boxX = leftPos + 14;
         searchBox = addRenderableWidget(new EditBox(
                 font,
                 boxX,
                 topPos + SEARCH_TOP,
-                imageWidth - 28,
+                searchFieldWidth - 8,
                 SEARCH_BOX_HEIGHT,
-                Component.translatable("gui.aeallpattern.aggregate_selection.search_hint")));
+                searchHint()));
         searchBox.setMaxLength(64);
         searchBox.setBordered(false);
         searchBox.setTextColor(0xFF303044);
@@ -131,6 +147,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         searchBox.setValue(retainedSearch);
         searchBox.setResponder(text -> {
             searchDirty = true;
+            pendingRequestId = null;
             currentResultPage = 0;
             scrollOffset = 0;
             clampScroll();
@@ -162,6 +179,42 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             initialPageRequested = true;
             requestResultPage(0);
         }
+    }
+
+    private int searchModeButtonWidth(String suffix) {
+        return Math.max(24, font.width(Component.translatable(
+                "gui.aeallpattern.aggregate_selection.search_scope_" + suffix)) + 8);
+    }
+
+    private void addSearchModeButton(AggregateSearchMode mode, int x, int width, String suffix) {
+        String labelKey = "gui.aeallpattern.aggregate_selection.search_scope_" + suffix;
+        String tooltipKey = "gui.aeallpattern.aggregate_selection.search_by_" + suffix + ".tooltip";
+        searchModeButtons.add(addRenderableWidget(new AggregateSearchModeButton(
+                x, topPos + SEARCH_TOP - 1, width,
+                Component.translatable(labelKey), Component.translatable(tooltipKey),
+                () -> searchMode == mode, () -> setSearchMode(mode))));
+    }
+
+    private void setSearchMode(AggregateSearchMode mode) {
+        if (searchMode == mode) {
+            return;
+        }
+        searchMode = mode;
+        searchBox.setMessage(searchHint());
+        searchDirty = false;
+        currentResultPage = 0;
+        scrollOffset = 0;
+        draggingScrollbar = false;
+        requestResultPage(0);
+    }
+
+    private Component searchHint() {
+        String suffix = switch (searchMode) {
+            case INPUTS -> "_input";
+            case OUTPUTS -> "_output";
+            case ALL -> "";
+        };
+        return Component.translatable("gui.aeallpattern.aggregate_selection.search_hint" + suffix);
     }
 
     private void addConfigOptions() {
@@ -306,10 +359,11 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
             nextPageButton.visible = !settingsPage && resultPageCount > 1;
         }
         optionButtons.forEach(button -> button.visible = settingsPage);
+        searchModeButtons.forEach(button -> button.visible = !settingsPage);
     }
 
     private void onAllButtonClick() {
-        if (minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
+        if (searchDirty || searchPending || minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
             return;
         }
         int id = menu.isAllSelected()
@@ -321,7 +375,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
     }
 
     private void onSlotClick(int entryIndex) {
-        if (minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
+        if (searchDirty || searchPending || minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
             return;
         }
         menu.clickMenuButton(minecraft.player, entryIndex);
@@ -409,8 +463,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         pendingPages.clear();
         pendingEnabledStates.clear();
         updatePageButtons();
+        updateAllButton();
         PacketDistributor.sendToServer(new AggregateSearchPayload(
-                pendingRequestId, searchBox.getValue(), true, Math.max(0, pageIndex)));
+                pendingRequestId, searchBox.getValue(), searchMode, Math.max(0, pageIndex)));
     }
 
     /** Called on the render thread when a search result page arrives. */
@@ -557,7 +612,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (entries.isEmpty()) {
             graphics.drawCenteredString(
                     font,
-                    Component.translatable("gui.aeallpattern.aggregate_selection.empty"),
+                    Component.translatable(searchBox != null && !searchBox.getValue().isBlank()
+                            ? "gui.aeallpattern.aggregate_selection.search_no_results"
+                            : "gui.aeallpattern.aggregate_selection.empty"),
                     leftPos + imageWidth / 2,
                     topPos + GRID_TOP + 50,
                     0xFF67677A);
@@ -760,9 +817,9 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (!settingsPage) {
             int searchX = leftPos + 10;
             int searchY = topPos + SEARCH_TOP - 2;
-            graphics.fill(searchX, searchY, searchX + imageWidth - 20,
+            graphics.fill(searchX, searchY, searchX + searchFieldWidth,
                     searchY + SEARCH_BOX_HEIGHT + 4, SEARCH_FILL);
-            graphics.renderOutline(searchX, searchY, imageWidth - 20,
+            graphics.renderOutline(searchX, searchY, searchFieldWidth,
                     SEARCH_BOX_HEIGHT + 4, searchBox != null && searchBox.isFocused()
                             ? SELECTED_OUTLINE : SEARCH_OUTLINE);
         }
@@ -795,7 +852,7 @@ public final class AggregatePatternSelectionScreen extends AbstractContainerScre
         if (searchBox != null && searchBox.getValue().isEmpty()) {
             graphics.drawString(
                     font,
-                    Component.translatable("gui.aeallpattern.aggregate_selection.search_hint"),
+                    font.plainSubstrByWidth(searchHint().getString(), searchBox.getWidth()),
                     14,
                     SEARCH_TOP + 4,
                     0xFF67677A,

@@ -39,6 +39,8 @@ import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelection;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSelectionMenu;
 import io.github.langqi99.aeallpattern.aggregate.AggregatePatternSearch;
 import io.github.langqi99.aeallpattern.aggregate.AggregateRecipe;
+import io.github.langqi99.aeallpattern.aggregate.AggregateSearchMode;
+import io.github.langqi99.aeallpattern.network.AggregateSearchPayload;
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.binding.BindingSavedData;
 import io.github.langqi99.aeallpattern.binding.BindingRecord;
@@ -2153,6 +2155,103 @@ public final class CoreGameTests {
         helper.assertValueEqual(
                 AggregatePatternSearch.filterAny(List.of(iron, same), "=minecraft:cobblestone", 10).size(),
                 1, "unified search duplicated a recipe that matched both sides");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void aggregateSearchScopeSurvivesNetworkRoundTrip(GameTestHelper helper) {
+        var buffer = new net.minecraft.network.RegistryFriendlyByteBuf(
+                io.netty.buffer.Unpooled.buffer(), helper.getLevel().registryAccess());
+        try {
+            for (AggregateSearchMode mode : AggregateSearchMode.values()) {
+                var request = new AggregateSearchPayload(UUID.randomUUID(), "=minecraft:iron_ingot", mode, 1);
+                AggregateSearchPayload.STREAM_CODEC.encode(buffer, request);
+                helper.assertTrue(AggregateSearchPayload.STREAM_CODEC.decode(buffer).equals(request)
+                                && buffer.readableBytes() == 0,
+                        "search scope or page changed during network transport: " + mode);
+                buffer.clear();
+            }
+        } finally {
+            buffer.release();
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void aggregateSearchScopeControlsPagingAndBulkSelection(GameTestHelper helper) {
+        int pageSize = AggregatePatternSelectionMenu.uiPageSize();
+        var rawIron = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.RAW_IRON)));
+        var iron = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_INGOT)));
+        var ironBlock = Objects.requireNonNull(GenericStack.fromItemStack(new ItemStack(Items.IRON_BLOCK)));
+        List<AggregateRecipe> recipes = new ArrayList<>(pageSize + 4);
+        for (int index = 0; index <= pageSize; index++) {
+            recipes.add(new AggregateRecipe("scope-output-" + index,
+                    ResourceLocation.fromNamespaceAndPath("aeallpattern", "search_scope/output_" + index),
+                    List.of(rawIron), List.of(iron), 1));
+        }
+        recipes.add(new AggregateRecipe("scope-input-only",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "search_scope/input"),
+                List.of(iron), List.of(ironBlock), 1));
+        recipes.add(new AggregateRecipe("scope-both",
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "search_scope/both"),
+                List.of(iron), List.of(iron), 1));
+        recipes.add(libraryRefreshRecipe("scope-unrelated", Items.GOLD_INGOT));
+        var server = helper.getLevel().getServer();
+        var ref = AggregatePatternLibrary.get(server).put(server,
+                ResourceLocation.fromNamespaceAndPath("aeallpattern", "search_scope_machine"),
+                "block.aeallpattern.search_scope_machine", recipes);
+        var aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
+        aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(helper.getLevel(),
+                new com.mojang.authlib.GameProfile(UUID.randomUUID(), "aap-search-test"));
+        player.setItemInHand(InteractionHand.MAIN_HAND, aggregate);
+        var menu = new AggregatePatternSelectionMenu(1, player.getInventory(), InteractionHand.MAIN_HAND,
+                AggregatePatternSelectionMenu.entriesFromRecipes(recipes), AggregatePatternSelection.ALL_ENABLED);
+        String query = "=minecraft:iron_ingot";
+
+        menu.applySearch(player, query, AggregateSearchMode.OUTPUTS, 1, UUID.randomUUID());
+        helper.assertValueEqual(menu.totalRecipeCount(), pageSize + 2,
+                "output search included an input-only or unrelated recipe");
+        helper.assertValueEqual(menu.entries().size(), 2, "output search did not filter before paging");
+        helper.assertTrue(menu.entries().stream().map(AggregatePatternSelectionMenu.Entry::patternId).toList()
+                        .equals(List.of("scope-output-" + pageSize, "scope-both")),
+                "second output page contained the wrong recipes");
+        helper.assertTrue(menu.clickMenuButton(player, AggregatePatternSelectionMenu.DESELECT_ALL),
+                "output search rejected bulk deselection");
+        var selection = aggregate.getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                AggregatePatternSelection.ALL_ENABLED);
+        helper.assertTrue(!selection.isEnabled("scope-output-0")
+                        && !selection.isEnabled("scope-output-" + pageSize) && !selection.isEnabled("scope-both")
+                        && selection.isEnabled("scope-input-only") && selection.isEnabled("scope-unrelated"),
+                "output bulk deselection missed another page or changed recipes outside its scope");
+
+        menu.applySearch(player, query, AggregateSearchMode.INPUTS, 0, UUID.randomUUID());
+        helper.assertValueEqual(menu.totalRecipeCount(), 2, "input search included output-only recipes");
+        helper.assertTrue(menu.selectedCount() == 1, "input search counted selections from the old scope");
+        helper.assertTrue(menu.clickMenuButton(player, AggregatePatternSelectionMenu.SELECT_ALL),
+                "input search rejected bulk selection");
+        selection = aggregate.getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                AggregatePatternSelection.ALL_ENABLED);
+        helper.assertTrue(selection.isEnabled("scope-input-only") && selection.isEnabled("scope-both")
+                        && !selection.isEnabled("scope-output-0") && selection.isEnabled("scope-unrelated"),
+                "input bulk selection changed output-only recipes");
+
+        menu.applySearch(player, query, AggregateSearchMode.ALL, 1, UUID.randomUUID());
+        helper.assertValueEqual(menu.totalRecipeCount(), pageSize + 3,
+                "all-scope search lost a side or duplicated a recipe matching both sides");
+        helper.assertTrue(menu.clickMenuButton(player, AggregatePatternSelectionMenu.DESELECT_ALL),
+                "all-scope search rejected bulk deselection");
+        selection = aggregate.getOrDefault(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get(),
+                AggregatePatternSelection.ALL_ENABLED);
+        helper.assertTrue(!selection.isEnabled("scope-input-only") && !selection.isEnabled("scope-both")
+                        && selection.isEnabled("scope-unrelated"),
+                "all-scope bulk deselection changed an unrelated recipe");
+
+        menu.applySearch(player, "", AggregateSearchMode.OUTPUTS, 0, UUID.randomUUID());
+        helper.assertValueEqual(menu.totalRecipeCount(), recipes.size(), "clearing search did not restore the catalog");
+        helper.assertTrue(menu.clickMenuButton(player, AggregatePatternSelectionMenu.SELECT_ALL)
+                        && !aggregate.has(ModDataComponents.AGGREGATE_PATTERN_SELECTION.get()),
+                "clearing search did not restore whole-catalog bulk selection");
         helper.succeed();
     }
 

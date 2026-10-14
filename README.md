@@ -44,7 +44,7 @@ The Linker is a real AE node: it uses one channel and 2 AE/t. The Binder and Gen
 
 ### Aggregate Pattern controls
 
-Each Aggregate Pattern keeps its own settings. The AE-style management screen searches inputs and outputs together and lets you publish only the recipes you want. Large catalogs use server-backed pages of 1,024 recipes by default, without limiting search or bulk selection to the current page.
+Each Aggregate Pattern keeps its own settings. The AE-style management screen searches outputs by default. Choose Inputs, Outputs, or All to control the search scope and publish only the recipes you want. Bulk selection follows the current search scope across every page. Large catalogs use server-backed pages of 1,024 recipes by default, without limiting search or bulk selection to the current page.
 
 Recipe checkboxes are stored on the physical item as recipe IDs only. The item automatically keeps whichever list is shorter—enabled recipes or disabled recipes. After a catalog refresh, removed IDs are discarded; newly added recipes follow the previous majority default and the surviving choices keep their meaning.
 
@@ -135,7 +135,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 
 ### 聚合样板配置
 
-每张聚合样板独立保存自己的设置。AE 风格的管理界面会同时搜索输入与产物，并只发布玩家真正需要的配方。大型目录默认按每页 1024 个样板由服务端分页加载，但搜索和批量选择仍作用于完整目录。
+每张聚合样板独立保存自己的设置。AE 风格的管理界面默认搜索产物，可切换“原料”“产物”或“全部”，并只发布玩家真正需要的配方。全选和取消全选会遵循当前搜索范围，作用于所有分页中的匹配配方。大型目录默认按每页 1024 个样板由服务端分页加载，但搜索和批量选择仍作用于完整目录。
 
 配方勾选状态只在实体物品中保存配方 ID，并自动在“已启用列表”和“已禁用列表”中选择较短的一边。目录刷新后，已删除的 ID 会被清理，新增配方按原有的多数默认状态处理，其余勾选语义保持不变。
 

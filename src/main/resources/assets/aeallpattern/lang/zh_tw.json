@@ -181,5 +181,12 @@
   "gui.aeallpattern.aggregate_selection.search_by_output": "查詢產物",
   "gui.aeallpattern.aggregate_selection.search_by_output.tooltip": "只在每個樣板的輸出產物中比對搜尋內容，不會修改樣板",
   "gui.aeallpattern.aggregate_selection.search_no_results": "無相符樣板",
+  "gui.aeallpattern.aggregate_selection.search_by_all": "全部",
+  "gui.aeallpattern.aggregate_selection.search_by_all.tooltip": "比對輸入原料或輸出產物；批次操作套用至所有分頁中符合的配方",
+  "gui.aeallpattern.aggregate_selection.search_hint_input": "搜尋原料…",
+  "gui.aeallpattern.aggregate_selection.search_hint_output": "搜尋產物…",
+  "gui.aeallpattern.aggregate_selection.search_scope_output": "產物",
+  "gui.aeallpattern.aggregate_selection.search_scope_input": "原料",
+  "gui.aeallpattern.aggregate_selection.search_scope_all": "全部",
   "gui.aeallpattern.aggregate_selection.search_hint": "搜尋原料或產物…"
 }

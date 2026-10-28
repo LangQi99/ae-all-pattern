@@ -57,7 +57,7 @@ jobs:
           - name: JEI
             arguments: '--jei'
           - name: minimum-Forge
-            arguments: '--forge 47.1.25'
+            arguments: '--forge 47.1.25 --disable-early-window'
           - name: routing-UI-AE2-15.4.11
             arguments: '--world run-gametest-production/world --ae2 15.4.11'
     steps:

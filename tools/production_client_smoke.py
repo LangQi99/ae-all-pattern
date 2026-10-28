@@ -16,12 +16,20 @@ parser.add_argument('--directory', type=Path, required=True)
 parser.add_argument('--forge', default='47.4.20')
 parser.add_argument('--ae2', choices=['15.4.10', '15.4.11', '15.5.5-uelm'], default='15.4.10')
 parser.add_argument('--java', help='Java 17 executable; defaults to java on PATH')
+parser.add_argument('--disable-early-window', action='store_true',
+                    help='Disable the optional Forge early splash in the isolated Xvfb fixture')
 parser.add_argument('--world', type=Path, help='Copy a test save and exercise the crafting confirmation UI')
 parser.add_argument('--reuse-installation', action='store_true', help='Use an already installed Forge runtime')
 parser.add_argument('--jei', action='store_true', help='Include the public JEI release')
 args = parser.parse_args()
 root = args.directory.resolve()
 root.mkdir(parents=True, exist_ok=True)
+if args.disable_early_window:
+    # Old Forge's early splash can time out in Xvfb before any mods load.
+    # Minecraft still creates and renders its real game window for this test.
+    config = root / 'config'
+    config.mkdir(exist_ok=True)
+    (config / 'fml.toml').write_text('earlyWindowControl = false\n', encoding='utf-8')
 # A new Minecraft 1.20.1 directory otherwise stops at accessibility onboarding,
 # never reaching the title screen that the smoke-test completion gate requires.
 options_path = root / 'options.txt'

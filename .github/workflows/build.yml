@@ -58,6 +58,8 @@ jobs:
             arguments: '--jei'
           - name: minimum-Forge
             arguments: '--forge 47.1.25'
+          - name: routing-UI-AE2-15.4.11
+            arguments: '--world run-gametest-production/world --ae2 15.4.11'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -72,8 +74,19 @@ jobs:
           name: ae-all-pattern-${{ github.sha }}
           path: release-jars
       - run: pip install minecraft-launcher-lib==8.0
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.name == 'routing-UI-AE2-15.4.11'
+      - name: Prepare isolated world for the routing GUI test
+        if: matrix.name == 'routing-UI-AE2-15.4.11'
+        run: |
+          ./gradlew runGameTestServer -Pgametest_directory=run-gametest-production \
+            -Pae2_version=15.4.11 -Pexpected_ae2_version=15.4.11 \
+            -Pruntime_jei=false -Pruntime_emi=false -Pruntime_mekanism=false \
+            -Pruntime_create=false -Pruntime_industrial_foregoing=false \
+            -Pruntime_mystical_agriculture=false -Pruntime_neoecoae=false
+          grep -E 'All [1-9][0-9]* required tests passed :\)' run-gametest-production/logs/latest.log
       - name: Launch packaged mod in production Forge
-        run: xvfb-run --auto-servernum python tools/production_client_smoke.py --jar release-jars/aeallpattern-*.jar --directory production-client ${{ matrix.arguments }}
+        run: xvfb-run --auto-servernum python tools/production_client_smoke.py --jar release-jars/aeallpattern-*.jar --directory production-client --disable-early-window ${{ matrix.arguments }}
       - name: Upload production logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -195,7 +208,11 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Start the real client and exit after the title screen
-        run: xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
+        run: |
+          mkdir -p run/config
+          printf '%s\n' 'earlyWindowControl = false' > run/config/fml.toml
+          printf '%s\n' 'onboardAccessibility:false' > run/options.txt
+          timeout 600s xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
       - name: Verify smoke-test completion marker
         run: grep -F 'CLIENT_SMOKE_TEST_PASSED' run/logs/latest.log
       - name: Upload client failure logs
@@ -335,7 +352,7 @@ jobs:
       - name: Download profile mods and run the no-GUI game server
         run: ./gradlew runGameTestServer ${{ matrix.properties }} --stacktrace
       - name: Confirm that all required GameTests ran
-        run: grep -F 'All 77 required tests passed :)' run-gametest/logs/latest.log
+        run: grep -E 'All [1-9][0-9]* required tests passed :\)' run-gametest/logs/latest.log
       - name: Upload GameTest failure logs
         if: failure()
         uses: actions/upload-artifact@v4

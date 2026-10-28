@@ -49,7 +49,7 @@ ae2_releases = {
         'https://cdn.modrinth.com/data/XxWD5pD3/versions/7KVs6HMQ/appliedenergistics2-forge-15.4.10.jar',
         'ac255a120499f79f8deade474da09e3c00ff9bad'),
     '15.4.11': (
-        'https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge/v15.4.11/appliedenergistics2-forge-15.4.11.jar',
+        'https://cdn.modrinth.com/data/XxWD5pD3/versions/jYgSnxye/appliedenergistics2-forge-15.4.11.jar',
         'sha256:f2ff9ee5122b037d4e93537425ab9fbe49860fc9c3977db13b20a50ca7d30f9e'),
     '15.5.5-uelm': (
         'https://github.com/AE2-Unofficial-Extended-Life-Modern/AE2-UELM/releases/download/forge/v15.5.5-uelm/appliedenergistics2-forge-15.5.5-uelm.jar',

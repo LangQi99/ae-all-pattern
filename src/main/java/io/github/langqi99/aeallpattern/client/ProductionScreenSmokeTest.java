@@ -53,6 +53,11 @@ final class ProductionScreenSmokeTest {
                         var energyPos = new BlockPos(player.getBlockX(), 100, player.getBlockZ());
                         routerPos = energyPos.east();
                         var terminalPos = energyPos.north();
+                        for (int x = -2; x <= 2; x++) {
+                            for (int z = -4; z <= 2; z++) {
+                                level.setBlockAndUpdate(energyPos.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+                            }
+                        }
                         level.setBlockAndUpdate(energyPos, AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
                         level.setBlockAndUpdate(routerPos, ModBlocks.TIANSHU_PATTERN_SELECTOR.get().defaultBlockState());
                         PartHelper.setPart(level, terminalPos, null, player,

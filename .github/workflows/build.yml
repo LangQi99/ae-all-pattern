@@ -211,6 +211,7 @@ jobs:
         run: |
           mkdir -p run/config
           printf '%s\n' 'earlyWindowControl = false' > run/config/fml.toml
+          printf '%s\n' 'onboardAccessibility:false' > run/options.txt
           timeout 600s xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
       - name: Verify smoke-test completion marker
         run: grep -F 'CLIENT_SMOKE_TEST_PASSED' run/logs/latest.log

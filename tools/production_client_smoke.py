@@ -14,6 +14,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--jar', type=Path, required=True)
 parser.add_argument('--directory', type=Path, required=True)
 parser.add_argument('--forge', default='47.4.20')
+parser.add_argument('--ae2', choices=['15.4.10', '15.4.11', '15.5.5-uelm'], default='15.4.10')
+parser.add_argument('--java', help='Java 17 executable; defaults to java on PATH')
 parser.add_argument('--world', type=Path, help='Copy a test save and exercise the crafting confirmation UI')
 parser.add_argument('--reuse-installation', action='store_true', help='Use an already installed Forge runtime')
 parser.add_argument('--jei', action='store_true', help='Include the public JEI release')
@@ -33,27 +35,38 @@ if existing and (len(existing) != 1 or existing[0].name != args.jar.name
                  or existing[0].read_bytes() != args.jar.read_bytes()):
     raise SystemExit('Use a fresh game directory: a different AE All Pattern JAR already exists')
 shutil.copy2(args.jar, mods / args.jar.name)
-java = shutil.which('java')
+java = args.java or shutil.which('java')
 if not java:
     raise SystemExit('Java 17 is required')
 
 dependencies = [
-    # Maven artifacts are development jars; use the actual public releases.
-    ('https://cdn.modrinth.com/data/XxWD5pD3/versions/7KVs6HMQ/appliedenergistics2-forge-15.4.10.jar',
-     'ac255a120499f79f8deade474da09e3c00ff9bad'),
     ('https://cdn.modrinth.com/data/Ck4E7v7R/versions/UD2nQxJx/guideme-20.1.7.jar',
      'fc039093c479b3632b1ab60ea503e79b76b686f9'),
 ]
+# Maven artifacts are development jars; use checksum-pinned public releases.
+ae2_releases = {
+    '15.4.10': (
+        'https://cdn.modrinth.com/data/XxWD5pD3/versions/7KVs6HMQ/appliedenergistics2-forge-15.4.10.jar',
+        'ac255a120499f79f8deade474da09e3c00ff9bad'),
+    '15.4.11': (
+        'https://github.com/AppliedEnergistics/Applied-Energistics-2/releases/download/forge/v15.4.11/appliedenergistics2-forge-15.4.11.jar',
+        'sha256:f2ff9ee5122b037d4e93537425ab9fbe49860fc9c3977db13b20a50ca7d30f9e'),
+    '15.5.5-uelm': (
+        'https://github.com/AE2-Unofficial-Extended-Life-Modern/AE2-UELM/releases/download/forge/v15.5.5-uelm/appliedenergistics2-forge-15.5.5-uelm.jar',
+        'sha256:1228c6fbf6b9ca8d586ab626b07cf762631b898d40886ef1ff6700fc095b788f'),
+}
+dependencies.append(ae2_releases[args.ae2])
 if args.jei:
     dependencies.append((
         'https://cdn.modrinth.com/data/u6dRKJwZ/versions/1L7W8nyE/jei-1.20.1-forge-15.58.0.209.jar',
         '62fd8f374f5365101e07db500fea2d5cba52f466'))
 for url, digest in dependencies:
     target = mods / url.rsplit('/', 1)[1]
-    if not target.exists() or hashlib.sha1(target.read_bytes()).hexdigest() != digest:
+    algorithm, expected = digest.split(':', 1) if ':' in digest else ('sha1', digest)
+    if not target.exists() or hashlib.new(algorithm, target.read_bytes()).hexdigest() != expected:
         with urllib.request.urlopen(url, timeout=60) as response, target.open('wb') as output:
             shutil.copyfileobj(response, output)
-    if hashlib.sha1(target.read_bytes()).hexdigest() != digest:
+    if hashlib.new(algorithm, target.read_bytes()).hexdigest() != expected:
         raise SystemExit(f'Dependency checksum mismatch: {target.name}')
 
 for attempt in range(0 if args.reuse_installation else 3):

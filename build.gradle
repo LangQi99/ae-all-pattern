@@ -27,9 +27,12 @@ if (providers.gradleProperty('masterful_fixture').getOrElse('false').toBoolean()
 }
 
 repositories {
-    maven {
-        url = 'https://repo.expandium.net/releases'
-        content { includeVersionByRegex 'appeng', 'appliedenergistics2-forge', '.*-uelm' }
+    // Pin the official UELM release instead of depending on its unavailable Maven host.
+    ivy {
+        url = 'https://github.com/AE2-Unofficial-Extended-Life-Modern/AE2-UELM/releases/download/forge/v15.5.5-uelm'
+        patternLayout { artifact '[artifact]-[revision].[ext]' }
+        metadataSources { artifact() }
+        content { includeModule 'ae2.uelm', 'appliedenergistics2-forge' }
     }
     mavenCentral()
     maven {
@@ -203,7 +206,7 @@ dependencies {
         // Compile against upstream's supported API and exercise the same addon
         // bytecode against UELM's widened crafting amounts at runtime.
         modCompileOnly "appeng:appliedenergistics2-forge:${ae2_version}"
-        modRuntimeOnly 'appeng:appliedenergistics2-forge:15.5.5-uelm'
+        modRuntimeOnly 'ae2.uelm:appliedenergistics2-forge:15.5.5-uelm'
     } else {
         modImplementation "appeng:appliedenergistics2-forge:${ae2_version}"
     }

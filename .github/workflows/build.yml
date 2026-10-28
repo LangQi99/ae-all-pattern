@@ -57,7 +57,7 @@ jobs:
           - name: JEI
             arguments: '--jei'
           - name: minimum-Forge
-            arguments: '--forge 47.1.25 --disable-early-window'
+            arguments: '--forge 47.1.25'
           - name: routing-UI-AE2-15.4.11
             arguments: '--world run-gametest-production/world --ae2 15.4.11'
     steps:
@@ -86,7 +86,7 @@ jobs:
             -Pruntime_mystical_agriculture=false -Pruntime_neoecoae=false
           grep -E 'All [1-9][0-9]* required tests passed :\)' run-gametest-production/logs/latest.log
       - name: Launch packaged mod in production Forge
-        run: xvfb-run --auto-servernum python tools/production_client_smoke.py --jar release-jars/aeallpattern-*.jar --directory production-client ${{ matrix.arguments }}
+        run: xvfb-run --auto-servernum python tools/production_client_smoke.py --jar release-jars/aeallpattern-*.jar --directory production-client --disable-early-window ${{ matrix.arguments }}
       - name: Upload production logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -208,7 +208,10 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
       - name: Start the real client and exit after the title screen
-        run: xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
+        run: |
+          mkdir -p run/config
+          printf '%s\n' 'earlyWindowControl = false' > run/config/fml.toml
+          timeout 600s xvfb-run --auto-servernum ./gradlew runClient ${{ matrix.properties }} --stacktrace
       - name: Verify smoke-test completion marker
         run: grep -F 'CLIENT_SMOKE_TEST_PASSED' run/logs/latest.log
       - name: Upload client failure logs

@@ -276,6 +276,51 @@ public final class CoreGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void craftingConfirmationSyncsRoutingAvailabilityAndPolicy(GameTestHelper helper) {
+        withPoweredRouter(helper, router -> {
+            Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+            TestCraftingMenuHost host = new TestCraftingMenuHost(
+                    router.getType(), router.getBlockPos(), router.getBlockState(),
+                    router.getMainNode().getNode());
+            CraftConfirmMenu serverMenu = new CraftConfirmMenu(1, player.getInventory(), host);
+            CraftConfirmMenu remoteMenu = new CraftConfirmMenu(1, player.getInventory(), null);
+            CraftConfirmRoutingMenu serverRouting = (CraftConfirmRoutingMenu) serverMenu;
+            CraftConfirmRoutingMenu remoteRouting = (CraftConfirmRoutingMenu) remoteMenu;
+            helper.assertTrue(serverRouting.aeallpattern$isRoutingAvailable(),
+                    "opening AE confirmation left an online router unavailable until planJob");
+            helper.assertTrue(planMenuJob(serverMenu, AEItemKey.of(Items.EMERALD), 1,
+                            CalculationStrategy.REPORT_MISSING_ITEMS),
+                    "AE confirmation refused the routing synchronization test order");
+            helper.assertTrue(serverRouting.aeallpattern$isRoutingAvailable(),
+                    "server confirmation did not discover the online router");
+            helper.assertTrue(!remoteRouting.aeallpattern$isRoutingAvailable(),
+                    "remote menu must start with routing unavailable before synchronization");
+            var serverSync = new appeng.menu.guisync.DataSynchronization(serverMenu);
+            var remoteSync = new appeng.menu.guisync.DataSynchronization(remoteMenu);
+            var data = new net.minecraft.network.RegistryFriendlyByteBuf(
+                    io.netty.buffer.Unpooled.buffer(), helper.getLevel().registryAccess());
+            try {
+                serverSync.writeFull(data);
+                remoteSync.readUpdate(data, new it.unimi.dsi.fastutil.shorts.ShortOpenHashSet());
+                helper.assertTrue(remoteRouting.aeallpattern$isRoutingAvailable(),
+                        "initial AE GUI synchronization left the routing button unavailable");
+                CraftingRoutePolicy updated = CraftingRoutePolicy.DEFAULT
+                        .withAggregatePriority(7).withPathPreference(-1).withAmplifyingCycles(false);
+                serverRouting.aeallpattern$updateRoutePolicy(updated);
+                data.clear();
+                serverSync.writeUpdate(data);
+                remoteSync.readUpdate(data, new it.unimi.dsi.fastutil.shorts.ShortOpenHashSet());
+                helper.assertTrue(remoteRouting.aeallpattern$getRoutePolicy().equals(updated),
+                        "AE GUI synchronization lost the updated routing policy");
+            } finally {
+                data.release();
+                serverMenu.removed(player);
+            }
+            helper.succeed();
+        });
+    }
+
     @GameTest(template = "empty", timeoutTicks = 320)
     public static void craftingConfirmationAppliesRoutePriorityAndPathPolicyEndToEnd(GameTestHelper helper) {
         withPoweredRouter(helper, router -> {

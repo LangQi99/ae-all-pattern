@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.8 - 2026-10-28
+
+- Restore output-only Aggregate Pattern search by default, with separate Outputs, Inputs and All controls. Search and bulk selection apply across the complete catalog (Issue #24).
+- Discover online Tianshu Routers when opening the crafting confirmation menu and refresh availability before AE GUI synchronization. Keep the routing controls in sync when a router joins or leaves the network (Issue #25).
+- Add regression coverage for initial routing availability and full/delta AE GUI synchronization; require actual GameTest success markers in CI.
+- Network protocol 3 carries the search scope. Update clients and servers together.
+
 ## 0.2.7 - 2026-10-09
 
 - Fix Issue #23: AE2 UELM 15.5.5 widens crafting-confirmation amounts from int to long. Delegate order retention to AE2 and preserve the full missing-material report when routing settings trigger a recalculation. Synchronize the menu change across both Minecraft versions.

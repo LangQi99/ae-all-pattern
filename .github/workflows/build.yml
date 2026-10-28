@@ -271,6 +271,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Download profile mods and run the no-GUI game server
         run: ./gradlew runGameTestServer ${{ matrix.properties }} --stacktrace
+      - name: Confirm that all required GameTests ran
+        run: grep -E 'All [1-9][0-9]* required tests passed :\)' run-gametest/logs/latest.log
       - name: Upload GameTest failure logs
         if: failure()
         uses: actions/upload-artifact@v4

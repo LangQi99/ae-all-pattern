@@ -82,6 +82,7 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
                 String.class,
                 serialized -> aeallpattern$applyPolicy(
                         CraftingRoutePolicy.deserialize(serialized), true));
+        aeallpattern$refreshRoutingState();
     }
 
     @Inject(method = "planJob", at = @At("HEAD"))
@@ -93,9 +94,18 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
         }
         aeallpattern$byproductWarning = null;
         aeallpattern$byproductWarningKinds = 0;
+        aeallpattern$refreshRoutingState();
+    }
+
+    @Unique
+    private void aeallpattern$refreshRoutingState() {
+        CraftConfirmMenu self = (CraftConfirmMenu) (Object) this;
+        if (self.isClientSide()) {
+            return;
+        }
         IGrid grid = aeallpattern$getGrid(self);
         aeallpattern$routingAvailable = TianshuRoutingPolicies.isAvailable(grid);
-        if (!aeallpattern$policyInitialized) {
+        if (aeallpattern$routingAvailable && !aeallpattern$policyInitialized) {
             aeallpattern$policyInitialized = true;
             aeallpattern$setFields(TianshuRoutingPolicies.resolve(grid));
         }
@@ -139,6 +149,12 @@ public abstract class CraftConfirmMenuMixin implements CraftConfirmRoutingMenu {
         java.util.List<GenericStack> extras = ByproductPlanWarnings.get(result);
         aeallpattern$byproductWarning = extras.isEmpty() ? null : extras.getFirst();
         aeallpattern$byproductWarningKinds = extras.size();
+    }
+
+    // Refresh before AE sends GUI fields, including menus opened with an existing plan.
+    @Inject(method = "broadcastChanges", at = @At("HEAD"))
+    private void aeallpattern$refreshRouterBeforeSync(CallbackInfo ci) {
+        aeallpattern$refreshRoutingState();
     }
 
     @Override

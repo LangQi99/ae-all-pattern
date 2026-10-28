@@ -25,6 +25,32 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public final class ProviderCompatibilityGameTests {
     private static final BlockPos ECO_RESTART = new BlockPos(1032, 80, 1032);
     private static final BlockPos ALLOY_RESTART = new BlockPos(40, 80, 8);
+    private static final net.minecraft.server.level.TicketType<net.minecraft.world.level.ChunkPos> RESTART_TICKET =
+            net.minecraft.server.level.TicketType.create("aeallpattern_restart_test",
+                    java.util.Comparator.comparingLong(net.minecraft.world.level.ChunkPos::toLong));
+
+    private static void prepareRestartChunk(GameTestHelper helper, BlockPos pos) {
+        var level = helper.getLevel();
+        var chunk = new net.minecraft.world.level.ChunkPos(pos);
+        // Runtime-only ticket: verify must exercise a cold load, not a saved /forceload.
+        level.getChunkSource().addRegionTicket(RESTART_TICKET, chunk, 2, chunk, true);
+        // FULL alone is not BLOCK_TICKING. Minecraft's ticking future needs the full 3x3
+        // neighbourhood; generate it before starting the fixture's timed assertions.
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                level.getChunk(chunk.x + dx, chunk.z + dz);
+            }
+        }
+    }
+
+    private static void assertRestartChunkTicking(GameTestHelper helper, BlockPos pos) {
+        var level = helper.getLevel();
+        var chunk = new net.minecraft.world.level.ChunkPos(pos);
+        helper.assertTrue(!level.getForcedChunks().contains(chunk.toLong()),
+                "Restart fixture must not use a persisted forced-chunk ticket");
+        helper.assertTrue(level.getChunkSource().isPositionTicking(chunk.toLong()),
+                "Restart fixture chunk has not reached BLOCK_TICKING: " + chunk);
+    }
     @net.minecraft.gametest.framework.BeforeBatch(batch = "provider_compat")
     public static void coldExpansion(net.minecraft.server.level.ServerLevel level) {
         AggregatePatternExpander.setSynchronous(false);
@@ -161,28 +187,46 @@ public final class ProviderCompatibilityGameTests {
         var block = BuiltInRegistries.BLOCK.getOptional(id("neoecoae:crafting_pattern_bus"));
         if (phase.isEmpty() || block.isEmpty()) { helper.succeed(); return; }
         var level = helper.getLevel();
-        // Non-persisted ticket: keep cold-chunk generation alive on slower CI workers.
-        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.START,
-                new net.minecraft.world.level.ChunkPos(ECO_RESTART), 3, net.minecraft.util.Unit.INSTANCE, true);
-        level.getChunkAt(ECO_RESTART);
-        if (phase.equals("seed")) {
-            level.setBlockAndUpdate(ECO_RESTART, block.get().defaultBlockState());
-            level.setBlockAndUpdate(ECO_RESTART.south(), appeng.core.definitions.AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
-        }
-        helper.runAfterDelay(15, () -> {
-            try {
-                var bus = level.getBlockEntity(ECO_RESTART);
-                helper.assertTrue(bus != null, "ECO bus missing on restart");
-                var field = bus.getClass().getDeclaredField("inventory");
-                field.setAccessible(true);
-                var inventory = (InternalInventory) field.get(bus);
-                if (phase.equals("seed")) {
-                    inventory.setItemDirect(0, craftingAggregate(helper, "-eco-restart"));
-                    bus.setChanged();
-                }
-                // Verify must not touch the inventory or call a refresh method.
-                helper.succeedWhen(() -> {
+        prepareRestartChunk(helper, ECO_RESTART);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertRestartChunkTicking(helper, ECO_RESTART))
+                .thenExecute(() -> {
+                    if (phase.equals("seed")) {
+                        level.setBlockAndUpdate(ECO_RESTART, block.get().defaultBlockState());
+                        level.setBlockAndUpdate(ECO_RESTART.south(), appeng.core.definitions.AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
+                    }
+                })
+                .thenWaitUntil(() -> {
+                    assertRestartChunkTicking(helper, ECO_RESTART);
+                    var bus = level.getBlockEntity(ECO_RESTART);
+                    helper.assertTrue(bus != null && !bus.isRemoved(), "ECO bus missing or removed on restart");
                     try {
+                        var node = (appeng.api.networking.IManagedGridNode) bus.getClass().getMethod("getMainNode").invoke(bus);
+                        helper.assertTrue(node.getNode() != null, "ECO onReady has not created its AE node in a ticking chunk");
+                    } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
+                })
+                .thenExecute(() -> {
+                    try {
+                        var bus = level.getBlockEntity(ECO_RESTART);
+                        helper.assertTrue(bus != null, "ECO bus missing on restart");
+                        var field = bus.getClass().getDeclaredField("inventory");
+                        field.setAccessible(true);
+                        var inventory = (InternalInventory) field.get(bus);
+                        if (phase.equals("seed")) {
+                            inventory.setItemDirect(0, craftingAggregate(helper, "-eco-restart"));
+                            bus.setChanged();
+                        }
+                    } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
+                })
+                // Verify must not touch the inventory or call a refresh method.
+                .thenWaitUntil(() -> {
+                    try {
+                        assertRestartChunkTicking(helper, ECO_RESTART);
+                        var bus = level.getBlockEntity(ECO_RESTART);
+                        helper.assertTrue(bus != null && !bus.isRemoved(), "ECO bus unloaded during verification");
+                        var field = bus.getClass().getDeclaredField("inventory");
+                        field.setAccessible(true);
+                        var inventory = (InternalInventory) field.get(bus);
                         helper.assertTrue(inventory.getStackInSlot(0).is(ModItems.AGGREGATE_PATTERN.get()),
                                 "ECO lost aggregate on restart");
                         var patterns = (List<?>) bus.getClass().getMethod("getAvailablePatterns").invoke(bus);
@@ -193,11 +237,10 @@ public final class ProviderCompatibilityGameTests {
                                 "ECO restored local patterns but did not republish them to AE; node="
                                         + (node.getNode() != null) + ", active=" + node.isActive()
                                         + ", online=" + node.isOnline() + ", grid=" + (node.getGrid() != null));
-                        AeAllPattern.LOGGER.info("ECO_RESTART_{}_PASSED", phase);
                     } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
-                });
-            } catch (ReflectiveOperationException e) { throw new IllegalStateException(e); }
-        });
+                })
+                .thenExecute(() -> AeAllPattern.LOGGER.info("ECO_RESTART_{}_PASSED", phase))
+                .thenSucceed();
     }
 
     @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 600)
@@ -206,29 +249,42 @@ public final class ProviderCompatibilityGameTests {
         if (phase.isEmpty()) { helper.succeed(); return; }
         var pos = new BlockPos(1096, 80, 1032);
         var level = helper.getLevel();
-        level.getChunkSource().addRegionTicket(net.minecraft.server.level.TicketType.START,
-                new net.minecraft.world.level.ChunkPos(pos), 3, net.minecraft.util.Unit.INSTANCE, true);
-        level.getChunkAt(pos);
-        if (phase.equals("seed")) {
-            level.setBlockAndUpdate(pos, appeng.core.definitions.AEBlocks.PATTERN_PROVIDER.block().defaultBlockState());
-            level.setBlockAndUpdate(pos.south(), appeng.core.definitions.AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
-        }
-        helper.runAfterDelay(15, () -> {
-            var provider = (appeng.blockentity.crafting.PatternProviderBlockEntity) level.getBlockEntity(pos);
-            helper.assertTrue(provider != null, "Vanilla provider lost on restart");
-            if (phase.equals("seed")) {
-                provider.getLogic().getPatternInv().setItemDirect(0, craftingAggregate(helper, "-vanilla-restart"));
-                provider.setChanged();
-            }
-            helper.succeedWhen(() -> {
-                helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 2,
-                        "Vanilla provider needs reinsertion after cold asynchronous load");
-                var grid = provider.getMainNode().getGrid();
-                helper.assertTrue(grid != null && grid.getCraftingService().isCraftable(AEItemKey.of(Items.BIRCH_PLANKS)),
-                        "Vanilla provider did not republish to the AE network after cold load");
-                AeAllPattern.LOGGER.info("VANILLA_ASYNC_RESTART_{}_PASSED", phase);
-            });
-        });
+        prepareRestartChunk(helper, pos);
+        helper.startSequence()
+                .thenWaitUntil(() -> assertRestartChunkTicking(helper, pos))
+                .thenExecute(() -> {
+                    if (phase.equals("seed")) {
+                        level.setBlockAndUpdate(pos, appeng.core.definitions.AEBlocks.PATTERN_PROVIDER.block().defaultBlockState());
+                        level.setBlockAndUpdate(pos.south(), appeng.core.definitions.AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState());
+                    }
+                })
+                .thenWaitUntil(() -> {
+                    assertRestartChunkTicking(helper, pos);
+                    var provider = (appeng.blockentity.crafting.PatternProviderBlockEntity) level.getBlockEntity(pos);
+                    helper.assertTrue(provider != null && !provider.isRemoved(), "Vanilla provider lost on restart");
+                    helper.assertTrue(provider.getMainNode().getNode() != null,
+                            "Vanilla onReady has not created its AE node in a ticking chunk");
+                })
+                .thenExecute(() -> {
+                    var provider = (appeng.blockentity.crafting.PatternProviderBlockEntity) level.getBlockEntity(pos);
+                    helper.assertTrue(provider != null, "Vanilla provider lost on restart");
+                    if (phase.equals("seed")) {
+                        provider.getLogic().getPatternInv().setItemDirect(0, craftingAggregate(helper, "-vanilla-restart"));
+                        provider.setChanged();
+                    }
+                })
+                .thenWaitUntil(() -> {
+                    assertRestartChunkTicking(helper, pos);
+                    var provider = (appeng.blockentity.crafting.PatternProviderBlockEntity) level.getBlockEntity(pos);
+                    helper.assertTrue(provider != null && !provider.isRemoved(), "Vanilla provider unloaded during verification");
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 2,
+                            "Vanilla provider needs reinsertion after cold asynchronous load");
+                    var grid = provider.getMainNode().getGrid();
+                    helper.assertTrue(grid != null && grid.getCraftingService().isCraftable(AEItemKey.of(Items.BIRCH_PLANKS)),
+                            "Vanilla provider did not republish to the AE network after cold load");
+                })
+                .thenExecute(() -> AeAllPattern.LOGGER.info("VANILLA_ASYNC_RESTART_{}_PASSED", phase))
+                .thenSucceed();
     }
 
     @GameTest(batch = "provider_compat", template = "empty", timeoutTicks = 160)

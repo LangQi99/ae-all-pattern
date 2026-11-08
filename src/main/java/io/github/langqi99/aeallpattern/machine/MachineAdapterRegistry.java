@@ -2,6 +2,7 @@ package io.github.langqi99.aeallpattern.machine;
 
 import io.github.langqi99.aeallpattern.AeAllPattern;
 import io.github.langqi99.aeallpattern.compat.mekanism.MekanismAdapters;
+import io.github.langqi99.aeallpattern.compat.mioicif.MioIcifAdapters;
 import io.github.langqi99.aeallpattern.machine.vanilla.VanillaFurnaceAdapter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,6 +20,9 @@ public final class MachineAdapterRegistry {
         register(new VanillaFurnaceAdapter());
         if (ModList.get().isLoaded("mekanism")) {
             MekanismAdapters.registerAll();
+        }
+        if (ModList.get().isLoaded("mio_icif")) {
+            MioIcifAdapters.registerAll();
         }
         if (ModList.get().isLoaded("packagedexcrafting") || ModList.get().isLoaded("packagedavaritia")) {
             register(new PackagedCraftingAdapter());

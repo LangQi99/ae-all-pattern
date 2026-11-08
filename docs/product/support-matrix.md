@@ -13,6 +13,7 @@
 | 输入安全缓冲 | 已实现 | 先持久接管，再模拟/提交；解绑和拆除可恢复尚未投出的物品 |
 | 原版熔炉/高炉/烟熏炉 | 已实现 | 机器或外部物流自行供燃料，单输入确定性主产物 |
 | Mekanism 冶炼/粉碎/富集 | 已实现 | 单机与对应工厂；依赖缺失时 compat 不加载 |
+| mio_icif 金属成型机（辊压/剪切/挤压模式） | 已实现（可选） | 按机器当前模式发现对应配方类型（`metal_former_rolling/_cutting/_extruding`）；mio_icif 通过反射接入，依赖缺失时不加载 |
 | JEI 聚合样板扫描 | 已实现 | 右击机器时按页上传配方，物品/流体保存为 AE 通用键 |
 | Mekanism Chemical 聚合样板 | 已实现（可选） | 安装 Applied Mekanistics + AE2 JEI Integration 后保留真实 Chemical 键和数量 |
 | PackagedAuto 聚合样板 | 已实现（可选） | 聚合样板可在包装供应器工作流中展开并保持目标机器映射 |

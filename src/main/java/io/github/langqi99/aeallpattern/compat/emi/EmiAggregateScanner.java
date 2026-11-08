@@ -94,6 +94,11 @@ public final class EmiAggregateScanner {
             // Leaving the catalog untouched keeps the direction chosen when it was generated.
             return true;
         }
+        if (!entry.variant().isEmpty()) {
+            // A machine-state variant (for example a selectable operating mode) cannot be read by a
+            // position-less refresh, so the catalog keeps the state it was generated with.
+            return true;
+        }
         if (!RUNNING.compareAndSet(false, true)) {
             return false;
         }

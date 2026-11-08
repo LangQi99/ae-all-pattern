@@ -95,8 +95,10 @@ public final class AggregateStartupRefreshService {
             Collection<AggregateMetadataView.Entry> entries) {
         return entries.stream()
                 .filter(entry -> entry.batchCount() == 1 && entry.startupRefreshRequired())
-                // The rotary direction is live machine state that a position-less refresh cannot
-                // read, so these catalogs keep the direction chosen when they were generated.
+                // A machine-state variant and the rotary direction are live state that a
+                // position-less refresh cannot read, so these catalogs keep the state chosen when
+                // they were generated.
+                .filter(entry -> entry.variant().isEmpty())
                 .filter(entry -> !RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId()))
                 .toList();
     }

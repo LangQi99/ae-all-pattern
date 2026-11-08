@@ -19,7 +19,7 @@ Crafting-table patterns use a Molecular Assembler. Processing patterns still nee
 
 ## Managing a catalog
 
-Hold an Aggregate Pattern and right-click to open its management panel. Use the tabs to select recipes and edit encoding settings. Inputs are ingredients consumed or required by the recipe; outputs are the products returned. Searching filters the catalog, not the machine's physical inventory.
+Hold an Aggregate Pattern and right-click to open its management panel. Use the tabs to select recipes and edit encoding settings. Inputs are ingredients consumed or required by the recipe; outputs are the products returned. Searching filters the catalog, not the machine's physical inventory. Search defaults to **Outputs**; choose **Inputs** to find recipes that use an ingredient, or **All** to match either side. Select All and Deselect All apply to the current search results across every page.
 
 Large catalogs are stored in the server library and transferred in bounded pages. Keep the world/server data when moving a save, not just the pattern item. Back up the world before updating the mod. Recipe selections belong to each physical pattern.
 

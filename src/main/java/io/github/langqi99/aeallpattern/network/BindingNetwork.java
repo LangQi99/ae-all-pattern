@@ -10,7 +10,7 @@ public final class BindingNetwork {
     }
 
     public static void register(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("2");
+        var registrar = event.registrar("3");
         registrar.playToClient(
                 BindingSyncPayload.TYPE,
                 BindingSyncPayload.STREAM_CODEC,
@@ -52,7 +52,7 @@ public final class BindingNetwork {
                         menu.applySearch(
                                 player,
                                 payload.searchText(),
-                                payload.searchOutputs(),
+                                payload.searchMode(),
                                 payload.resultPageIndex(),
                                 payload.requestId());
                     }

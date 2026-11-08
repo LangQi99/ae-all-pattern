@@ -45,6 +45,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     private AggregatePatternSelection selection;
     private boolean filteredView;
     private String currentSearchText = "";
+    private AggregateSearchMode currentSearchMode = AggregateSearchMode.OUTPUTS;
     private int totalEntryCount;
     private int selectedEntryCount;
     private int optionFlags;
@@ -156,7 +157,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
     public void applySearch(
             ServerPlayer player,
             String searchText,
-            boolean searchOutputs,
+            AggregateSearchMode searchMode,
             int requestedPageIndex,
             UUID requestId) {
         ItemStack stack = stack();
@@ -172,10 +173,8 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
                 .orElseGet(List::of);
         // Search runs over the complete recipe list with no cap: the user wants to search
         // every stored pattern, not just the initially synced subset.
-        // The management screen follows AE terminal search: one field matches both sides of
-        // the pattern. Keep the packet flag for protocol compatibility with 0.2.1 clients.
-        List<AggregateRecipe> filteredRecipes = AggregatePatternSearch.filterRecipesAny(
-                recipes, searchText, Integer.MAX_VALUE);
+        List<AggregateRecipe> filteredRecipes = AggregatePatternSearch.filterRecipes(
+                recipes, searchText, searchMode, Integer.MAX_VALUE);
         int resultPageCount = pageCount(filteredRecipes.size());
         int resultPageIndex = Math.clamp(requestedPageIndex, 0, resultPageCount - 1);
         List<Entry> filtered = entriesFromRecipes(filteredRecipes, resultPageIndex);
@@ -186,6 +185,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         this.entryEnabledStates = enabledStates;
         this.filteredView = !searchText.isBlank();
         this.currentSearchText = searchText;
+        this.currentSearchMode = searchMode;
         this.totalEntryCount = filteredRecipes.size();
         this.selectedEntryCount = (int) filteredRecipes.stream()
                 .filter(recipe -> selection.isEnabled(recipe.patternId()))
@@ -323,7 +323,7 @@ public final class AggregatePatternSelectionMenu extends AbstractContainerMenu {
         List<AggregateRecipe> recipes = AggregatePatternLibrary.get(serverPlayer.server)
                 .recipes(serverPlayer.server, ref.libraryId())
                 .orElseGet(List::of);
-        return AggregatePatternSearch.filterRecipesAny(recipes, currentSearchText, Integer.MAX_VALUE)
+        return AggregatePatternSearch.filterRecipes(recipes, currentSearchText, currentSearchMode, Integer.MAX_VALUE)
                 .stream()
                 .map(AggregateRecipe::patternId)
                 .toList();

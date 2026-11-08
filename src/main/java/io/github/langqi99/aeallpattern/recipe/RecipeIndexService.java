@@ -38,7 +38,7 @@ public final class RecipeIndexService {
             managerCache.generation = generation;
             managerCache.catalogs.clear();
         }
-        String cacheKey = adapter.id() + "|" + target.getType();
+        String cacheKey = adapter.id() + "|" + target.getType() + "|" + adapter.catalogVariant(level, target);
         return managerCache.catalogs.computeIfAbsent(cacheKey, ignored -> {
             long start = System.nanoTime();
             RecipeCatalog catalog = adapter.discoverRecipes(level, target, generation);

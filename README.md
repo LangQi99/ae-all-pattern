@@ -88,7 +88,7 @@ The routing engine is bundled inside this mod. Thunderbolt and AE2 Lightning Tec
 | Applied Energistics 2 | 19.2.17 (required) |
 | Recipe viewers | JEI 19.x, or EMI + TooManyRecipeViewers |
 | Generic AE keys | Items and fluids; Mekanism chemicals through Applied Mekanistics + AE2 JEI Integration |
-| Machine ecosystems | Vanilla, Mekanism and tested factory add-ons, Create, Mystical Agriculture, Industrial Foregoing |
+| Machine ecosystems | Vanilla, Mekanism and tested factory add-ons, Create, Mystical Agriculture, Industrial Foregoing, Singularity Iteration (mio_icif metal former) |
 | Crafting ecosystems | Vanilla crafting/stonecutting/smithing, Extended Crafting, PackagedAuto/PackagedExCrafting |
 | Pattern-provider add-ons | ExtendedAE, ExtendedAE Plus, AdvancedAE, Neo ECO AE Extension, AE2 Crystal Science, AE2 Lightning Tech, AE2LT Packaged Provider |
 
@@ -179,7 +179,7 @@ AE 全样板用于减少 AE2 自动化中重复编码、整理和维护成百上
 | Applied Energistics 2 | 19.2.17（必需） |
 | 配方查看器 | JEI 19.x，或 EMI + TooManyRecipeViewers |
 | AE 通用键 | 原生物品与流体；安装 Applied Mekanistics + AE2 JEI Integration 后支持 Mekanism 化学品 |
-| 机器生态 | 原版、Mekanism 及已测试的工厂附属、机械动力、神秘农业、工业先锋 |
+| 机器生态 | 原版、Mekanism 及已测试的工厂附属、机械动力、神秘农业、工业先锋、Singularity Iteration（mio_icif 金属成型机） |
 | 合成生态 | 原版合成/切石/锻造、Extended Crafting、PackagedAuto/PackagedExCrafting |
 | 样板供应器附属 | ExtendedAE、ExtendedAE Plus、AdvancedAE、Neo ECO AE Extension、AE2 Crystal Science、AE2 Lightning Tech、AE2LT Packaged Provider |
 

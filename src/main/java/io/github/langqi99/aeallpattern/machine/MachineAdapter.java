@@ -48,6 +48,20 @@ public interface MachineAdapter {
         return inputs.size() == 1 && insert(level, binding, inputs.getFirst());
     }
 
+    /**
+     * Machine state that selects between different recipe sets within one recipe generation.
+     *
+     * <p>The discovered catalog is cached per adapter and block-entity type, and an aggregate
+     * library entry is keyed by catalyst plus variant. An adapter whose recipe set depends on
+     * mutable machine state (a selectable operating mode, for example) must report that state here:
+     * otherwise the first state scanned would be reused for the others, and the states would
+     * overwrite one another's catalog. Return the empty string for machines whose recipes depend
+     * only on the machine type.</p>
+     */
+    default String catalogVariant(ServerLevel level, BlockEntity target) {
+        return "";
+    }
+
     /** Extracts one complete stack exposed by the machine's output capability. */
     ItemStack extractAnyOutput(ServerLevel level, BindingRecord binding, boolean simulate);
 }

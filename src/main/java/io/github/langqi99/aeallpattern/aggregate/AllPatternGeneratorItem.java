@@ -68,7 +68,8 @@ public final class AllPatternGeneratorItem extends Item {
             show(player, "message.aeallpattern.generator.unsupported");
             return InteractionResult.FAIL;
         }
-        var catalog = RecipeIndexService.catalog(level, target, adapter.orElseThrow());
+        var machineAdapter = adapter.orElseThrow();
+        var catalog = RecipeIndexService.catalog(level, target, machineAdapter);
         if (catalog.recipes().isEmpty()) {
             show(player, "message.aeallpattern.generator.empty");
             return InteractionResult.FAIL;
@@ -82,7 +83,8 @@ public final class AllPatternGeneratorItem extends Item {
         var library = AggregatePatternLibrary.get(level.getServer());
         ItemStack aggregate = new ItemStack(ModItems.AGGREGATE_PATTERN.get());
         String machineTranslationKey = target.getBlockState().getBlock().getDescriptionId();
-        var ref = library.put(level.getServer(), catalystId, machineTranslationKey, recipes);
+        var ref = library.put(level.getServer(), catalystId, machineTranslationKey,
+                machineAdapter.catalogVariant(level, target), recipes);
         aggregate.set(ModDataComponents.AGGREGATE_PATTERN.get(), ref);
         AggregateMetadataSyncService.sendToOnlinePlayers(level.getServer());
         if (!player.addItem(aggregate)) {

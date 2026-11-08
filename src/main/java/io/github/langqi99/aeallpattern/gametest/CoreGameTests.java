@@ -146,7 +146,10 @@ public final class CoreGameTests {
                         "thelm.packagedauto.integration.appeng.blockentity.AEPackagingProviderBlockEntity",
                         "thelm.packagedauto.inventory.PackagingProviderItemHandler")),
                 Map.entry("useless_mod", List.of(
-                        "com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.AdvancedAlloyFurnaceAeManager")));
+                        "com.sorrowmist.useless.content.machines.advanced_alloy_furnace.ae.AdvancedAlloyFurnaceAeManager")),
+                Map.entry("mio_icif", List.of(
+                        "com.miophas.singularity_iteration.common.blockentity.producer.mio_icif_metal_former",
+                        "com.miophas.singularity_iteration.common.blockentity.producer.mio_icif_metal_former_advanced")));
 
         ClassLoader loader = CoreGameTests.class.getClassLoader();
         for (Map.Entry<String, List<String>> entry : targets.entrySet()) {

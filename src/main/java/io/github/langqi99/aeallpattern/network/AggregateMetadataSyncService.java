@@ -34,8 +34,10 @@ public final class AggregateMetadataSyncService {
                         entry.batchIndex(), entry.batchCount(), entry.totalRecipeCount(),
                         entry.variant(),
                         entry.batchCount() == 1
-                                // The rotary direction is live machine state; a position-less
-                                // startup refresh cannot reproduce it, so never re-scan those.
+                                // A machine-state variant (a selectable mode) and the rotary
+                                // direction are live state a position-less startup refresh cannot
+                                // reproduce, so never re-scan those catalogs.
+                                && entry.variant().isEmpty()
                                 && !RotaryCondensentratorSupport.isRotaryCondensentrator(entry.catalystId())
                                 && AggregateStartupRefreshState.isRequired(player.getServer(), entry.libraryId())))
                 .toList();

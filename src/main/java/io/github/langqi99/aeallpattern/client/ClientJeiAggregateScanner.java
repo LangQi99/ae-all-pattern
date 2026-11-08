@@ -231,6 +231,11 @@ public final class ClientJeiAggregateScanner {
             // Leaving the catalog untouched keeps the direction chosen when it was generated.
             return true;
         }
+        if (!entry.variant().isEmpty()) {
+            // A machine-state variant (for example a selectable operating mode) cannot be read by a
+            // position-less refresh, so the catalog keeps the state it was generated with.
+            return true;
+        }
         var runtime = AeAllPatternJeiPlugin.runtime();
         var minecraft = net.minecraft.client.Minecraft.getInstance();
         if (runtime.isEmpty() || minecraft.level == null || minecraft.player == null) {

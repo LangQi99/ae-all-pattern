@@ -55,19 +55,12 @@ public final class EmiAggregateScanner {
                         .anyMatch(stack -> stack.isEqual(machineStack))).toList();
         if (categories.isEmpty()) return false;
         ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
-        List<ResourceLocation> categoryIds = categories.stream().map(EmiRecipeCategory::getId).toList();
         Boolean rotary = RotaryCondensentratorSupport.condensentrating(
                 minecraft.level, machinePos, catalystItemId);
-        ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
-                categoryIds, catalystItemId, rotary);
-        if (RotaryCondensentratorSupport.isRotaryCondensentrator(catalystItemId)) {
-            AeAllPattern.LOGGER.info(
-                    "EMI rotary candidates {} -> chosen {} (direction {})",
-                    categoryIds, categoryId, rotary);
-        }
-        if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) return false;
-        List<EmiRecipe> candidates = categories.stream().filter(category -> category.getId().equals(categoryId))
-                .flatMap(c -> manager.getRecipes(c).stream())
+        List<EmiRecipeCategory> selected = selectCategories(categories, machine, catalystItemId, rotary);
+        if (selected.isEmpty()) return false;
+        List<EmiRecipe> candidates = selected.stream()
+                .flatMap(category -> manager.getRecipes(category).stream())
                 .toList();
         if (candidates.isEmpty() || !RUNNING.compareAndSet(false, true)) return false;
         var connection = minecraft.getConnection();
@@ -121,16 +114,14 @@ public final class EmiAggregateScanner {
                                     .anyMatch(stack -> stack.isEqual(machineStack)))
                     .toList();
             ResourceLocation catalystItemId = BuiltInRegistries.ITEM.getKey(machine.getItem());
-            ResourceLocation categoryId = ClientJeiAggregateScanner.pickCategoryId(
-                    categories.stream().map(EmiRecipeCategory::getId).toList(), catalystItemId, null);
-            if (categoryId == null || !ClientJeiAggregateScanner.allowsCategory(catalystItemId, categoryId)) {
+            List<EmiRecipeCategory> selected = selectCategories(categories, machine, catalystItemId, null);
+            if (selected.isEmpty()) {
                 // The EMI workstations could not map this machine to a category. Never destroy the
                 // existing catalog from an ambiguous scan; the caller retries through the JEI path.
                 RUNNING.set(false);
                 return false;
             }
-            List<EmiRecipe> candidates = categories.stream()
-                    .filter(category -> category.getId().equals(categoryId))
+            List<EmiRecipe> candidates = selected.stream()
                     .flatMap(category -> manager.getRecipes(category).stream())
                     .toList();
             if (candidates.isEmpty()) {
@@ -204,9 +195,59 @@ public final class EmiAggregateScanner {
         finally { buffer.release(); }
     }
 
+    /**
+     * Every category this machine actually runs, instead of one guessed category.
+     *
+     * <p>A machine is often registered as a workstation by several categories at once. The
+     * GoldenTweaks advanced chemical reactor, for example, is a catalyst for both the basic and the
+     * advanced reaction page because it can run both recipe sets; choosing one category silently
+     * drops the other. Rotary condensentrators are the only exception: their two categories are
+     * directions of one machine state, so only the current direction is scanned.</p>
+     */
+    private static List<EmiRecipeCategory> selectCategories(
+            List<EmiRecipeCategory> categories, ItemStack machine,
+            ResourceLocation catalystItemId, Boolean rotaryCondensentrating) {
+        if (machine.is(Blocks.CRAFTING_TABLE.asItem()) || isMolecularAssembler(machine)) {
+            return categories.stream().filter(category -> isCraftingMachine(machine, category)).toList();
+        }
+        List<ResourceLocation> categoryIds = categories.stream().map(EmiRecipeCategory::getId).toList();
+        List<ResourceLocation> selectedIds = selectCategoryIds(categoryIds, catalystItemId, rotaryCondensentrating);
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(catalystItemId)) {
+            AeAllPattern.LOGGER.info(
+                    "EMI rotary candidates {} -> chosen {} (direction {})",
+                    categoryIds, selectedIds, rotaryCondensentrating);
+        }
+        return categories.stream().filter(category -> selectedIds.contains(category.getId())).toList();
+    }
+
+    /**
+     * Category ids to scan. Every allowed category is kept so each recipe set the machine can run
+     * is encoded; the rotary condensentrator remains the sole state-dependent exception.
+     */
+    static List<ResourceLocation> selectCategoryIds(
+            List<ResourceLocation> categoryIds, ResourceLocation catalystItemId,
+            Boolean rotaryCondensentrating) {
+        if (categoryIds.isEmpty()) {
+            return List.of();
+        }
+        if (RotaryCondensentratorSupport.isRotaryCondensentrator(catalystItemId)) {
+            ResourceLocation directed = ClientJeiAggregateScanner.pickCategoryId(
+                    categoryIds, catalystItemId, rotaryCondensentrating);
+            return directed == null ? List.of() : List.of(directed);
+        }
+        return categoryIds.stream()
+                .filter(id -> ClientJeiAggregateScanner.allowsCategory(catalystItemId, id))
+                .distinct()
+                .toList();
+    }
+
+    private static boolean isMolecularAssembler(ItemStack machine) {
+        return BuiltInRegistries.ITEM.getKey(machine.getItem()).toString().equals("ae2:molecular_assembler");
+    }
+
     private static boolean isCraftingMachine(ItemStack machine, EmiRecipeCategory category) {
-        return category == VanillaEmiRecipeCategories.CRAFTING && (machine.is(Blocks.CRAFTING_TABLE.asItem())
-                || BuiltInRegistries.ITEM.getKey(machine.getItem()).toString().equals("ae2:molecular_assembler"));
+        return category == VanillaEmiRecipeCategories.CRAFTING
+                && (machine.is(Blocks.CRAFTING_TABLE.asItem()) || isMolecularAssembler(machine));
     }
 
     private static Optional<AggregateRecipe> toAggregate(EmiRecipe recipe, Set<String> ids) {
